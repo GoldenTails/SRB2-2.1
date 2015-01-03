@@ -1115,7 +1115,6 @@ void HWR_AddSpriteMD2(size_t spritenum) // For MD2s that were added after startu
 void HWR_CreateBlendedTexture(GLPatch_t *gpatch, GLPatch_t *blendgpatch, GLMipmap_t *grmip, skincolors_t color)
 {
 	UINT16 w = gpatch->width, h = gpatch->height;
-	INT32 tempcolor;
     UINT32 size = w*h;
     RGBA_t *image, *blendimage, *cur, blendcolor;
 	
@@ -1279,12 +1278,25 @@ void HWR_CreateBlendedTexture(GLPatch_t *gpatch, GLPatch_t *blendgpatch, GLMipma
 		}
 		else
 		{
-			// There HAS to be a better way to do this, someone please help ;.;
-			tempcolor = min((image->s.red*(255-blendimage->s.alpha))/255 + (((max(blendimage->s.red-127, 0)*2) + ((-(abs(blendimage->s.red-127)-127)*2)*blendcolor.s.red)/255)*blendimage->s.alpha)/255, 255);
+			INT32 tempcolor;
+			INT16 tempmult, tempalpha;
+			tempalpha = -(abs(blendimage->s.red-127)-127)*2;
+			if (tempalpha > 255)
+				tempalpha = 255;
+			else if (tempalpha < 0)
+				tempalpha = 0;
+
+			tempmult = (blendimage->s.red-127)*2;
+			if (tempmult > 255)
+				tempmult = 255;
+			else if (tempmult < 0)
+				tempmult = 0;
+
+			tempcolor = (image->s.red*(255-blendimage->s.alpha))/255 + ((tempmult + ((tempalpha*blendcolor.s.red)/255)) * blendimage->s.alpha)/255;
 			cur->s.red = (UINT8)tempcolor;
-			tempcolor = min((image->s.green*(255-blendimage->s.alpha))/255 + (((max(blendimage->s.red-127, 0)*2) + ((-(abs(blendimage->s.red-127)-127)*2)*blendcolor.s.green)/255)*blendimage->s.alpha)/255, 255);
+			tempcolor = (image->s.green*(255-blendimage->s.alpha))/255 + ((tempmult + ((tempalpha*blendcolor.s.green)/255)) * blendimage->s.alpha)/255;
 			cur->s.green = (UINT8)tempcolor;
-			tempcolor = min((image->s.blue*(255-blendimage->s.alpha))/255 + (((max(blendimage->s.red-127, 0)*2) + ((-(abs(blendimage->s.red-127)-127)*2)*blendcolor.s.blue)/255)*blendimage->s.alpha)/255, 255);
+			tempcolor = (image->s.blue*(255-blendimage->s.alpha))/255 + ((tempmult + ((tempalpha*blendcolor.s.blue)/255)) * blendimage->s.alpha)/255;
 			cur->s.blue = (UINT8)tempcolor;
 			cur->s.alpha = image->s.alpha;
 		}
