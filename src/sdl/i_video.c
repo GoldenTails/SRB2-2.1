@@ -126,8 +126,6 @@ static       Uint8       BitsPerPixel = 16;
 #endif
 Uint16      realwidth = BASEVIDWIDTH;
 Uint16      realheight = BASEVIDHEIGHT;
-static const Uint32      surfaceFlagsW = 0/*|SDL_RESIZABLE*/;
-static const Uint32      surfaceFlagsF = 0;
 static       SDL_bool    mousegrabok = SDL_TRUE;
 #define HalfWarpMouse(x,y) SDL_WarpMouseInWindow(window, (Uint16)(x/2),(Uint16)(y/2))
 static       SDL_bool    videoblitok = SDL_FALSE;
@@ -217,10 +215,12 @@ static void SDLSetMode(INT32 width, INT32 height, SDL_bool fullscreen)
 		}
 	}
 
+#ifdef HWRENDER
 	if (rendermode == render_opengl)
 	{
 		OglSdlSurface(vid.width, vid.height);
 	}
+#endif
 
 	if (rendermode == render_soft)
 	{
@@ -271,12 +271,17 @@ static INT32 Impl_SDL_Scancode_To_Keycode(SDL_Scancode code)
 	{
 		return '0';
 	}
-	if (code >= SDL_SCANCODE_F1 && code <= SDL_SCANCODE_F12)
+	if (code >= SDL_SCANCODE_F1 && code <= SDL_SCANCODE_F10)
 	{
 		return KEY_F1 + (code - SDL_SCANCODE_F1);
 	}
 	switch (code)
 	{
+		case SDL_SCANCODE_F11: // F11 and F12 are
+			return KEY_F11;    // separated from the
+		case SDL_SCANCODE_F12: // rest of the function
+			return KEY_F12;    // keys
+
 		case SDL_SCANCODE_KP_0:
 			return KEY_KEYPAD0;
 		case SDL_SCANCODE_KP_1:
@@ -396,9 +401,11 @@ static INT32 Impl_SDL_Scancode_To_Keycode(SDL_Scancode code)
 		default:
 			break;
 	}
+#ifdef HWRENDER
 	DBG_Printf("Unknown incoming scancode: %d, represented %c\n",
 				code,
 				SDL_GetKeyName(SDL_GetKeyFromScancode(code)));
+#endif
 	return 0;
 }
 
@@ -1243,17 +1250,6 @@ static inline boolean I_SkipFrame(void)
 	}
 }
 
-static inline SDL_bool SDLmatchVideoformat(void)
-{
-	const SDL_PixelFormat *vidformat = vidSurface->format;
-	const INT32 vfBPP = vidformat?vidformat->BitsPerPixel:0;
-	return (((vfBPP == 8 && vid.bpp == 1 &&
-	 !vidformat->Rmask && !vidformat->Gmask && !vidformat->Bmask) ||
-	 (vfBPP == 15 && vid.bpp == 2 && vidformat->Rmask == 0x7C00 &&
-	 vidformat->Gmask == 0x03E0 && vidformat->Bmask == 0x001F )) &&
-	 !vidformat->Amask && (vidSurface->flags & SDL_RLEACCEL) == 0);
-}
-
 //
 // I_FinishUpdate
 //
@@ -1692,21 +1688,11 @@ void I_StartupGraphics(void)
 	keyboard_started = true;
 
 #if !defined(HAVE_TTF)
-#ifdef _WIN32 // Initialize Audio as well, otherwise Win32's DirectX can not use audio
-	if (SDL_InitSubSystem(SDL_INIT_AUDIO|SDL_INIT_VIDEO) < 0)
-#else //SDL_OpenAudio will do SDL_InitSubSystem(SDL_INIT_AUDIO)
+	// Previously audio was init here for questionable reasons?
 	if (SDL_InitSubSystem(SDL_INIT_VIDEO) < 0)
-#endif
 	{
-#ifdef _WIN32
-		if (SDL_WasInit(SDL_INIT_AUDIO)==0)
-			CONS_Printf(M_GetText("Couldn't initialize SDL's Audio System with Video System: %s\n"), SDL_GetError());
-		if (SDL_WasInit(SDL_INIT_VIDEO)==0)
-#endif
-		{
-			CONS_Printf(M_GetText("Couldn't initialize SDL's Video System: %s\n"), SDL_GetError());
-			return;
-		}
+		CONS_Printf(M_GetText("Couldn't initialize SDL's Video System: %s\n"), SDL_GetError());
+		return;
 	}
 #endif
 	{

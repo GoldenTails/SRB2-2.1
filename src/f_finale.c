@@ -603,7 +603,7 @@ static void F_IntroDrawScene(void)
 
 				if (finalecount-84 < 58) { // Pure Fat is driving up!
 					int ftime = (finalecount-84);
-					x = (-189<<FRACBITS) + (FixedMul((6<<FRACBITS)+FRACUNIT/3, ftime<<FRACBITS) - FixedMul((6<<FRACBITS)+FRACUNIT/3, FixedDiv(FixedMul(ftime<<FRACBITS, ftime<<FRACBITS), 120<<FRACBITS)));
+					x = (-189*FRACUNIT) + (FixedMul((6<<FRACBITS)+FRACUNIT/3, ftime<<FRACBITS) - FixedMul((6<<FRACBITS)+FRACUNIT/3, FixedDiv(FixedMul(ftime<<FRACBITS, ftime<<FRACBITS), 120<<FRACBITS)));
 					y = (BASEVIDHEIGHT<<FRACBITS) - FixedMul(417<<FRACBITS, aspect);
 					// Draw the body
 					V_DrawSciencePatch(x, y, V_SNAPTOLEFT|V_SNAPTOBOTTOM, (patch = W_CachePatchName("PUREFAT1", PU_CACHE)), aspect);
@@ -1068,7 +1068,7 @@ static const char *credits[] = {
 	"iD Software",
 	"Alex \"MistaED\" Fuller",
 	"FreeDoom Project", // Used some of the mancubus and rocket launcher sprites for Brak
-	"Randy Heit (<!>)", // For his MSPaint <!> sprite that we nicked
+	"Randi Heit (<!>)", // For their MSPaint <!> sprite that we nicked
 	"",
 	"\1Produced By",
 	"Sonic Team Junior",

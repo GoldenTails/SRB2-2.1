@@ -262,9 +262,7 @@ else
 	OBJS+=$(OBJDIR)/hw3sound.o
 endif
 
-ifndef NOVERSION
 OPTS += -DCOMPVERSION
-endif
 
 ifndef NONX86
 ifndef GCC29
@@ -303,6 +301,10 @@ else
 PNG_CFLAGS?=$(shell $(PNG_CONFIG) --cflags)
 PNG_LDFLAGS?=$(shell $(PNG_CONFIG) --ldflags)
 endif
+endif
+
+ifdef LINUX
+PNG_CFLAGS+=-D_LARGEFILE64_SOURCE
 endif
 
 LIBS+=$(PNG_LDFLAGS)
@@ -546,14 +548,10 @@ cleandep:
 	$(REMOVE) comptime.h
 
 pre-build:
-ifdef NOVERSION
-	-@touch comptime.c
-else
 ifdef WINDOWSHELL
 	-..\comptime.bat .
 else
 	-@../comptime.sh .
-endif
 endif
 
 clean:

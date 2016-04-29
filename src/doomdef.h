@@ -141,11 +141,15 @@ extern FILE *logstream;
 #if 0
 #define VERSION    0 // Game version
 #define SUBVERSION 0 // more precise version number
-#define VERSIONSTRING "Trunk"
+#define VERSIONSTRING "Development EXE"
+#define VERSIONSTRINGW L"Development EXE"
+// most interface strings are ignored in development mode.
+// we use comprevision and compbranch instead.
 #else
 #define VERSION    201 // Game version
 #define SUBVERSION 14  // more precise version number
 #define VERSIONSTRING "v2.1.14"
+#define VERSIONSTRINGW L"v2.1.14"
 // Hey! If you change this, add 1 to the MODVERSION below!
 // Otherwise we can't force updates!
 #endif
@@ -204,13 +208,6 @@ extern FILE *logstream;
 // Only set it higher, not lower, obviously.
 // Note that we use this to help keep internal testing in check; this is why v2.1.0 is not version "1".
 #define MODVERSION 19
-
-
-
-
-
-// some tests, enable or disable it if it run or not
-#define SPLITSCREEN
 
 // =========================================================================
 
@@ -347,11 +344,7 @@ void CONS_Debug(INT32 debugflags, const char *fmt, ...) FUNCDEBUG;
 #include "m_swap.h"
 
 // Things that used to be in dstrings.h
-#define DEVMAPS "devmaps"
-#define DEVDATA "devdata"
-
 #define SAVEGAMENAME "srb2sav"
-
 char savegamename[256];
 
 // m_misc.h
@@ -423,7 +416,7 @@ INT32 I_GetKey(void);
 #endif
 
 // Compile date and time and revision.
-extern const char *compdate, *comptime, *comprevision;
+extern const char *compdate, *comptime, *comprevision, *compbranch;
 
 // Disabled code and code under testing
 // None of these that are disabled in the normal build are guaranteed to work perfectly

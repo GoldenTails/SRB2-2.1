@@ -927,6 +927,8 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 						}
 					}
 
+					solid = 0; // don't carry over solid-cutting flag from the previous light
+
 					// Check if the current light can cut the current 3D floor.
 					if (rlight->flags & FF_CUTSOLIDS && !(pfloor->flags & FF_EXTRA))
 						solid = 1;
@@ -1352,7 +1354,7 @@ static void R_RenderSegLoop (void)
 			for (i = 0; i < dc_numlights; i++)
 			{
 				dc_lightlist[i].height += dc_lightlist[i].heightstep;
-				if (dc_lightlist[i].flags & FF_SOLID)
+				if (dc_lightlist[i].flags & FF_CUTSOLIDS)
 					dc_lightlist[i].botheight += dc_lightlist[i].botheightstep;
 			}
 		}
@@ -1407,13 +1409,11 @@ void R_StoreWallRange(INT32 start, INT32 stop)
 	if (ds_p == drawsegs+maxdrawsegs)
 	{
 		size_t pos = ds_p - drawsegs;
-		size_t pos2 = firstnewseg - drawsegs;
 		size_t newmax = maxdrawsegs ? maxdrawsegs*2 : 128;
 		if (firstseg)
 			firstseg = (drawseg_t *)(firstseg - drawsegs);
 		drawsegs = Z_Realloc(drawsegs, newmax*sizeof (*drawsegs), PU_STATIC, NULL);
 		ds_p = drawsegs + pos;
-		firstnewseg = drawsegs + pos2;
 		maxdrawsegs = newmax;
 		if (firstseg)
 			firstseg = drawsegs + (size_t)firstseg;
@@ -2003,7 +2003,7 @@ void R_StoreWallRange(INT32 start, INT32 stop)
 			rlight->heightstep = -FixedMul (rw_scalestep, (light->height - viewz) >> 4);
 			rlight->flags = light->flags;
 
-			if (light->caster && light->caster->flags & FF_SOLID)
+			if (light->caster && light->caster->flags & FF_CUTSOLIDS)
 			{
 				rlight->botheight = (centeryfrac >> 4) - FixedMul((*light->caster->bottomheight - viewz) >> 4, rw_scale);
 				rlight->botheightstep = -FixedMul (rw_scalestep, (*light->caster->bottomheight - viewz) >> 4);
