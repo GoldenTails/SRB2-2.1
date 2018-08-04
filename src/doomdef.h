@@ -149,10 +149,10 @@ extern FILE *logstream;
 // most interface strings are ignored in development mode.
 // we use comprevision and compbranch instead.
 #else
-#define VERSION    201 // Game version
-#define SUBVERSION 20  // more precise version number
-#define VERSIONSTRING "v2.1.20"
-#define VERSIONSTRINGW L"v2.1.20"
+#define VERSION    108 // Game version
+#define SUBVERSION 0  // more precise version number
+#define VERSIONSTRING "JimiPaint r1"
+#define VERSIONSTRINGW L"JimiPaint r1"
 // Hey! If you change this, add 1 to the MODVERSION below!
 // Otherwise we can't force updates!
 #endif
@@ -167,7 +167,7 @@ extern FILE *logstream;
 // the other options the same.
 
 // Comment out this line to completely disable update alerts (recommended for testing, but not for release)
-#define UPDATE_ALERT
+//#define UPDATE_ALERT
 
 // The string used in the alert that pops up in the event of an update being available.
 // Please change to apply to your modification (we don't want everyone asking where your mod is on SRB2.org!).

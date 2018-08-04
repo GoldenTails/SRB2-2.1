@@ -353,6 +353,9 @@ static void DoSayCommand(SINT8 target, size_t usedargs, UINT8 flags)
 		return;
 	}
 
+	if (players[consoleplayer].talkdisabled)
+		return;
+
 	// Only servers/admins can CSAY.
 	if(!server && adminplayer != consoleplayer)
 		flags &= ~HU_CSAY;
@@ -716,6 +719,9 @@ static void HU_queueChatChar(char c)
 			return;
 		}
 
+		if (players[consoleplayer].talkdisabled)
+			return;
+
 		if (ci > 3) // don't send target+flags+empty message.
 		{
 			if (teamtalk)
@@ -772,6 +778,8 @@ boolean HU_Responder(event_t *ev)
 		{
 			if (cv_mute.value && !(server || adminplayer == consoleplayer))
 				return false;
+			if (players[consoleplayer].talkdisabled)
+				return false;
 			chat_on = true;
 			w_chat[0] = 0;
 			teamtalk = false;
@@ -781,6 +789,8 @@ boolean HU_Responder(event_t *ev)
 			&& netgame && (!cv_mute.value || server || (adminplayer == consoleplayer)))
 		{
 			if (cv_mute.value && !(server || adminplayer == consoleplayer))
+				return false;
+			if (players[consoleplayer].talkdisabled)
 				return false;
 			chat_on = true;
 			w_chat[0] = 0;
@@ -1383,7 +1393,7 @@ void HU_DrawDualTabRankings(INT32 x, INT32 y, playersort_t *tab, INT32 scoreline
 		             | ((players[tab[i].num].health > 0) ? 0 : V_TRANSLUCENT)
 		             | V_ALLOWLOWERCASE, name);
 
-		if (G_GametypeUsesLives()) //show lives
+		/*if (G_GametypeUsesLives()) //show lives
 			V_DrawRightAlignedString(x, y+4, V_ALLOWLOWERCASE, va("%dx", players[tab[i].num].lives));
 		else if (G_TagGametype() && players[tab[i].num].pflags & PF_TAGIT)
 			V_DrawSmallScaledPatch(x-28, y-4, 0, tagico);
@@ -1393,7 +1403,7 @@ void HU_DrawDualTabRankings(INT32 x, INT32 y, playersort_t *tab, INT32 scoreline
 			|| ((leveltime/7) & 1))
 		{
 			HU_DrawEmeralds(x-12,y+2,tab[i].emeralds);
-		}
+		}*/
 
 		//V_DrawSmallScaledPatch (x, y-4, 0, livesback);
 		if (tab[i].color == 0)
@@ -1543,7 +1553,7 @@ static inline void HU_DrawSpectatorTicker(void)
 //
 static void HU_DrawRankings(void)
 {
-	patch_t *p;
+	//patch_t *p;
 	playersort_t tab[MAXPLAYERS];
 	INT32 i, j, scorelines;
 	boolean completed[MAXPLAYERS];
@@ -1552,7 +1562,7 @@ static void HU_DrawRankings(void)
 	// draw the current gametype in the lower right
 	HU_drawGametype();
 
-	if (G_GametypeHasTeams())
+	/*if (G_GametypeHasTeams())
 	{
 		if (gametype == GT_CTF)
 			p = bflagico;
@@ -1616,7 +1626,7 @@ static void HU_DrawRankings(void)
 			V_DrawCenteredString(64, 8, 0, "NUMBER OF LAPS");
 			V_DrawCenteredString(64, 16, 0, va("%d", cv_numlaps.value));
 		}
-	}
+	}*/
 
 	// When you play, you quickly see your score because your name is displayed in white.
 	// When playing back a demo, you quickly see who's the view.

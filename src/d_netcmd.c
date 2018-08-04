@@ -1612,7 +1612,7 @@ void D_MapChange(INT32 mapnum, INT32 newgametype, boolean pultmode, boolean rese
 //
 static void Command_Map_f(void)
 {
-	const char *mapname;
+	/*const char *mapname;
 	size_t i;
 	INT32 j, newmapnum;
 	boolean newresetplayers;
@@ -1739,7 +1739,7 @@ static void Command_Map_f(void)
 	}
 
 	fromlevelselect = false;
-	D_MapChange(newmapnum, newgametype, false, newresetplayers, 0, false, false);
+	D_MapChange(newmapnum, newgametype, false, newresetplayers, 0, false, false);*/
 }
 
 /** Receives a map command and changes the map.
@@ -1800,7 +1800,7 @@ static void Got_Mapcmd(UINT8 **cp, INT32 playernum)
 	{
 		DEBFILE(va("Warping to %s [resetplayer=%d lastgametype=%d gametype=%d cpnd=%d]\n",
 			mapname, resetplayer, lastgametype, gametype, chmappending));
-		CONS_Printf(M_GetText("Speeding off to level...\n"));
+		//CONS_Printf(M_GetText("Speeding off to level...\n"));
 	}
 	if (demoplayback && !timingdemo)
 		precache = false;
@@ -3837,14 +3837,14 @@ static void Command_Mapmd5_f(void)
 
 static void Command_ExitLevel_f(void)
 {
-	if (!(netgame || (multiplayer && gametype != GT_COOP)) && !cv_debug)
+	/*if (!(netgame || (multiplayer && gametype != GT_COOP)) && !cv_debug)
 		CONS_Printf(M_GetText("This only works in a netgame.\n"));
 	else if (!(server || (adminplayer == consoleplayer)))
 		CONS_Printf(M_GetText("Only the server or a remote admin can use this.\n"));
 	else if (gamestate != GS_LEVEL || demoplayback)
 		CONS_Printf(M_GetText("You must be in a level to use this.\n"));
 	else
-		SendNetXCmd(XD_EXITLEVEL, NULL, 0);
+		SendNetXCmd(XD_EXITLEVEL, NULL, 0);*/
 }
 
 static void Got_ExitLevelcmd(UINT8 **cp, INT32 playernum)
@@ -3930,7 +3930,7 @@ static void Command_Tunes_f(void)
 		CONS_Alert(CONS_NOTICE, M_GetText("Music name too long - truncated to six characters.\n"));
 
 	if (argc > 2)
-		track = (UINT16)atoi(COM_Argv(2))-1;
+		track = (UINT16)atoi(COM_Argv(2));
 
 	if (tunenum)
 		snprintf(mapmusname, 7, "%sM", G_BuildMapName(tunenum));

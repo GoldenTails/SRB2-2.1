@@ -1086,6 +1086,7 @@ void W_VerifyFileMD5(UINT16 wadfilenum, const char *matchmd5)
 	(void)wadfilenum;
 	(void)matchmd5;
 #else
+	char actualmd5text[2*MD5_LEN+1];
 	UINT8 realmd5[MD5_LEN];
 	INT32 ix;
 
@@ -1108,10 +1109,11 @@ void W_VerifyFileMD5(UINT16 wadfilenum, const char *matchmd5)
 		else realmd5[ix>>1] = (UINT8)(n<<4);
 	}
 
+	PrintMD5String(wadfiles[wadfilenum]->md5sum, actualmd5text);
+	//CONS_Printf("MD5 check for file %s (found md5: %s, wanted: %s)\n", wadfiles[wadfilenum]->filename, actualmd5text, matchmd5);
+
 	if (memcmp(realmd5, wadfiles[wadfilenum]->md5sum, 16))
 	{
-		char actualmd5text[2*MD5_LEN+1];
-		PrintMD5String(wadfiles[wadfilenum]->md5sum, actualmd5text);
 #ifdef _DEBUG
 		CONS_Printf
 #else

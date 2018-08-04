@@ -374,7 +374,7 @@ CV_PossibleValue_t gametype_cons_t[] =
 {
 	{GT_COOP, "Co-op"},
 
-	{GT_COMPETITION, "Competition"},
+	/*{GT_COMPETITION, "Competition"},
 	{GT_RACE, "Race"},
 
 	{GT_MATCH, "Match"},
@@ -383,7 +383,7 @@ CV_PossibleValue_t gametype_cons_t[] =
 	{GT_TAG, "Tag"},
 	{GT_HIDEANDSEEK, "Hide and Seek"},
 
-	{GT_CTF, "CTF"},
+	{GT_CTF, "CTF"},*/
 	{0, NULL}
 };
 consvar_t cv_newgametype = {"newgametype", "Co-op", CV_HIDEN|CV_CALL, gametype_cons_t, Newgametype_OnChange, 0, NULL, NULL, 0, 0, NULL};
@@ -443,11 +443,11 @@ static consvar_t cv_dummymares = {"dummymares", "Overall", CV_HIDEN|CV_CALL, dum
 // ---------
 static menuitem_t MainMenu[] =
 {
-	{IT_CALL   |IT_STRING, NULL, "Secrets",     M_SecretsMenu,      84},
-	{IT_CALL   |IT_STRING, NULL, "1  player",   M_SinglePlayerMenu, 92},
-	{IT_SUBMENU|IT_STRING, NULL, "multiplayer", &MP_MainDef,       100},
-	{IT_CALL   |IT_STRING, NULL, "options",     M_Options,         108},
-	{IT_CALL   |IT_STRING, NULL, "quit  game",  M_QuitSRB2,        116},
+	{IT_DISABLED|IT_STRING, NULL,	"Secrets",     M_SecretsMenu,      84},
+	{IT_CALL|IT_STRING, 	NULL,	"1  player",   M_SinglePlayerMenu, 92},
+	{IT_SUBMENU|IT_STRING, 	NULL, 	"multiplayer", &MP_MainDef,       100},
+	{IT_CALL|IT_STRING, 	NULL, 	"options",     M_Options,         108},
+	{IT_CALL|IT_STRING, 	NULL, 	"quit  game",  M_QuitSRB2,        116},
 };
 
 typedef enum
@@ -869,10 +869,10 @@ static menuitem_t MP_MainMenu[] =
 	{IT_CALL | IT_STRING, NULL, "JOIN GAME (Search)",	  M_ConnectMenu,		  30},
 	{IT_CALL | IT_STRING, NULL, "JOIN GAME (Specify IP)", M_ConnectIPMenu,        40},
 #endif
-	{IT_CALL | IT_STRING, NULL, "TWO PLAYER GAME",        M_StartSplitServerMenu, 60},
+	{IT_CALL | IT_STRING, NULL, "SETUP PLAYER",         M_SetupMultiPlayer,     60},
 
-	{IT_CALL | IT_STRING, NULL, "SETUP PLAYER 1",         M_SetupMultiPlayer,     80},
-	{IT_CALL | IT_STRING, NULL, "SETUP PLAYER 2",         M_SetupMultiPlayer2,    90},
+	{IT_DISABLED | IT_STRING, NULL, "TWO PLAYER GAME",        M_StartSplitServerMenu, 60},
+	{IT_DISABLED | IT_STRING, NULL, "SETUP PLAYER 2",         M_SetupMultiPlayer2,    90},
 };
 
 static menuitem_t MP_ServerMenu[] =
@@ -883,7 +883,7 @@ static menuitem_t MP_ServerMenu[] =
 	{IT_STRING|IT_CVAR|IT_CV_STRING, NULL, "Server Name",           &cv_servername,     30},
 #endif
 
-	{IT_STRING|IT_CVAR,              NULL, "Level",                 &cv_nextmap,        80},
+	//{IT_STRING|IT_CVAR,              NULL, "Level",                 &cv_nextmap,        80},
 
 	{IT_WHITESTRING|IT_CALL,         NULL, "Start",                 M_StartServer,     130},
 };
@@ -978,14 +978,14 @@ static menuitem_t MP_PlayerSetupMenu[] =
 // Prefix: OP_
 static menuitem_t OP_MainMenu[] =
 {
-	{IT_SUBMENU | IT_STRING, NULL, "Setup Controls...",     &OP_ControlsDef,      10},
+	{IT_SUBMENU | IT_STRING, NULL, "Video Options...",      &OP_VideoOptionsDef,  10},
+	{IT_SUBMENU | IT_STRING, NULL, "Sound Options...",      &OP_SoundOptionsDef,  20},
+	{IT_SUBMENU | IT_STRING, NULL, "Data Options...",       &OP_DataOptionsDef,   30},
 
-	{IT_SUBMENU | IT_STRING, NULL, "Video Options...",      &OP_VideoOptionsDef,  30},
-	{IT_SUBMENU | IT_STRING, NULL, "Sound Options...",      &OP_SoundOptionsDef,  40},
-	{IT_SUBMENU | IT_STRING, NULL, "Data Options...",       &OP_DataOptionsDef,   50},
+	{IT_SUBMENU | IT_STRING, NULL, "Game Options...",       &OP_GameOptionsDef,   50},
+	{IT_SUBMENU | IT_STRING, NULL, "Server Options...",     &OP_ServerOptionsDef, 60},
 
-	{IT_SUBMENU | IT_STRING, NULL, "Game Options...",       &OP_GameOptionsDef,   70},
-	{IT_SUBMENU | IT_STRING, NULL, "Server Options...",     &OP_ServerOptionsDef, 80},
+	{IT_SUBMENU | IT_STRING, NULL, "Setup Controls...",     &OP_ControlsDef,      80},
 };
 
 static menuitem_t OP_ControlsMenu[] =
@@ -1155,15 +1155,19 @@ static menuitem_t OP_VideoOptionsMenu[] =
 #endif
 
 	{IT_STRING | IT_CVAR | IT_CV_SLIDER,
-	                         NULL, "Brightness",          &cv_usegamma,      50},
-	{IT_STRING | IT_CVAR,    NULL, "Draw Distance",       &cv_drawdist, 60},
+	                         NULL, "Brightness",          &cv_usegamma,      40},
+
+	{IT_STRING | IT_CVAR,    NULL, "Show FPS",            &cv_ticrate,    60},
+	{IT_STRING | IT_CVAR,    NULL, "Vertical Sync",       &cv_vidwait,    70},
+
+	/*{IT_STRING | IT_CVAR,    NULL, "Draw Distance",       &cv_drawdist, 60},
 	{IT_STRING | IT_CVAR,    NULL, "NiGHTS Draw Dist",    &cv_drawdist_nights, 70},
 	{IT_STRING | IT_CVAR,    NULL, "Precip Draw Dist",    &cv_drawdist_precip, 80},
 	{IT_STRING | IT_CVAR,    NULL, "Precip Density",      &cv_precipdensity, 90},
 
 	{IT_STRING | IT_CVAR,    NULL, "Show FPS",            &cv_ticrate,    110},
 	{IT_STRING | IT_CVAR,    NULL, "Clear Before Redraw", &cv_homremoval, 120},
-	{IT_STRING | IT_CVAR,    NULL, "Vertical Sync",       &cv_vidwait,    130},
+	{IT_STRING | IT_CVAR,    NULL, "Vertical Sync",       &cv_vidwait,    130},*/
 };
 
 static menuitem_t OP_VideoModeMenu[] =
@@ -1236,7 +1240,7 @@ static menuitem_t OP_DataOptionsMenu[] =
 {
 	{IT_STRING | IT_CALL, NULL, "Screenshot Options...", M_ScreenshotOptions, 10},
 
-	{IT_STRING | IT_SUBMENU, NULL, "Erase Data...", &OP_EraseDataDef, 30},
+	{IT_DISABLED | IT_SUBMENU, NULL, "Erase Data...", &OP_EraseDataDef, 30},
 };
 
 static menuitem_t OP_ScreenshotOptionsMenu[] =
@@ -1284,9 +1288,13 @@ static menuitem_t OP_GameOptionsMenu[] =
 {
 #ifndef NONET
 	{IT_STRING | IT_CVAR | IT_CV_STRING,
-	                      NULL, "Master server",          &cv_masterserver,     10},
+	                      NULL, "Master Server",          &cv_masterserver, 10},
 #endif
-	{IT_STRING | IT_CVAR, NULL, "Show HUD",               &cv_showhud,     40},
+	{IT_STRING | IT_CVAR, NULL, "Console Back Color",     &cons_backcolor, 40},
+	{IT_STRING | IT_CVAR, NULL, "Console Text Size",      &cv_constextsize,50},
+	{IT_STRING | IT_CVAR, NULL, "Uppercase Console",      &cv_allcaps,     60},
+
+	/*{IT_STRING | IT_CVAR, NULL, "Show HUD",               &cv_showhud,     40},
 	{IT_STRING | IT_CVAR | IT_CV_SLIDER,
 	                      NULL, "HUD Visibility",         &cv_translucenthud, 50},
 	{IT_STRING | IT_CVAR, NULL, "Timer Display",          &cv_timetic,     60},
@@ -1299,12 +1307,21 @@ static menuitem_t OP_GameOptionsMenu[] =
 	{IT_STRING | IT_CVAR, NULL, "Console Text Size",      &cv_constextsize,110},
 	{IT_STRING | IT_CVAR, NULL, "Uppercase Console",      &cv_allcaps,     120},
 
-	{IT_STRING | IT_CVAR, NULL, "Title Screen Demos",     &cv_rollingdemos, 140},
+	{IT_STRING | IT_CVAR, NULL, "Title Screen Demos",     &cv_rollingdemos, 140},*/
 };
 
 static menuitem_t OP_ServerOptionsMenu[] =
 {
-	{IT_STRING | IT_SUBMENU, NULL, "General netgame options...",  &OP_NetgameOptionsDef,  10},
+#ifndef NONET
+	{IT_STRING | IT_CVAR | IT_CV_STRING,
+	                         NULL, "Server name",                 &cv_servername,         10},
+
+	{IT_STRING | IT_CVAR,    NULL, "Max Players",                 &cv_maxplayers,        40},
+	{IT_STRING | IT_CVAR,    NULL, "Allow players to join",       &cv_allownewplayer,    50},
+	{IT_STRING | IT_CVAR,    NULL, "Attempts to Resynch",         &cv_resynchattempts,   60},
+#endif
+
+	/*{IT_STRING | IT_SUBMENU, NULL, "General netgame options...",  &OP_NetgameOptionsDef,  10},
 	{IT_STRING | IT_SUBMENU, NULL, "Gametype options...",         &OP_GametypeOptionsDef, 20},
 	{IT_STRING | IT_SUBMENU, NULL, "Random Monitor Toggles...",   &OP_MonitorToggleDef,   30},
 
@@ -1321,7 +1338,7 @@ static menuitem_t OP_ServerOptionsMenu[] =
 	{IT_STRING | IT_CVAR,    NULL, "Allow players to join",       &cv_allownewplayer,    120},
 	{IT_STRING | IT_CVAR,    NULL, "Allow WAD Downloading",       &cv_downloading,       130},
 	{IT_STRING | IT_CVAR,    NULL, "Attempts to Resynch",         &cv_resynchattempts,   140},
-#endif
+#endif*/
 };
 
 static menuitem_t OP_NetgameOptionsMenu[] =
@@ -2114,6 +2131,10 @@ boolean M_Responder(event_t *ev)
 			case KEY_HAT1 + 3:
 				ch = KEY_RIGHTARROW;
 				break;
+			/// Can open console on menus.
+			case KEY_CONSOLE:
+				ch = -2;
+				break;
 		}
 	}
 	else if (menuactive)
@@ -2177,6 +2198,13 @@ boolean M_Responder(event_t *ev)
 	if (ch == -1)
 		return false;
 
+	/// Opening the console.
+	/// Check if you're on the main menu so you don't get any bad ideas.
+	if (ch == -2 && currentMenu == &MainDef) {
+		menuactive = false;
+		return false;
+	}
+
 	// F-Keys
 	if (!menuactive)
 	{
@@ -2194,9 +2222,9 @@ boolean M_Responder(event_t *ev)
 			case KEY_F2: // Empty
 				return true;
 
-			case KEY_F3: // Toggle HUD
+			/*case KEY_F3: // Toggle HUD
 				CV_SetValue(&cv_showhud, !cv_showhud.value);
-				return true;
+				return true;*/
 
 			case KEY_F4: // Sound Volume
 				if (modeattacking)
@@ -2411,7 +2439,7 @@ boolean M_Responder(event_t *ev)
 				else
 					M_SetupNextMenu(currentMenu->prevMenu);
 			}
-			else
+			else if (gamestate != GS_TITLESCREEN)
 				M_ClearMenus(true);
 
 			return true;
@@ -2449,7 +2477,7 @@ void M_Drawer(void)
 	if (menuactive)
 	{
 		// now that's more readable with a faded background (yeah like Quake...)
-		if (!WipeInAction)
+		if (!WipeInAction && gamestate != GS_TITLESCREEN)
 			V_DrawFadeScreen();
 
 		if (currentMenu->drawroutine)
@@ -2541,12 +2569,7 @@ void M_StartControlPanel(void)
 					++numlives;
 			}
 
-			// The list of things that can disable retrying is (was?) a little too complex
-			// for me to want to use the short if statement syntax
-			if (numlives <= 1 || G_IsSpecialStage(gamemap))
-				SPauseMenu[spause_retry].status = (IT_GRAYEDOUT);
-			else
-				SPauseMenu[spause_retry].status = (IT_STRING | IT_CALL);
+			SPauseMenu[spause_retry].status = IT_GRAYEDOUT;
 		}
 
 		// We can always use level select though. :33
@@ -2576,12 +2599,12 @@ void M_StartControlPanel(void)
 		MPauseMenu[mpause_switchteam].status = IT_DISABLED;
 		MPauseMenu[mpause_psetup].status = IT_DISABLED;
 
-		if ((server || adminplayer == consoleplayer))
+		/*if ((server || adminplayer == consoleplayer))
 		{
 			MPauseMenu[mpause_switchmap].status = IT_STRING | IT_CALL;
 			if (G_GametypeHasTeams())
 				MPauseMenu[mpause_scramble].status = IT_STRING | IT_SUBMENU;
-		}
+		}*/
 
 		if (splitscreen)
 			MPauseMenu[mpause_psetupsplit].status = MPauseMenu[mpause_psetupsplit2].status = IT_STRING | IT_CALL;
@@ -3126,7 +3149,8 @@ static void M_DrawGenericMenu(void)
 
 static void M_DrawPauseMenu(void)
 {
-	if (!netgame && !multiplayer && (gamestate == GS_LEVEL || gamestate == GS_INTERMISSION))
+	M_DrawGenericMenu();
+	/*if (!netgame && !multiplayer && (gamestate == GS_LEVEL || gamestate == GS_INTERMISSION))
 	{
 		emblem_t *emblem_detail[3] = {NULL, NULL, NULL};
 		char emblem_text[3][20];
@@ -3263,9 +3287,7 @@ static void M_DrawPauseMenu(void)
 			}
 			V_DrawRightAlignedString(284, 44 + (i*8), V_MONOSPACE, emblem_text[i]);
 		}
-	}
-
-	M_DrawGenericMenu();
+	}*/
 }
 
 static void M_DrawCenteredMenu(void)
@@ -3917,7 +3939,7 @@ static void M_Options(INT32 choice)
 	(void)choice;
 
 	// if the player is not admin or server, disable server options
-	OP_MainMenu[5].status = (Playing() && !(server || adminplayer == consoleplayer)) ? (IT_GRAYEDOUT) : (IT_STRING|IT_SUBMENU);
+	OP_MainMenu[4].status = (Playing() && !(server || adminplayer == consoleplayer)) ? (IT_GRAYEDOUT) : (IT_STRING|IT_SUBMENU);
 
 	// if the player is playing _at all_, disable the erase data options
 	OP_DataOptionsMenu[1].status = (Playing()) ? (IT_GRAYEDOUT) : (IT_STRING|IT_SUBMENU);
@@ -4313,12 +4335,14 @@ static void M_CustomLevelSelect(INT32 choice)
 static void M_SinglePlayerMenu(INT32 choice)
 {
 	(void)choice;
-	SP_MainMenu[sprecordattack].status =
+	G_DeferedInitNew(false, G_BuildMapName(1), 0, false, false);
+	menuactive = false;
+	/*SP_MainMenu[sprecordattack].status =
 		(M_SecretUnlocked(SECRET_RECORDATTACK)) ? IT_CALL|IT_STRING : IT_SECRET;
 	SP_MainMenu[spnightsmode].status =
 		(M_SecretUnlocked(SECRET_NIGHTSMODE)) ? IT_CALL|IT_STRING : IT_SECRET;
 
-	M_SetupNextMenu(&SP_MainDef);
+	M_SetupNextMenu(&SP_MainDef);*/
 }
 
 static void M_LoadGameLevelSelect(INT32 choice)
@@ -6198,8 +6222,8 @@ static void M_StartServer(INT32 choice)
 
 static void M_DrawServerMenu(void)
 {
-	lumpnum_t lumpnum;
-	patch_t *PictureOfLevel;
+	//lumpnum_t lumpnum;
+	//patch_t *PictureOfLevel;
 
 	M_DrawGenericMenu();
 
@@ -6217,14 +6241,14 @@ static void M_DrawServerMenu(void)
 #endif
 
 	//  A 160x100 image of the level as entry MAPxxP
-	lumpnum = W_CheckNumForName(va("%sP", G_BuildMapName(cv_nextmap.value)));
+	/*lumpnum = W_CheckNumForName(va("%sP", G_BuildMapName(cv_nextmap.value)));
 
 	if (lumpnum != LUMPERROR)
 		PictureOfLevel = W_CachePatchName(va("%sP", G_BuildMapName(cv_nextmap.value)), PU_CACHE);
 	else
 		PictureOfLevel = W_CachePatchName("BLANKLVL", PU_CACHE);
 
-	V_DrawSmallScaledPatch((BASEVIDWIDTH*3/4)-(SHORT(PictureOfLevel->width)/4), ((BASEVIDHEIGHT*3/4)-(SHORT(PictureOfLevel->height)/4)+10), 0, PictureOfLevel);
+	V_DrawSmallScaledPatch((BASEVIDWIDTH*3/4)-(SHORT(PictureOfLevel->width)/4), ((BASEVIDHEIGHT*3/4)-(SHORT(PictureOfLevel->height)/4)+10), 0, PictureOfLevel);*/
 }
 
 static void M_MapChange(INT32 choice)
@@ -7178,9 +7202,9 @@ static void M_DrawVideoMode(void)
 		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 138,
 			V_GREENMAP, "Green modes are recommended.");
 		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 150,
-			V_YELLOWMAP, "Other modes may have visual errors.");
+			V_REDMAP, "Other modes will offset your cursor.");
 		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 158,
-			V_YELLOWMAP, "Use at own risk.");
+			V_REDMAP, "Use at own risk.");
 	}
 
 	// Draw the cursor for the VidMode menu

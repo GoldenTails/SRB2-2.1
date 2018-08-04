@@ -314,6 +314,9 @@ static int player_get(lua_State *L)
 		lua_pushinteger(L, plr->bot);
 	else if (fastcmp(field,"jointime"))
 		lua_pushinteger(L, plr->jointime);
+	/// MPC 02-08-2018
+	else if (fastcmp(field,"talkdisabled"))
+		lua_pushboolean(L, plr->talkdisabled);
 #ifdef HWRENDER
 	else if (fastcmp(field,"fovadd"))
 		lua_pushfixed(L, plr->fovadd);
@@ -589,6 +592,9 @@ static int player_set(lua_State *L)
 	else if (fastcmp(field,"fovadd"))
 		plr->fovadd = luaL_checkfixed(L, 3);
 #endif
+	/// MPC 02-08-2018
+	else if (fastcmp(field,"talkdisabled"))
+		plr->talkdisabled = lua_toboolean(L, 3);
 	else {
 		lua_getfield(L, LUA_REGISTRYINDEX, LREG_EXTVARS);
 		I_Assert(lua_istable(L, -1));
@@ -673,6 +679,14 @@ static int ticcmd_get(lua_State *L)
 		lua_pushinteger(L, cmd->aiming);
 	else if (fastcmp(field,"buttons"))
 		lua_pushinteger(L, cmd->buttons);
+	else if (fastcmp(field,"keypress"))
+		lua_pushinteger(L, cmd->keypress);
+	else if (fastcmp(field,"mousex"))
+		lua_pushinteger(L, cmd->mousex);
+	else if (fastcmp(field,"mousey"))
+		lua_pushinteger(L, cmd->mousey);
+	else if (fastcmp(field,"mousekey"))
+		lua_pushinteger(L, cmd->mousekey);
 	else
 		return NOFIELD;
 

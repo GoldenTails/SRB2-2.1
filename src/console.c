@@ -569,6 +569,9 @@ void CON_Ticker(void)
 		{
 			con_destlines = 0;
 			CON_ClearHUD();
+			/// Open the control panel.
+			if (gamestate == GS_TITLESCREEN)
+				M_StartControlPanel();
 		}
 		else
 		{
@@ -698,9 +701,9 @@ static void CON_InputDelChar(void)
 //
 boolean CON_Responder(event_t *ev)
 {
-	static UINT8 consdown = false; // console is treated differently due to rare usage
+	static UINT8 consdown = false; // console is treated differently
 
-	// sequential completions a la 4dos
+	// sequential completions
 	static char completion[80];
 	static INT32 comskips, varskips;
 

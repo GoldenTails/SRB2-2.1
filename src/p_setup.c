@@ -2591,7 +2591,7 @@ boolean P_SetupLevel(boolean skipprecip)
 
 	// As oddly named as this is, this handles music only.
 	// We should be fine starting it here.
-	S_Start();
+	//S_Start();
 
 	// Let's fade to black here
 	// But only if we didn't do the special stage wipe
@@ -2605,7 +2605,7 @@ boolean P_SetupLevel(boolean skipprecip)
 	}
 
 	// Print "SPEEDING OFF TO [ZONE] [ACT 1]..."
-	if (rendermode != render_none)
+	/*if (rendermode != render_none)
 	{
 		// Don't include these in the fade!
 		char tx[64];
@@ -2616,7 +2616,7 @@ boolean P_SetupLevel(boolean skipprecip)
 			(mapheaderinfo[gamemap-1]->actnum > 0) ? va(", Act %d",mapheaderinfo[gamemap-1]->actnum) : "");
 		V_DrawSmallString(1, 195, V_ALLOWLOWERCASE, tx);
 		I_UpdateNoVsync();
-	}
+	}*/
 
 #ifdef HAVE_BLUA
 	LUA_InvalidateLevel();

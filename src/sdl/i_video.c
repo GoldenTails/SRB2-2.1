@@ -611,6 +611,7 @@ static void Impl_HandleKeyboardEvent(SDL_KeyboardEvent evt, Uint32 type)
 
 static void Impl_HandleMouseMotionEvent(SDL_MouseMotionEvent evt)
 {
+	#define WARPING ((evt.x == realwidth/2) && (evt.y == realheight/2))
 	if (USE_MOUSEINPUT)
 	{
 		if ((SDL_GetMouseFocus() != window && SDL_GetKeyboardFocus() != window))
@@ -634,10 +635,8 @@ static void Impl_HandleMouseMotionEvent(SDL_MouseMotionEvent evt)
 
 		// If the event is from warping the pointer to middle
 		// of the screen then ignore it.
-		if ((evt.x == realwidth/2) && (evt.y == realheight/2))
-		{
+		if (WARPING)
 			return;
-		}
 
 		// Don't send an event_t if not in relative mouse mode anymore,
 		// just grab and set relative mode
@@ -649,6 +648,16 @@ static void Impl_HandleMouseMotionEvent(SDL_MouseMotionEvent evt)
 			if (SDL_SetRelativeMouseMode(SDL_TRUE) == 0) // already warps mouse if successful
 				wrapmouseok = SDL_TRUE; // TODO: is wrapmouseok or HalfWarpMouse needed anymore?
 		}
+	}
+	/// stupid dumb fucking hack
+	if (WARPING)
+		return;
+	{
+		event_t mousemove;
+		mousemove.type = ev_mousemove;
+		mousemove.data1 = evt.x;
+		mousemove.data2 = evt.y;
+		D_PostEvent(&mousemove);
 	}
 }
 
@@ -666,32 +675,40 @@ static void Impl_HandleMouseButtonEvent(SDL_MouseButtonEvent evt, Uint32 type)
 	if (SDL_GetMouseFocus() != window)
 		return;
 
-	/// \todo inputEvent.button.which
-	if (USE_MOUSEINPUT)
+	if (type == SDL_MOUSEBUTTONUP)
+		event.type = ev_keyup;
+	else if (type == SDL_MOUSEBUTTONDOWN)
+		event.type = ev_keydown;
+
+	if (evt.button == SDL_BUTTON_MIDDLE)
+		event.data1 = KEY_MOUSE1+2;
+	else if (evt.button == SDL_BUTTON_RIGHT)
+		event.data1 = KEY_MOUSE1+1;
+	else if (evt.button == SDL_BUTTON_LEFT)
+		event.data1 = KEY_MOUSE1;
+	else if (evt.button == SDL_BUTTON_X1)
+		event.data1 = KEY_MOUSE1+3;
+	else if (evt.button == SDL_BUTTON_X2)
+		event.data1 = KEY_MOUSE1+4;
+
+	/// stupid dumb fucking hack
 	{
+		event_t mousekey;
+		mousekey.type = ev_mousemove;
+		mousekey.data1 = 0;
+		mousekey.data2 = 0;
+		mousekey.data3 = event.data1;
 		if (type == SDL_MOUSEBUTTONUP)
-		{
-			event.type = ev_keyup;
-		}
-		else if (type == SDL_MOUSEBUTTONDOWN)
-		{
-			event.type = ev_keydown;
-		}
-		else return;
-		if (evt.button == SDL_BUTTON_MIDDLE)
-			event.data1 = KEY_MOUSE1+2;
-		else if (evt.button == SDL_BUTTON_RIGHT)
-			event.data1 = KEY_MOUSE1+1;
-		else if (evt.button == SDL_BUTTON_LEFT)
-			event.data1 = KEY_MOUSE1;
-		else if (evt.button == SDL_BUTTON_X1)
-			event.data1 = KEY_MOUSE1+3;
-		else if (evt.button == SDL_BUTTON_X2)
-			event.data1 = KEY_MOUSE1+4;
+			mousekey.data3 = -1;
+		D_PostEvent(&mousekey);
+	}
+
+	/// \todo inputEvent.button.which
+	if (USE_MOUSEINPUT) {
+		if (type != SDL_MOUSEBUTTONUP && type != SDL_MOUSEBUTTONDOWN)
+			return;
 		if (event.type == ev_keyup || event.type == ev_keydown)
-		{
 			D_PostEvent(&event);
-		}
 	}
 }
 

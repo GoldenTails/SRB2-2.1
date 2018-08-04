@@ -382,6 +382,33 @@ static int libd_drawScaled(lua_State *L)
 	return 0;
 }
 
+static int libd_drawCropped(lua_State *L)
+{
+	fixed_t x, y, scale;
+	fixed_t sx, sy, w, h;
+	INT32 flags;
+	patch_t *patch;
+
+	HUDONLY
+	x = luaL_checkinteger(L, 1);
+	y = luaL_checkinteger(L, 2);
+	patch = *((patch_t **)luaL_checkudata(L, 3, META_PATCH));
+	sx = luaL_checkinteger(L, 4);
+	sy = luaL_checkinteger(L, 5);
+	w = luaL_checkinteger(L, 6);
+	h = luaL_checkinteger(L, 7);
+
+	scale = luaL_optinteger(L, 8, FRACUNIT);
+	if (scale < 0)
+		return luaL_error(L, "negative scale");
+
+	flags = luaL_optinteger(L, 9, 0);
+	flags &= ~V_PARAMMASK; // Don't let crashes happen.
+
+	V_DrawCroppedPatch(x, y, scale, flags, patch, sx, sy, w, h);
+	return 0;
+}
+
 static int libd_drawNum(lua_State *L)
 {
 	INT32 x, y, flags, num;
@@ -565,6 +592,7 @@ static luaL_Reg lib_draw[] = {
 	{"cachePatch", libd_cachePatch},
 	{"draw", libd_draw},
 	{"drawScaled", libd_drawScaled},
+	{"drawCropped", libd_drawCropped},			/// MPC
 	{"drawNum", libd_drawNum},
 	{"drawPaddedNum", libd_drawPaddedNum},
 	{"drawFill", libd_drawFill},

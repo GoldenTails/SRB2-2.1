@@ -237,6 +237,11 @@ typedef struct
 	UINT8 timeshit;
 	INT32 onconveyor;
 
+	/// MPC
+	INT32 keypress;
+	INT32 mousex, mousey;
+	UINT8 mousekey;
+
 	//player->mo stuff
 	UINT8 hasmo; // Boolean
 

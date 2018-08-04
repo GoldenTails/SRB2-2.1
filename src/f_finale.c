@@ -53,7 +53,7 @@ static UINT8  curDemo = 0;
 static UINT32 demoDelayLeft;
 static UINT32 demoIdleLeft;
 
-static patch_t *ttbanner; // white banner with "robo blast" and "2"
+/*static patch_t *ttbanner; // white banner with "robo blast" and "2"
 static patch_t *ttwing; // wing background
 static patch_t *ttsonic; // "SONIC"
 static patch_t *ttswave1; // Title Sonics
@@ -67,7 +67,7 @@ static patch_t *ttspop3;
 static patch_t *ttspop4;
 static patch_t *ttspop5;
 static patch_t *ttspop6;
-static patch_t *ttspop7;
+static patch_t *ttspop7;*/
 
 static void F_SkyScroll(INT32 scrollspeed);
 
@@ -1433,11 +1433,11 @@ void F_StartTitleScreen(void)
 
 	// IWAD dependent stuff.
 
-	S_ChangeMusicInternal("titles", looptitle);
+	//S_ChangeMusicInternal("titles", looptitle);
 
 	animtimer = 0;
 
-	demoDelayLeft = demoDelayTime;
+	/*demoDelayLeft = demoDelayTime;
 	demoIdleLeft = demoIdleTime;
 
 	ttbanner = W_CachePatchName("TTBANNER", PU_LEVEL);
@@ -1454,13 +1454,16 @@ void F_StartTitleScreen(void)
 	ttspop4 = W_CachePatchName("TTSPOP4", PU_LEVEL);
 	ttspop5 = W_CachePatchName("TTSPOP5", PU_LEVEL);
 	ttspop6 = W_CachePatchName("TTSPOP6", PU_LEVEL);
-	ttspop7 = W_CachePatchName("TTSPOP7", PU_LEVEL);
+	ttspop7 = W_CachePatchName("TTSPOP7", PU_LEVEL);*/
 }
 
 // (no longer) De-Demo'd Title Screen
 void F_TitleScreenDrawer(void)
 {
-	if (modeattacking)
+	V_DrawFill(0,0,vid.width,vid.height,31|V_NOSCALESTART);
+	if (finalecount == 2)
+		M_StartControlPanel();
+	/*if (modeattacking)
 		return; // We likely came here from retrying. Don't do a damn thing.
 
 	// Draw that sky!
@@ -1505,7 +1508,7 @@ void F_TitleScreenDrawer(void)
 			V_DrawScaledPatch(100,3, 0,ttswave2);
 	}
 
-	V_DrawScaledPatch(48, 142, 0,ttbanner);
+	V_DrawScaledPatch(48, 142, 0,ttbanner);*/
 }
 
 // (no longer) De-Demo'd Title Screen
@@ -1538,7 +1541,8 @@ void F_TitleScreenTicker(boolean run)
 	}
 
 	// is it time?
-	if (!(--demoIdleLeft))
+	curDemo = 0;
+	/*if (!(--demoIdleLeft))
 	{
 		char dname[9];
 		lumpnum_t l;
@@ -1549,7 +1553,6 @@ void F_TitleScreenTicker(boolean run)
 		// Replay intro when done cycling through demos
 		if (curDemo == numDemos)
 		{
-			curDemo = 0;
 			F_StartIntro();
 			return;
 		}
@@ -1566,7 +1569,7 @@ void F_TitleScreenTicker(boolean run)
 
 		titledemo = true;
 		G_DoPlayDemo(dname);
-	}
+	}*/
 }
 
 void F_TitleDemoTicker(void)

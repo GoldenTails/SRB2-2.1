@@ -11,19 +11,37 @@
 /// \brief basic functions for Lua scripting
 
 #include "doomdef.h"
+#include "doomstat.h"
 #ifdef HAVE_BLUA
 #include "p_local.h"
 #include "p_setup.h" // So we can have P_SetupLevelSky
 #include "z_zone.h"
 #include "r_main.h"
+#include "r_bsp.h"
 #include "r_things.h"
+#include "r_state.h"
+#include "r_sky.h"
 #include "m_random.h"
 #include "s_sound.h"
 #include "g_game.h"
+#include "f_finale.h"
+#include "v_video.h"
 
 #include "lua_script.h"
 #include "lua_libs.h"
 #include "lua_hud.h" // hud_running errors
+
+#include "m_menu.h"
+#include "d_main.h"
+#include "d_netcmd.h"
+#include "d_net.h"
+#include "m_cond.h"
+
+#include "console.h"
+
+#ifdef HAVE_OPENMPT
+#include "libopenmpt/libopenmpt.h"
+#endif
 
 #define NOHUD if (hud_running) return luaL_error(L, "HUD rendering code should not call this function!");
 
@@ -1775,6 +1793,138 @@ static int lib_sChangeMusic(lua_State *L)
 	return 0;
 }
 
+static int lib_sSetMusicPosition(lua_State *L)
+{
+	fixed_t fixedspeed = luaL_checkfixed(L, 1);
+	float position = fixedspeed*0.001f;
+	//CONS_Printf("set music pos %f\n", position);
+	player_t *player = NULL;
+	//NOHUD
+	if (!lua_isnone(L, 2) && lua_isuserdata(L, 2))
+	{
+		player = *((player_t **)luaL_checkudata(L, 2, META_PLAYER));
+		if (!player)
+			return LUA_ErrInvalid(L, "player_t");
+	}
+	if (!player || P_IsLocalPlayer(player))
+		S_SetMusicPosition(position);
+	return 0;
+}
+
+static int lib_sGetMusicPosition(lua_State *L)
+{
+	float fpos = S_GetMusicPosition();
+	lua_pushnumber(L, (lua_Number)(fpos*1000));
+	//CONS_Printf("GetMusicPosition: %05f\n\n\n",fpos);
+	return 1;
+}
+
+static int lib_sSetMusicVolume(lua_State *L)
+{
+	int volume = luaL_checkint(L, 1);
+	player_t *player = NULL;
+	//NOHUD
+	if (!lua_isnone(L, 2) && lua_isuserdata(L, 2))
+	{
+		player = *((player_t **)luaL_checkudata(L, 2, META_PLAYER));
+		if (!player)
+			return LUA_ErrInvalid(L, "player_t");
+	}
+	if (!player || P_IsLocalPlayer(player))
+		S_SetDigMusicVolume(volume);
+	return 0;
+}
+
+static int lib_sGetMusicVolume(lua_State *L)
+{
+	lua_pushnumber(L,(lua_Number)S_GetDigMusicVolume());
+	return 1;
+}
+
+static int lib_sChangeMusicFadeIn(lua_State *L)
+{
+#ifdef MUSICSLOT_COMPATIBILITY
+	const char *music_name;
+	UINT32 music_num;
+	char music_compat_name[7];
+
+	boolean looping;
+	player_t *player = NULL;
+	UINT16 music_flags = 0;
+	UINT32 fadein_ms = 0;
+	lua_Number fadein2;
+	NOHUD
+
+	if (lua_isnumber(L, 1))
+	{
+		music_num = (UINT32)luaL_checkinteger(L, 1);
+		music_flags = (UINT16)(music_num & 0x0000FFFF);
+		if (music_flags && music_flags <= 1035)
+			snprintf(music_compat_name, 7, "%sM", G_BuildMapName((INT32)music_flags));
+		else if (music_flags && music_flags <= 1050)
+			strncpy(music_compat_name, compat_special_music_slots[music_flags - 1036], 7);
+		else
+			music_compat_name[0] = 0; // becomes empty string
+		music_compat_name[6] = 0;
+		music_name = (const char *)&music_compat_name;
+		music_flags = 0;
+	}
+	else
+	{
+		music_num = 0;
+		music_name = luaL_checkstring(L, 1);
+	}
+
+	looping = (boolean)lua_opttrueboolean(L, 2);
+
+    fadein2 = luaL_checkint(L, 3);
+	lua_number2int(fadein_ms,fadein2);
+
+	if (fadein_ms <= 1)
+        fadein_ms = 1;
+#else
+	const char *music_name = luaL_checkstring(L, 1);
+	boolean looping = (boolean)lua_opttrueboolean(L, 2);
+	player_t *player = NULL;
+	UINT16 music_flags = 0;
+	NOHUD
+#endif
+
+	if (!lua_isnone(L, 4) && lua_isuserdata(L, 4))
+	{
+		player = *((player_t **)luaL_checkudata(L, 4, META_PLAYER));
+		if (!player)
+			return LUA_ErrInvalid(L, "player_t");
+	}
+
+#ifdef MUSICSLOT_COMPATIBILITY
+	if (music_num)
+		music_flags = (UINT16)((music_num & 0x7FFF0000) >> 16);
+	else
+#endif
+	music_flags = (UINT16)luaL_optinteger(L, 5, 0);
+
+	if (!player || P_IsLocalPlayer(player))
+		S_ChangeMusicFadeIn(music_name, music_flags, looping, fadein_ms, false);
+	return 0;
+}
+
+static int lib_sFadeOutMusic(lua_State *L)
+{
+	int millisecond = luaL_checkint(L, 1);
+	player_t *player = NULL;
+	//NOHUD
+	if (!lua_isnone(L, 2) && lua_isuserdata(L, 2))
+	{
+		player = *((player_t **)luaL_checkudata(L, 2, META_PLAYER));
+		if (!player)
+			return LUA_ErrInvalid(L, "player_t");
+	}
+	if (!player || P_IsLocalPlayer(player))
+		S_FadeOutMusic(millisecond);
+	return 0;
+}
+
 static int lib_sSpeedMusic(lua_State *L)
 {
 	fixed_t fixedspeed = luaL_checkfixed(L, 1);
@@ -1791,6 +1941,81 @@ static int lib_sSpeedMusic(lua_State *L)
 		lua_pushboolean(L, S_SpeedMusic(speed));
 	else
 		lua_pushboolean(L, false);
+	return 1;
+}
+
+/// MPC 28-07-2018
+static int lib_sPitchMusic(lua_State *L)
+{
+	fixed_t fixedpitch = luaL_checkfixed(L, 1);
+	float pitch = FIXED_TO_FLOAT(fixedpitch);
+	player_t *player = NULL;
+	NOHUD
+	if (!lua_isnone(L, 2) && lua_isuserdata(L, 2))
+	{
+		player = *((player_t **)luaL_checkudata(L, 2, META_PLAYER));
+		if (!player)
+			return LUA_ErrInvalid(L, "player_t");
+	}
+	if (!player || P_IsLocalPlayer(player))
+		lua_pushboolean(L, S_PitchMusic(pitch));
+	else
+		lua_pushboolean(L, false);
+	return 1;
+}
+
+static int lib_sModuleGetInfo(lua_State *L)
+{
+	const char *option;
+	int arg1;
+	//int arg2;
+	//int arg3;
+
+	option = luaL_checkstring(L, 1);
+	arg1 = luaL_optinteger(L, 2, 0);
+	//arg2 = luaL_optinteger(L, 3, 0);
+	//arg3 = luaL_optinteger(L, 4, 0);
+	#define INFO(x) !(strcmp(option,x))
+
+	/// main info
+	if (INFO("speed"))
+		lua_pushinteger(L,openmpt_module_get_current_speed(current_module));
+	else if (INFO("tempo"))
+		lua_pushinteger(L,openmpt_module_get_current_tempo(current_module));
+	else if (INFO("order"))
+		lua_pushinteger(L,openmpt_module_get_current_order(current_module));
+	else if (INFO("pattern"))
+		lua_pushinteger(L,openmpt_module_get_current_pattern(current_module));
+	else if (INFO("row"))
+		lua_pushinteger(L,openmpt_module_get_current_row(current_module));
+	/// number of...
+	else if (INFO("channel_count"))
+		lua_pushinteger(L,openmpt_module_get_num_channels(current_module));
+	else if (INFO("order_count"))
+		lua_pushinteger(L,openmpt_module_get_num_orders(current_module));
+	else if (INFO("pattern_count"))
+		lua_pushinteger(L,openmpt_module_get_num_patterns(current_module));
+	else if (INFO("instrument_count"))
+		lua_pushinteger(L,openmpt_module_get_num_instruments(current_module));
+	else if (INFO("samples_count"))
+		lua_pushinteger(L,openmpt_module_get_num_samples(current_module));
+	/// take arguments
+	/*else if (INFO("channel_name"))
+		lua_pushinteger(L,openmpt_module_get_channel_name(current_module,arg1));
+	else if (INFO("instrument_name"))
+		lua_pushinteger(L,openmpt_module_get_instrument_name(current_module,arg1));
+	else if (INFO("sample_name"))
+		lua_pushinteger(L,openmpt_module_get_sample_name(current_module,arg1));*/
+	else if (INFO("rows_in_pattern"))
+		lua_pushinteger(L,openmpt_module_get_pattern_num_rows(current_module,arg1));
+	/// etc
+	else if (INFO("position_in_seconds"))
+		lua_pushinteger(L,(int)openmpt_module_get_position_seconds(current_module));
+	else if (INFO("duration_in_seconds"))
+		lua_pushinteger(L,(int)openmpt_module_get_duration_seconds(current_module));
+	else
+		lua_pushnil(L);
+
 	return 1;
 }
 
@@ -1895,6 +2120,28 @@ static int lib_gIsSpecialStage(lua_State *L)
 	//HUDSAFE
 	lua_pushboolean(L, G_IsSpecialStage(mapnum));
 	return 1;
+}
+
+static int lib_gForceWipe(lua_State *L)  // mpc 03/04/2018
+{
+	//NOHUD
+	UINT8 wipe, wipecolor;
+
+	wipe = luaL_optinteger(L, 1, 1);
+	wipecolor = luaL_optinteger(L, 2, 31);
+	wipegamestate = -1;
+
+	/// MPC 08-07-2018
+	if (wipe == 255)
+		wipe = 0;
+
+	if (wipe != 0) {
+		F_WipeStartScreen();
+		V_DrawFill(0, 0, BASEVIDWIDTH, BASEVIDHEIGHT, wipecolor);
+		F_WipeEndScreen();
+		F_RunWipe(wipedefs[wipe], true);
+	}
+	return 0;
 }
 
 static int lib_gGametypeUsesLives(lua_State *L)
@@ -2136,11 +2383,25 @@ static luaL_Reg lib[] = {
 	{"S_IdPlaying",lib_sIdPlaying},
 	{"S_SoundPlaying",lib_sSoundPlaying},
 
+	/// MPC 04-08-2018
+	{"S_SoundPlaying",lib_sSoundPlaying},
+	{"S_SetMusicPosition",lib_sSetMusicPosition},
+	{"S_GetMusicPosition",lib_sGetMusicPosition},
+	{"S_SetMusicVolume",lib_sSetMusicVolume},
+	{"S_GetMusicVolume",lib_sGetMusicVolume},
+	{"S_FadeOutMusic",lib_sFadeOutMusic},
+	{"S_ChangeMusicFadeIn",lib_sChangeMusicFadeIn},
+
+	/// MPC 04-08-2018
+	{"S_PitchMusic",lib_sPitchMusic},			/// MPC 04-08-2018
+	{"S_ModuleGetInfo",lib_sModuleGetInfo},		/// MPC 04-08-2018
+
 	// g_game
 	{"G_BuildMapName",lib_gBuildMapName},
 	{"G_DoReborn",lib_gDoReborn},
 	{"G_ExitLevel",lib_gExitLevel},
 	{"G_IsSpecialStage",lib_gIsSpecialStage},
+	{"G_ForceWipe",lib_gForceWipe},						// MPC
 	{"G_GametypeUsesLives",lib_gGametypeUsesLives},
 	{"G_GametypeHasTeams",lib_gGametypeHasTeams},
 	{"G_GametypeHasSpectators",lib_gGametypeHasSpectators},

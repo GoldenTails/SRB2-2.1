@@ -14,7 +14,10 @@
 ///        Functions to blit a block to the screen.
 
 #include "doomdef.h"
+#include "g_game.h"
 #include "r_local.h"
+#include "p_local.h"
+#include "r_plane.h"
 #include "v_video.h"
 #include "hu_stuff.h"
 #include "r_draw.h"
@@ -606,12 +609,13 @@ void V_DrawCroppedPatch(fixed_t x, fixed_t y, fixed_t pscale, INT32 scrn, patch_
 					desttop += (vid.height - (BASEVIDHEIGHT * dupy)) * vid.width / 2;
 			}
 			// if it's meant to cover the whole screen, black out the rest
-			if (x == 0 && SHORT(patch->width) == BASEVIDWIDTH && y == 0 && SHORT(patch->height) == BASEVIDHEIGHT)
+			/// MPC: why???
+			/*if (x == 0 && SHORT(patch->width) == BASEVIDWIDTH && y == 0 && SHORT(patch->height) == BASEVIDHEIGHT)
 			{
 				column = (const column_t *)((const UINT8 *)(patch) + LONG(patch->columnofs[0]));
 				source = (const UINT8 *)(column) + 3;
 				V_DrawFill(0, 0, BASEVIDWIDTH, BASEVIDHEIGHT, (column->topdelta == 0xff ? 31 : source[0]));
-			}
+			}*/
 		}
 	}
 
@@ -758,12 +762,15 @@ void V_DrawFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 {
 	UINT8 *dest;
 	const UINT8 *deststop;
+    INT32 u, v;
+	UINT32 alphalevel = 0;
+	INT32 dupx = vid.dupx, dupy = vid.dupy;
 
 	if (rendermode == render_none)
 		return;
 
 #ifdef HWRENDER
-	if (rendermode != render_soft && !con_startup)
+	if (rendermode != render_soft && rendermode != render_none)
 	{
 		HWR_DrawFill(x, y, w, h, c);
 		return;
@@ -772,8 +779,6 @@ void V_DrawFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 
 	if (!(c & V_NOSCALESTART))
 	{
-		INT32 dupx = vid.dupx, dupy = vid.dupy;
-
 		if (x == 0 && y == 0 && w == BASEVIDWIDTH && h == BASEVIDHEIGHT)
 		{ // Clear the entire screen, from dest to deststop. Yes, this really works.
 			memset(screens[0], (UINT8)(c&255), vid.width * vid.height * vid.bpp);
@@ -807,13 +812,11 @@ void V_DrawFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 
 	if (x >= vid.width || y >= vid.height)
 		return; // off the screen
-	if (x < 0)
-	{
+	if (x < 0) {
 		w += x;
 		x = 0;
 	}
-	if (y < 0)
-	{
+	if (y < 0) {
 		h += y;
 		y = 0;
 	}
@@ -821,17 +824,42 @@ void V_DrawFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 	if (w <= 0 || h <= 0)
 		return; // zero width/height wouldn't draw anything
 	if (x + w > vid.width)
-		w = vid.width - x;
+		w = vid.width-x;
 	if (y + h > vid.height)
-		h = vid.height - y;
+		h = vid.height-y;
 
 	dest = screens[0] + y*vid.width + x;
 	deststop = screens[0] + vid.rowbytes * vid.height;
 
+	if ((alphalevel = ((c & V_ALPHAMASK) >> V_ALPHASHIFT)))
+	{
+		if (alphalevel == 13)
+			alphalevel = hudminusalpha[cv_translucenthud.value];
+		else if (alphalevel == 14)
+			alphalevel = 10 - cv_translucenthud.value;
+		else if (alphalevel == 15)
+			alphalevel = hudplusalpha[cv_translucenthud.value];
+
+		if (alphalevel >= 10)
+			return; // invis
+	}
+
 	c &= 255;
 
-	for (;(--h >= 0) && dest < deststop; dest += vid.width)
-		memset(dest, (UINT8)(c&255), w * vid.bpp);
+	if (!alphalevel) {
+        for (;(--h >= 0) && dest < deststop; dest += vid.width)
+            memset(dest, (UINT8)(c&255), w * vid.bpp);
+	} else {        // mpc 12-04-2018
+        const UINT8 *fadetable = ((UINT8 *)transtables + ((alphalevel-1)<<FF_TRANSSHIFT) + (c*256));
+        #define clip(x,y) (x>y) ? y : x
+        w = clip(w,vid.width);
+        h = clip(h,vid.height);
+        for (v = 0; v < h; v++, dest += vid.width) {
+            for (u = 0; u < w; u++) {
+                dest[u] = fadetable[dest[u]];
+            }
+        }
+	}
 }
 
 //

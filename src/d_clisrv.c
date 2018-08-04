@@ -1572,7 +1572,7 @@ static void CL_LoadReceivedSavegame(void)
 
 	if (P_LoadNetGame())
 	{
-		const INT32 actnum = mapheaderinfo[gamemap-1]->actnum;
+		/*const INT32 actnum = mapheaderinfo[gamemap-1]->actnum;
 		CONS_Printf(M_GetText("Map is now \"%s"), G_BuildMapName(gamemap));
 		if (strcmp(mapheaderinfo[gamemap-1]->lvlttl, ""))
 		{
@@ -1582,7 +1582,7 @@ static void CL_LoadReceivedSavegame(void)
 			if (actnum > 0)
 				CONS_Printf(" %2d", actnum);
 		}
-		CONS_Printf("\"\n");
+		CONS_Printf("\"\n");*/
 	}
 	else
 	{

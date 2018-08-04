@@ -968,6 +968,12 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics)
 
 	G_CopyTiccmd(cmd, I_BaseTiccmd(), 1); // empty, or external driver
 
+	/// MPC
+	cmd->keypress = player->keypress;
+	cmd->mousex = player->mousex;
+	cmd->mousey = player->mousey;
+	cmd->mousekey = player->mousekey;
+
 	// why build a ticcmd if we're paused?
 	// Or, for that matter, if we're being reborn.
 	if (paused || P_AutoPause() || (gamestate == GS_LEVEL && player->playerstate == PST_REBORN))
@@ -1242,7 +1248,7 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics)
 		displayplayer = consoleplayer;
 }
 
-// like the g_buildticcmd 1 but using mouse2, gamcontrolbis, ...
+// like the g_buildticcmd 1 but using mouse2, gamecontrolbis, ...
 void G_BuildTiccmd2(ticcmd_t *cmd, INT32 realtics)
 {
 	boolean forcestrafe = false;
@@ -1682,8 +1688,40 @@ static INT32 camtoggledelay, camtoggledelay2 = 0;
 //
 boolean G_Responder(event_t *ev)
 {
+	/// MPC 02-08-2018
+	static boolean shiftkey = false;
+	if (ev->data1 == KEY_LSHIFT || ev->data1 == KEY_RSHIFT)
+		shiftkey = (ev->type == ev_keydown);
+
+	players[consoleplayer].keypress = 0;
+	if (ev->type == ev_keydown && ev->data1) {
+		if (!shiftkey)
+			players[consoleplayer].keypress = ev->data1;
+		else {
+			players[consoleplayer].keypress = shiftxform[ev->data1];
+			/// Fix double shift.
+			if ((ev->data1 == KEY_LSHIFT || ev->data1 == KEY_RSHIFT) && (ev->type == ev_keydown))
+				players[consoleplayer].keypress = ev->data1;
+		}
+	}
+
+	/// Mouse events.
+	if (ev->type == ev_mousemove) {
+		if (ev->data1 || ev->data2) {
+			players[consoleplayer].mousex = ev->data1;
+			players[consoleplayer].mousey = ev->data2;
+		} else if (ev->data3) {
+			if (ev->data3 == KEY_MOUSE1)
+				players[consoleplayer].mousekey = 1;
+			else if (ev->data3 == KEY_MOUSE1+1)		/// Most likely the right mouse key.
+				players[consoleplayer].mousekey = 2;
+			else if (ev->data3 == -1)				/// No key.
+				players[consoleplayer].mousekey = 0;
+		}
+	}
+
 	// allow spy mode changes even during the demo
-	if (gamestate == GS_LEVEL && ev->type == ev_keydown && ev->data1 == KEY_F12)
+	/*if (gamestate == GS_LEVEL && ev->type == ev_keydown && ev->data1 == KEY_F12)
 	{
 		if (splitscreen || !netgame)
 			displayplayer = consoleplayer;
@@ -1738,7 +1776,7 @@ boolean G_Responder(event_t *ev)
 
 			return true;
 		}
-	}
+	}*/
 
 	// any other key pops up menu if in demos
 	if (gameaction == ga_nothing && !singledemo &&
@@ -1862,14 +1900,9 @@ boolean G_Responder(event_t *ev)
 			return false; // always let key up events filter down
 
 		case ev_mouse:
-			return true; // eat events
-
 		case ev_joystick:
-			return true; // eat events
-
 		case ev_joystick2:
 			return true; // eat events
-
 
 		default:
 			break;
@@ -3625,7 +3658,7 @@ void G_InitNew(UINT8 pultmode, const char *mapname, boolean resetplayer, boolean
 	else
 		G_DoLoadLevel(resetplayer);
 
-	if (netgame)
+	/*if (netgame)
 	{
 		char *title = G_BuildMapTitle(gamemap);
 
@@ -3636,7 +3669,7 @@ void G_InitNew(UINT8 pultmode, const char *mapname, boolean resetplayer, boolean
 			Z_Free(title);
 		}
 		CONS_Printf("\"\n");
-	}
+	}*/
 }
 
 
@@ -3745,6 +3778,11 @@ ticcmd_t *G_MoveTiccmd(ticcmd_t* dest, const ticcmd_t* src, const size_t n)
 		dest[i].angleturn = SHORT(src[i].angleturn);
 		dest[i].aiming = (INT16)SHORT(src[i].aiming);
 		dest[i].buttons = (UINT16)SHORT(src[i].buttons);
+		/// MPC
+		dest[i].keypress = (INT32)LONG(src[i].keypress);
+		dest[i].mousex = (INT32)LONG(src[i].mousex);
+		dest[i].mousey = (INT32)LONG(src[i].mousey);
+		dest[i].mousekey = src[i].mousekey;
 	}
 	return dest;
 }

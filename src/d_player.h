@@ -434,6 +434,12 @@ typedef struct player_s
 #ifdef HWRENDER
 	fixed_t fovadd; // adjust FOV for hw rendering
 #endif
+
+	/// MPC
+	INT32 keypress;
+	INT32 mousex, mousey;
+	UINT8 mousekey;
+	boolean talkdisabled;
 } player_t;
 
 #endif

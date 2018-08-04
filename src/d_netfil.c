@@ -799,7 +799,7 @@ void Got_Filetxpak(void)
 		&& strcmp(filename, "player.dta")
 		&& strcmp(filename, "rings.dta")
 		&& strcmp(filename, "patch.dta")
-		&& strcmp(filename, "music.dta")
+		//&& strcmp(filename, "music.dta")
 		))
 		I_Error("Tried to download \"%s\"", filename);
 

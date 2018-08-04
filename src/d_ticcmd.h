@@ -63,6 +63,10 @@ typedef struct
 	INT16 angleturn; // <<16 for angle delta - saved as 1 byte into demos
 	INT16 aiming; // vertical aiming, see G_BuildTicCmd
 	UINT16 buttons;
+	/// MPC: Remember to update G_MoveTiccmd.
+	INT32 keypress;
+	INT32 mousex, mousey;
+	UINT8 mousekey;
 } ATTRPACK ticcmd_t;
 
 #if defined(_MSC_VER)

@@ -205,8 +205,9 @@ void I_InitDigMusic(void);
 void I_ShutdownDigMusic(void);
 
 boolean I_SetSongSpeed(float speed);
-
+boolean I_SetSongPitch(float speed);
 boolean I_SetSongTrack(INT32 track);
+UINT8 I_GetMusicVolume(void);
 
 /**	\brief The I_StartDigSong function
 
@@ -215,7 +216,8 @@ boolean I_SetSongTrack(INT32 track);
 
 	\return	if true, song playing
 */
-boolean I_StartDigSong(const char *musicname, boolean looping);
+#define I_StartDigSong(musicname, looping) I_FadeInDigSong(musicname, looping, 0)
+boolean I_FadeInDigSong(const char *musicname, boolean looping, UINT32 fadein_ms);
 
 /**	\brief stop non-MIDI song
 */
@@ -228,6 +230,36 @@ void I_StopDigSong(void);
 	\return	void
 */
 void I_SetDigMusicVolume(UINT8 volume);
+
+/** \brief Sets the position in the current song.
+
+    \param position How many seconds into the song to seek to
+
+    \return void
+*/
+void I_SetMusicPosition(float position);
+
+/** \brief Gets the position in the current song.
+
+    \return position value
+*/
+float I_GetMusicPosition(void);
+
+/** \brief Set music Volume
+
+    \param volume Volume to set the music to
+
+    \return void
+*/
+void I_VolumeMusic(int volume);
+
+/** \brief Fade out Music
+
+    \param ms How long the effect should last
+
+    \return void
+*/
+void I_FadeOutMusic(int ms);
 
 //
 // CD MUSIC I/O

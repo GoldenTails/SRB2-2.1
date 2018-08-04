@@ -61,12 +61,8 @@ consvar_t sndserver_arg = {"sndserver_arg", "-quiet", CV_SAVE, NULL, 0, NULL, NU
 #define SURROUND
 #endif
 
-#if defined (_WIN32_WCE) || defined (DC) || defined(GP2X)
-consvar_t cv_samplerate = {"samplerate", "11025", 0, CV_Unsigned, NULL, 11025, NULL, NULL, 0, 0, NULL}; //Alam: For easy hacking?
-#elif defined(_PSP) || defined(_WINDOWS)
+#if defined(_WINDOWS)
 consvar_t cv_samplerate = {"samplerate", "44100", 0, CV_Unsigned, NULL, 44100, NULL, NULL, 0, 0, NULL}; //Alam: For easy hacking?
-#elif defined(_WII)
-consvar_t cv_samplerate = {"samplerate", "32000", 0, CV_Unsigned, NULL, 32000, NULL, NULL, 0, 0, NULL}; //Alam: For easy hacking?
 #else
 consvar_t cv_samplerate = {"samplerate", "22050", 0, CV_Unsigned, NULL, 22050, NULL, NULL, 0, 0, NULL}; //Alam: For easy hacking?
 #endif
@@ -78,15 +74,11 @@ consvar_t stereoreverse = {"stereoreverse", "Off", CV_SAVE, CV_OnOff, NULL, 0, N
 static consvar_t precachesound = {"precachesound", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 // actual general (maximum) sound & music volume, saved into the config
-consvar_t cv_soundvolume = {"soundvolume", "31", CV_SAVE, soundvolume_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
-consvar_t cv_digmusicvolume = {"digmusicvolume", "18", CV_SAVE, soundvolume_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
-consvar_t cv_midimusicvolume = {"midimusicvolume", "18", CV_SAVE, soundvolume_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_soundvolume = {"soundvolume", "31", 0, soundvolume_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_digmusicvolume = {"digmusicvolume", "18", 0, soundvolume_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_midimusicvolume = {"midimusicvolume", "18", 0, soundvolume_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 // number of channels available
-#if defined (_WIN32_WCE) || defined (DC) || defined (PSP) || defined(GP2X)
-consvar_t cv_numChannels = {"snd_channels", "8", CV_SAVE|CV_CALL, CV_Unsigned, SetChannelsNum, 0, NULL, NULL, 0, 0, NULL};
-#else
 consvar_t cv_numChannels = {"snd_channels", "32", CV_SAVE|CV_CALL, CV_Unsigned, SetChannelsNum, 0, NULL, NULL, 0, 0, NULL};
-#endif
 
 static consvar_t surround = {"surround", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
@@ -243,27 +235,6 @@ void S_RegisterSoundStuff(void)
 #endif
 	CV_RegisterVar(&surround);
 	CV_RegisterVar(&cv_samplerate);
-
-#if defined (macintosh) && !defined (HAVE_SDL) // mp3 playlist stuff
-	{
-		INT32 i;
-		for (i = 0; i < PLAYLIST_LENGTH; i++)
-		{
-			user_songs[i].name = malloc(7);
-			if (!user_songs[i].name)
-				I_Error("No more free memory for mp3 playlist");
-			sprintf(user_songs[i].name, "song%d%d",i/10,i%10);
-			user_songs[i].defaultvalue = malloc(sizeof (char));
-			if (user_songs[i].defaultvalue)
-				I_Error("No more free memory for blank mp3 playerlist");
-			*user_songs[i].defaultvalue = 0;
-			user_songs[i].flags = CV_SAVE;
-			user_songs[i].PossibleValue = NULL;
-			CV_RegisterVar(&user_songs[i]);
-		}
-		CV_RegisterVar(&play_mode);
-	}
-#endif
 }
 
 static void SetChannelsNum(void)
@@ -299,7 +270,7 @@ static void SetChannelsNum(void)
 		channels[i].sfxinfo = 0;
 }
 
-
+//
 // Retrieve the lump number of sfx
 //
 lumpnum_t S_GetSfxLumpNum(sfxinfo_t *sfx)
@@ -591,12 +562,6 @@ void S_StartSound(const void *origin, sfxenum_t sfx_id)
 	{
 		switch (sfx_id)
 		{
-//			case sfx_altow1:
-//			case sfx_altow2:
-//			case sfx_altow3:
-//			case sfx_altow4:
-//				sfx_id = sfx_mario8;
-//				break;
 			case sfx_thok:
 				sfx_id = sfx_mario7;
 				break;
@@ -612,15 +577,6 @@ void S_StartSound(const void *origin, sfxenum_t sfx_id)
 			case sfx_itemup:
 				sfx_id = sfx_mario4;
 				break;
-//			case sfx_tink:
-//				sfx_id = sfx_mario1;
-//				break;
-//			case sfx_cgot:
-//				sfx_id = sfx_mario9;
-//				break;
-//			case sfx_lose:
-//				sfx_id = sfx_mario2;
-//				break;
 			default:
 				break;
 		}
@@ -704,17 +660,22 @@ void S_UpdateSounds(void)
 		S_SetMIDIMusicVolume (cv_midimusicvolume.value);
 
 	// We're done now, if we're not in a level.
-	if (gamestate != GS_LEVEL)
-	{
+	if (gamestate != GS_LEVEL) {
 #ifndef NOMUMBLE
 		// Stop Mumble cutting out. I'm sick of it.
 		I_UpdateMumble(NULL, listener);
 #endif
-
 		// Stop cutting FMOD out. WE'RE sick of it.
 		I_UpdateSound();
 		return;
 	}
+
+#ifdef NOCOOLTRANSITIONS
+    if (gamestate == GS_INTERMISSION && cv_showhud.value && gametype > 0) {
+        S_StopSounds();     // oh please
+        return;
+    }
+#endif // NOCOOLTRANSITIONS
 
 	if (dedicated || nosound)
 		return;
@@ -729,15 +690,12 @@ void S_UpdateSounds(void)
 			listenmobj2 = players[secondarydisplayplayer].awayviewmobj;
 	}
 
-	if (camera.chase && !players[displayplayer].awayviewtics)
-	{
+	if (camera.chase && !players[displayplayer].awayviewtics) {
 		listener.x = camera.x;
 		listener.y = camera.y;
 		listener.z = camera.z;
 		listener.angle = camera.angle;
-	}
-	else if (listenmobj)
-	{
+	} else if (listenmobj) {
 		listener.x = listenmobj->x;
 		listener.y = listenmobj->y;
 		listener.z = listenmobj->z;
@@ -757,17 +715,13 @@ void S_UpdateSounds(void)
 	}
 #endif
 
-	if (listenmobj2)
-	{
-		if (camera2.chase && !players[secondarydisplayplayer].awayviewtics)
-		{
+	if (listenmobj2) {
+		if (camera2.chase && !players[secondarydisplayplayer].awayviewtics) {
 			listener2.x = camera2.x;
 			listener2.y = camera2.y;
 			listener2.z = camera2.z;
 			listener2.angle = camera2.angle;
-		}
-		else
-		{
+		} else {
 			listener2.x = listenmobj2->x;
 			listener2.y = listenmobj2->y;
 			listener2.z = listenmobj2->z;
@@ -1227,12 +1181,12 @@ static boolean S_MIDIMusic(const char *mname, boolean looping)
 	return true;
 }
 
-static boolean S_DigMusic(const char *mname, boolean looping)
+static boolean S_DigMusicFadeIn(const char *mname, boolean looping, UINT32 fadein_ms)
 {
 	if (nodigimusic || digital_disabled)
 		return false; // try midi
 
-	if (!I_StartDigSong(mname, looping))
+	if (!I_FadeInDigSong(mname, looping, fadein_ms))
 		return false;
 
 	strncpy(music_name, mname, 7);
@@ -1243,7 +1197,7 @@ static boolean S_DigMusic(const char *mname, boolean looping)
 	return true;
 }
 
-void S_ChangeMusic(const char *mmusic, UINT16 mflags, boolean looping)
+void S_ChangeMusicFadeIn(const char *mmusic, UINT16 mflags, boolean looping, UINT32 fadein_ms, boolean noresetmusic)
 {
 #if defined (DC) || defined (_WIN32_WCE) || defined (PSP) || defined(GP2X)
 	S_ClearSfx();
@@ -1251,6 +1205,8 @@ void S_ChangeMusic(const char *mmusic, UINT16 mflags, boolean looping)
 
 	if ((nomidimusic || music_disabled) && (nodigimusic || digital_disabled))
 		return;
+
+	I_SetDigMusicVolume(cv_digmusicvolume.value);
 
 	// No Music (empty string)
 	if (mmusic[0] == 0)
@@ -1261,8 +1217,9 @@ void S_ChangeMusic(const char *mmusic, UINT16 mflags, boolean looping)
 
 	if (strncmp(music_name, mmusic, 6))
 	{
-		S_StopMusic(); // shutdown old music
-		if (!S_DigMusic(mmusic, looping) && !S_MIDIMusic(mmusic, looping))
+		if (!noresetmusic)
+			S_StopMusic(); // shutdown old music
+		if (!S_DigMusicFadeIn(mmusic, looping, fadein_ms) && !S_MIDIMusic(mmusic, looping))
 		{
 			CONS_Alert(CONS_ERROR, M_GetText("Music lump %.6s not found!\n"), mmusic);
 			return;
@@ -1271,9 +1228,37 @@ void S_ChangeMusic(const char *mmusic, UINT16 mflags, boolean looping)
 	I_SetSongTrack(mflags & MUSIC_TRACKMASK);
 }
 
+void S_SetMusicPosition(float position)
+{
+	I_SetMusicPosition(position);
+}
+
+float S_GetMusicPosition(void)
+{
+	return I_GetMusicPosition();
+}
+
+void S_MusicVolume(int volume)
+{
+	if (volume == -1)
+		return I_VolumeMusic(volume);
+	else
+		I_VolumeMusic(volume);
+}
+
+void S_FadeOutMusic(int ms)
+{
+	I_FadeOutMusic(ms);
+}
+
 boolean S_SpeedMusic(float speed)
 {
 	return I_SetSongSpeed(speed);
+}
+
+boolean S_PitchMusic(float pitch)
+{
+	return I_SetSongPitch(pitch);
 }
 
 void S_StopMusic(void)
@@ -1288,6 +1273,7 @@ void S_StopMusic(void)
 		I_StopDigSong();
 
 	S_SpeedMusic(1.0f);
+	S_PitchMusic(1.0f);
 	I_StopSong(music_handle);
 	I_UnRegisterSong(music_handle);
 
@@ -1311,6 +1297,11 @@ void S_SetDigMusicVolume(INT32 volume)
 	I_SetDigMusicVolume(31); // Trick for buggy dos drivers. Win32 doesn't need this.
 #endif
 	I_SetDigMusicVolume(volume&31);
+}
+
+UINT8 S_GetDigMusicVolume(void)
+{
+	return I_GetMusicVolume();
 }
 
 void S_SetMIDIMusicVolume(INT32 volume)
@@ -1381,6 +1372,10 @@ void S_Init(INT32 sfxVolume, INT32 digMusicVolume, INT32 midiMusicVolume)
 //
 void S_Start(void)
 {
+	// MPC 07-07-2018
+	/*if (mapheaderinfo[gamemap-1]->nomusic)
+		return;*/
+
 	if (mapmusflags & MUSIC_RELOADRESET)
 	{
 		strncpy(mapmusname, mapheaderinfo[gamemap-1]->musname, 7);
@@ -1415,6 +1410,11 @@ void S_PauseAudio(void)
 #else
 	I_StopCD();
 #endif
+}
+
+void S_SetAudioVolume(INT32 volume)
+{
+	I_SetDigMusicVolume((UINT8)volume);
 }
 
 void S_ResumeAudio(void)

@@ -579,7 +579,7 @@ void R_ExecuteSetViewSize(void)
 		return;
 
 	// status bar overlay
-	st_overlay = cv_showhud.value;
+	st_overlay = true; //cv_showhud.value;
 
 	scaledviewwidth = vid.width;
 	viewheight = vid.height;

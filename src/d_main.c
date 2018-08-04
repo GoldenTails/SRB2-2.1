@@ -840,10 +840,10 @@ static void IdentifyVersion(void)
 	// checking in D_SRB2Main
 
 	// Add the maps
-	D_AddFile(va(pandf,srb2waddir,"zones.dta"));
+	//D_AddFile(va(pandf,srb2waddir,"zones.dta"));
 
 	// Add the players
-	D_AddFile(va(pandf,srb2waddir, "player.dta"));
+	D_AddFile(va(pandf,srb2waddir,"player.dta"));
 
 	// Add the weapons
 	D_AddFile(va(pandf,srb2waddir,"rings.dta"));
@@ -853,7 +853,7 @@ static void IdentifyVersion(void)
 	D_AddFile(va(pandf,srb2waddir,"patch.dta"));
 #endif
 
-#if !defined (HAVE_SDL) || defined (HAVE_MIXER)
+/*#if !defined (HAVE_SDL) || defined (HAVE_MIXER)
 	{
 #if defined (DC) && 0
 		const char *musicfile = "music_dc.dta";
@@ -867,7 +867,9 @@ static void IdentifyVersion(void)
 		else if (ms == 0)
 			I_Error("File %s has been modified with non-music lumps",musicfile);
 	}
-#endif
+#endif*/
+
+	D_AddFile(va(pandf,srb2waddir,"jimipaint.wad"));
 }
 
 /* ======================================================================== */
@@ -967,7 +969,7 @@ void D_SRB2Main(void)
 
 	// for dedicated server
 #if !defined (_WINDOWS) //already check in win_main.c
-	dedicated = M_CheckParm("-dedicated") != 0;
+	dedicated = false; //M_CheckParm("-dedicated") != 0;
 #endif
 
 	strcpy(title, "Sonic Robo Blast 2");
@@ -1054,7 +1056,7 @@ void D_SRB2Main(void)
 
 	// add any files specified on the command line with -file wadfile
 	// to the wad list
-	if (!(M_CheckParm("-connect") && !M_CheckParm("-server")))
+	/*if (!(M_CheckParm("-connect") && !M_CheckParm("-server")))
 	{
 		if (M_CheckParm("-file"))
 		{
@@ -1072,7 +1074,7 @@ void D_SRB2Main(void)
 				}
 			}
 		}
-	}
+	}*/
 
 	// get map from parms
 
@@ -1131,12 +1133,13 @@ void D_SRB2Main(void)
 
 	// Check MD5s of autoloaded files
 	W_VerifyFileMD5(0, ASSET_HASH_SRB2_SRB); // srb2.srb/srb2.wad
-	W_VerifyFileMD5(1, ASSET_HASH_ZONES_DTA); // zones.dta
-	W_VerifyFileMD5(2, ASSET_HASH_PLAYER_DTA); // player.dta
-	W_VerifyFileMD5(3, ASSET_HASH_RINGS_DTA); // rings.dta
+	//W_VerifyFileMD5(1, ASSET_HASH_ZONES_DTA); // zones.dta
+	W_VerifyFileMD5(1, ASSET_HASH_PLAYER_DTA); // player.dta
+	W_VerifyFileMD5(2, ASSET_HASH_RINGS_DTA); // rings.dta
 #ifdef USE_PATCH_DTA
-	W_VerifyFileMD5(4, ASSET_HASH_PATCH_DTA); // patch.dta
+	W_VerifyFileMD5(3, ASSET_HASH_PATCH_DTA); // patch.dta
 #endif
+	W_VerifyFileMD5(4, ASSET_HASH_JIMIPAINT);	/// MPC
 
 	// don't check music.dta because people like to modify it, and it doesn't matter if they do
 	// ...except it does if they slip maps in there, and that's what W_VerifyNMUSlumps is for.
@@ -1370,14 +1373,9 @@ void D_SRB2Main(void)
 				D_MapChange(pstartmap, gametype, ultimatemode, true, 0, false, false);
 		}
 	}
-	else if (M_CheckParm("-skipintro"))
-	{
-		CON_ToggleOff();
-		CON_ClearHUD();
-		F_StartTitleScreen();
-	}
-	else
-		F_StartIntro(); // Tails 03-03-2002
+	CON_ToggleOff();
+	CON_ClearHUD();
+	F_StartTitleScreen();
 
 	if (dedicated && server)
 	{

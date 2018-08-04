@@ -657,7 +657,7 @@ void I_GetConsoleEvents(void)
 static void I_StartupConsole(void)
 {
 	HANDLE ci, co;
-	const INT32 ded = M_CheckParm("-dedicated");
+	const INT32 ded = 0; //M_CheckParm("-dedicated");
 #ifdef SDLMAIN
 	BOOL gotConsole = FALSE;
 	if (M_CheckParm("-console") || ded)

@@ -19,8 +19,9 @@
 #include "command.h"
 #include "tables.h" // angle_t
 
-// mask used to indicate sound origin is player item pickup
-#define PICKUP_SOUND 0x8000
+#ifdef HAVE_OPENMPT
+#include "libopenmpt/libopenmpt.h"
+#endif
 
 extern consvar_t stereoreverse;
 extern consvar_t cv_soundvolume, cv_digmusicvolume, cv_midimusicvolume;
@@ -36,6 +37,11 @@ extern consvar_t musserver_cmd, musserver_arg;
 extern CV_PossibleValue_t soundvolume_cons_t[];
 //part of i_cdmus.c
 extern consvar_t cd_volume, cdUpdate;
+
+/// MPC 28-07-2018
+#ifdef HAVE_OPENMPT
+extern openmpt_module *current_module;
+#endif
 
 #if defined (macintosh) && !defined (HAVE_SDL)
 typedef enum
@@ -101,11 +107,43 @@ void S_StopSound(void *origin);
 // note: music flags 12 bits for tracknum (gme, other formats with more than one track)
 //       13-15 aren't used yet
 //       and the last bit we ignore (internal game flag for resetting music on reload)
-#define S_ChangeMusicInternal(a,b) S_ChangeMusic(a,0,b)
-void S_ChangeMusic(const char *mmusic, UINT16 mflags, boolean looping);
+#define S_ChangeMusicInternal(a,b) S_ChangeMusicFadeIn(a,0,b,0,false)
+#define S_ChangeMusicInternalNoReset(a,b) S_ChangeMusicFadeIn(a,0,b,0,true)
+#define S_ChangeMusic(mmusic,mflags,looping) S_ChangeMusicFadeIn(mmusic,mflags,looping,0,false)
+void S_ChangeMusicFadeIn(const char *mmusic, UINT16 mflags, boolean looping, UINT32 fadein_ms, boolean noresetmusic);
 
-// Set Speed of Music
+
+
+//miru: Let's open and add some music functions in SDL,
+//PositionMusic and GetMusicPosition aka SetMusicPosition
+//(because I'm not allowed to name it to not be as sloppily named the way it is)
+
+// Seek to a point in the current song
+void S_SetMusicPosition(float position);
+
+// Get the current music position
+float S_GetMusicPosition(void);
+
+// Fade in over milliseconds of time
+void S_FadeInMusic(int ms);
+
+// Fade in over ms milliseconds of time, at position
+void S_FadeInMusicPos(int ms, float position);
+
+// Set the volume, to volume
+void S_MusicVolume(int volume);
+
+// Gradually fade out the music over time starting from now
+void S_FadeOutMusic(int ms);
+
+extern double music_pos;
+extern long music_pos_time;
+
+// Set music speed
 boolean S_SpeedMusic(float speed);
+
+// Set music pitch
+boolean S_PitchMusic(float pitch);
 
 // Stops the music.
 void S_StopMusic(void);
@@ -122,8 +160,11 @@ void S_UpdateSounds(void);
 FUNCMATH fixed_t S_CalculateSoundDistance(fixed_t px1, fixed_t py1, fixed_t pz1, fixed_t px2, fixed_t py2, fixed_t pz2);
 
 void S_SetDigMusicVolume(INT32 volume);
+UINT8 S_GetDigMusicVolume(void);
 void S_SetMIDIMusicVolume(INT32 volume);
 void S_SetSfxVolume(INT32 volume);
+/// MPC
+void S_SetAudioVolume(INT32 volume);
 
 INT32 S_OriginPlaying(void *origin);
 INT32 S_IdPlaying(sfxenum_t id);
