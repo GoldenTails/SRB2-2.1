@@ -672,8 +672,11 @@ void D_RegisterClientCommands(void)
 	COM_AddCommand("restartaudio", Command_RestartAudio_f);
 	CV_RegisterVar(&cv_resetmusic);
 
-	// FIXME: not to be here.. but needs be done for config loading
+	/// MPC 06-08-2018
 	CV_RegisterVar(&cv_usegamma);
+	CV_RegisterVar(&cv_redgamma);
+	CV_RegisterVar(&cv_greengamma);
+	CV_RegisterVar(&cv_bluegamma);
 
 	// m_menu.c
 	CV_RegisterVar(&cv_crosshair);

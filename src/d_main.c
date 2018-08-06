@@ -1129,23 +1129,19 @@ void D_SRB2Main(void)
 #endif
 	D_CleanFile();
 
-#ifndef DEVELOP // md5s last updated 12/14/14
-
+#ifndef DEVELOP
 	// Check MD5s of autoloaded files
-	W_VerifyFileMD5(0, ASSET_HASH_SRB2_SRB); // srb2.srb/srb2.wad
-	//W_VerifyFileMD5(1, ASSET_HASH_ZONES_DTA); // zones.dta
+	W_VerifyFileMD5(0, ASSET_HASH_SRB2_SRB); // srb2.srb
 	W_VerifyFileMD5(1, ASSET_HASH_PLAYER_DTA); // player.dta
 	W_VerifyFileMD5(2, ASSET_HASH_RINGS_DTA); // rings.dta
 #ifdef USE_PATCH_DTA
 	W_VerifyFileMD5(3, ASSET_HASH_PATCH_DTA); // patch.dta
 #endif
 	W_VerifyFileMD5(4, ASSET_HASH_JIMIPAINT);	/// MPC
-
-	// don't check music.dta because people like to modify it, and it doesn't matter if they do
-	// ...except it does if they slip maps in there, and that's what W_VerifyNMUSlumps is for.
 #endif //ifndef DEVELOP
 
 	mainwads = 4; // there are 4 wads not to unload
+
 #ifdef USE_PATCH_DTA
 	++mainwads; // patch.dta adds one more
 #endif

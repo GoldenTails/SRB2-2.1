@@ -33,6 +33,8 @@
 #include "hardware/hw_glob.h"
 #endif
 
+#define clip(x,y) (x>y) ? y : x
+
 // Each screen is [vid.width*vid.height];
 UINT8 *screens[5];
 // screens[0] = main display window
@@ -44,9 +46,13 @@ UINT8 *screens[5];
 static CV_PossibleValue_t gamma_cons_t[] = {{0, "MIN"}, {4, "MAX"}, {0, NULL}};
 static void CV_usegamma_OnChange(void);
 
-consvar_t cv_ticrate = {"showfps", "No", 0, CV_YesNo, NULL, 0, NULL, NULL, 0, 0, NULL};
+/// MPC
 consvar_t cv_usegamma = {"gamma", "0", CV_SAVE|CV_CALL, gamma_cons_t, CV_usegamma_OnChange, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_redgamma = {"redgamma", "0", CV_SAVE|CV_CALL, gamma_cons_t, CV_usegamma_OnChange, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_greengamma = {"greengamma", "0", CV_SAVE|CV_CALL, gamma_cons_t, CV_usegamma_OnChange, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_bluegamma = {"bluegamma", "0", CV_SAVE|CV_CALL, gamma_cons_t, CV_usegamma_OnChange, 0, NULL, NULL, 0, 0, NULL};
 
+consvar_t cv_ticrate = {"showfps", "No", 0, CV_YesNo, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_allcaps = {"allcaps", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 static CV_PossibleValue_t constextsize_cons_t[] = {
@@ -176,7 +182,10 @@ RGBA_t *pLocalPalette = NULL;
 // keep a copy of the palette so that we can get the RGB value for a color index at any time.
 static void LoadPalette(const char *lumpname)
 {
-	const UINT8 *usegamma = gammatable[cv_usegamma.value];
+	const UINT8 *redgamma = gammatable[clip(cv_usegamma.value+cv_redgamma.value,4)];
+	const UINT8 *greengamma = gammatable[clip(cv_usegamma.value+cv_greengamma.value,4)];
+	const UINT8 *bluegamma = gammatable[clip(cv_usegamma.value+cv_bluegamma.value,4)];
+
 	lumpnum_t lumpnum = W_GetNumForName(lumpname);
 	size_t i, palsize = W_LumpLength(lumpnum)/3;
 	UINT8 *pal;
@@ -188,9 +197,9 @@ static void LoadPalette(const char *lumpname)
 	pal = W_CacheLumpNum(lumpnum, PU_CACHE);
 	for (i = 0; i < palsize; i++)
 	{
-		pLocalPalette[i].s.red = usegamma[*pal++];
-		pLocalPalette[i].s.green = usegamma[*pal++];
-		pLocalPalette[i].s.blue = usegamma[*pal++];
+		pLocalPalette[i].s.red = redgamma[*pal++];
+		pLocalPalette[i].s.green = greengamma[*pal++];
+		pLocalPalette[i].s.blue = bluegamma[*pal++];
 		pLocalPalette[i].s.alpha = 0xFF;
 	}
 }
@@ -847,18 +856,15 @@ void V_DrawFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 	c &= 255;
 
 	if (!alphalevel) {
-        for (;(--h >= 0) && dest < deststop; dest += vid.width)
-            memset(dest, (UINT8)(c&255), w * vid.bpp);
+		for (;(--h >= 0) && dest < deststop; dest += vid.width)
+			memset(dest, (UINT8)(c&255), w * vid.bpp);
 	} else {        // mpc 12-04-2018
-        const UINT8 *fadetable = ((UINT8 *)transtables + ((alphalevel-1)<<FF_TRANSSHIFT) + (c*256));
-        #define clip(x,y) (x>y) ? y : x
-        w = clip(w,vid.width);
-        h = clip(h,vid.height);
-        for (v = 0; v < h; v++, dest += vid.width) {
-            for (u = 0; u < w; u++) {
-                dest[u] = fadetable[dest[u]];
-            }
-        }
+		const UINT8 *fadetable = ((UINT8 *)transtables + ((alphalevel-1)<<FF_TRANSSHIFT) + (c*256));
+		w = clip(w,vid.width);
+		h = clip(h,vid.height);
+		for (v = 0; v < h; v++, dest += vid.width)
+			for (u = 0; u < w; u++)
+				dest[u] = fadetable[dest[u]];
 	}
 }
 

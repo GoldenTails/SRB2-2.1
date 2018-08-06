@@ -1708,6 +1708,10 @@ boolean G_Responder(event_t *ev)
 	/// Mouse events.
 	if (ev->type == ev_mousemove) {
 		if (ev->data1 || ev->data2) {
+			if (vid.dupx == 1) {
+				ev->data1 *= 2;
+				ev->data2 *= 2;
+			}
 			players[consoleplayer].mousex = ev->data1;
 			players[consoleplayer].mousey = ev->data2;
 		} else if (ev->data3) {

@@ -149,10 +149,10 @@ extern FILE *logstream;
 // most interface strings are ignored in development mode.
 // we use comprevision and compbranch instead.
 #else
-#define VERSION    108 // Game version
+#define VERSION    109 // Game version
 #define SUBVERSION 0  // more precise version number
-#define VERSIONSTRING "JimiPaint r1"
-#define VERSIONSTRINGW L"JimiPaint r1"
+#define VERSIONSTRING "JimiPaint r2"
+#define VERSIONSTRINGW L"JimiPaint r2"
 // Hey! If you change this, add 1 to the MODVERSION below!
 // Otherwise we can't force updates!
 #endif

@@ -1155,10 +1155,17 @@ static menuitem_t OP_VideoOptionsMenu[] =
 #endif
 
 	{IT_STRING | IT_CVAR | IT_CV_SLIDER,
-	                         NULL, "Brightness",          &cv_usegamma,      40},
+	                         NULL, "Brightness",          &cv_usegamma,      50},
 
-	{IT_STRING | IT_CVAR,    NULL, "Show FPS",            &cv_ticrate,    60},
-	{IT_STRING | IT_CVAR,    NULL, "Vertical Sync",       &cv_vidwait,    70},
+	{IT_STRING | IT_CVAR | IT_CV_SLIDER,
+	                         NULL, "Red Gamma",           &cv_redgamma,      60},
+	{IT_STRING | IT_CVAR | IT_CV_SLIDER,
+	                         NULL, "Green Gamma",         &cv_greengamma,    70},
+	{IT_STRING | IT_CVAR | IT_CV_SLIDER,
+	                         NULL, "Blue Gamma",          &cv_bluegamma,     80},
+
+	{IT_STRING | IT_CVAR,    NULL, "Show FPS",            &cv_ticrate,    100},
+	{IT_STRING | IT_CVAR,    NULL, "Vertical Sync",       &cv_vidwait,    110},
 
 	/*{IT_STRING | IT_CVAR,    NULL, "Draw Distance",       &cv_drawdist, 60},
 	{IT_STRING | IT_CVAR,    NULL, "NiGHTS Draw Dist",    &cv_drawdist_nights, 70},
@@ -7202,7 +7209,7 @@ static void M_DrawVideoMode(void)
 		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 138,
 			V_GREENMAP, "Green modes are recommended.");
 		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 150,
-			V_REDMAP, "Other modes will offset your cursor.");
+			V_REDMAP, "Other modes may be incompatible.");
 		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 158,
 			V_REDMAP, "Use at own risk.");
 	}
