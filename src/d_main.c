@@ -305,7 +305,7 @@ static void D_Display(void)
 				F_WipeStartScreen();
 				V_DrawFill(0, 0, BASEVIDWIDTH, BASEVIDHEIGHT, 31);
 				F_WipeEndScreen();
-				F_RunWipe(wipedefs[wipedefindex], gamestate != GS_TIMEATTACK);
+				F_RunWipe(wipedefs[wipedefindex], (gamestate != GS_TIMEATTACK && !serverconnlist));
 			}
 
 			F_WipeStartScreen();
@@ -480,7 +480,7 @@ static void D_Display(void)
 		if (rendermode != render_none)
 		{
 			F_WipeEndScreen();
-			F_RunWipe(wipedefs[wipedefindex], gamestate != GS_TIMEATTACK);
+			F_RunWipe(wipedefs[wipedefindex], (gamestate != GS_TIMEATTACK && !serverconnlist));
 		}
 	}
 

@@ -798,7 +798,7 @@ void D_RegisterClientCommands(void)
   * \sa CleanupPlayerName, SetPlayerName, Got_NameAndColor
   * \author Graue <graue@oceanbase.org>
   */
-static boolean IsNameGood(char *name, INT32 playernum)
+boolean IsNameGood(char *name, INT32 playernum)
 {
 	INT32 ix;
 
@@ -985,7 +985,7 @@ static void SetPlayerName(INT32 playernum, char *newname)
 		if (strcasecmp(newname, player_names[playernum]) != 0)
 		{
 			if (netgame)
-				CONS_Printf(M_GetText("%s renamed to %s\n"),
+				CONS_Printf(M_GetText("\x82%s\x80 renamed to \x82%s\x80\n"),
 					player_names[playernum], newname);
 			strcpy(player_names[playernum], newname);
 		}

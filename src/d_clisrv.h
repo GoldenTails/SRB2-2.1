@@ -306,6 +306,7 @@ typedef struct
 	UINT8 subversion; // Contains build version
 	UINT8 localplayers;
 	UINT8 mode;
+	//char playername[MAXPLAYERNAME];
 } ATTRPACK clientconfig_pak;
 
 #define MAXSERVERNAME 32
@@ -469,7 +470,7 @@ void D_ClientServerInit(void);
 // Initialise the other field
 void RegisterNetXCmd(netxcmd_t id, void (*cmd_f)(UINT8 **p, INT32 playernum));
 void SendNetXCmd(netxcmd_t id, const void *param, size_t nparam);
-void SendNetXCmd2(netxcmd_t id, const void *param, size_t nparam); // splitsreen player
+void SendNetXCmd2(netxcmd_t id, const void *param, size_t nparam); // splitscreen player
 
 // Create any new ticcmds and broadcast to other players.
 void NetUpdate(void);
@@ -484,20 +485,16 @@ void CL_RemoveSplitscreenPlayer(void);
 void CL_Reset(void);
 void CL_ClearPlayer(INT32 playernum);
 void CL_UpdateServerList(boolean internetsearch, INT32 room);
-// Is there a game running
+void CL_SendAskInfo(void);
+// Is there a game running?
 boolean Playing(void);
 
 // Broadcasts special packets to other players
 //  to notify of game exit
 void D_QuitNetGame(void);
 
-//? How many ticks to run?
+// How many tics to run?
 void TryRunTics(tic_t realtic);
-
-// extra data for lmps
-// these functions scare me. they contain magic.
-/*boolean AddLmpExtradata(UINT8 **demo_p, INT32 playernum);
-void ReadLmpExtraData(UINT8 **demo_pointer, INT32 playernum);*/
 
 #ifndef NONET
 // translate a playername in a player number return -1 if not found and
@@ -515,4 +512,41 @@ tic_t GetLag(INT32 node);
 UINT8 GetFreeXCmdSize(void);
 
 extern UINT8 hu_resynching;
+
+extern INT32 server_to_connect;
+extern char serverconnname[255];
+
+extern boolean serverconnlist;
+extern boolean quittingserverconnlist;
+extern boolean display_server_info;
+
+typedef struct
+{
+	UINT8 maxplayers;
+	UINT8 gametype;
+	UINT8 modifiedgame;
+	UINT8 cheatsenabled;
+	UINT8 isdedicated;
+	char servername[MAXSERVERNAME];
+	char maptitle[33];
+	UINT8 actnum;
+	UINT8 iszone;
+} serverconnectioninfo_t;
+extern serverconnectioninfo_t serverconnectioninfo;
+
+typedef struct
+{
+	boolean exists;
+	char name[MAXPLAYERNAME+1];
+	INT32 score;
+	INT32 skin;
+	INT32 color;
+	INT32 team;
+	boolean spectator;
+	boolean tagit;
+	boolean gotflag;
+	boolean superon;
+	boolean unknownskin;
+} serverplayerinfo_t;
+extern serverplayerinfo_t serverplayerinfo[MAXPLAYERS];
 #endif
