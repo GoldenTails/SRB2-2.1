@@ -306,7 +306,6 @@ typedef struct
 	UINT8 subversion; // Contains build version
 	UINT8 localplayers;
 	UINT8 mode;
-	//char playername[MAXPLAYERNAME];
 } ATTRPACK clientconfig_pak;
 
 #define MAXSERVERNAME 32

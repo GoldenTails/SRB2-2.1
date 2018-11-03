@@ -99,7 +99,6 @@ boolean nodeingame[MAXNETNODES]; // set false as nodes leave game
 static tic_t nettics[MAXNETNODES]; // what tic the client have received
 static tic_t supposedtics[MAXNETNODES]; // nettics prevision for smaller packet
 static UINT8 nodewaiting[MAXNETNODES];
-//static char nodenames[MAXNETNODES][MAXPLAYERNAME];
 static tic_t firstticstosend; // min of the nettics
 static tic_t tictoclear = 0; // optimize d_clearticcmd
 static tic_t maketic;
@@ -1178,7 +1177,6 @@ static boolean CL_SendJoin(void)
 	netbuffer->u.clientcfg.localplayers = localplayers;
 	netbuffer->u.clientcfg.version = VERSION;
 	netbuffer->u.clientcfg.subversion = SUBVERSION;
-	//strcpy(netbuffer->u.clientcfg.playername, cv_playername.zstring);
 
 	return HSendPacket(servernode, true, 0, sizeof (clientconfig_pak));
 }
@@ -3050,10 +3048,6 @@ static void Got_AddPlayer(UINT8 **p, INT32 playernum)
 	INT16 node, newplayernum;
 	boolean splitscreenplayer;
 
-	/// JimitaMPC
-	UINT8 xd = 0;
-	char playername[MAXPLAYERNAME+1];
-
 	if (playernum != serverplayer && playernum != adminplayer)
 	{
 		// protect against hacked/buggy client
@@ -3074,30 +3068,6 @@ static void Got_AddPlayer(UINT8 **p, INT32 playernum)
 	splitscreenplayer = newplayernum & 0x80;
 	newplayernum &= ~0x80;
 
-	/// JimitaMPC
-	strcpy(playername, va("Player %d", newplayernum+1));
-	if ((xd = READUINT8(*p)) == 0x2A)
-	{
-		READSTRINGN(*p, playername, MAXPLAYERNAME);
-		if (!splitscreen)
-		{
-			if (IsNameGood(playername, newplayernum))
-				strcpy(player_names[newplayernum], playername);
-			else	/// Give up
-			{
-				CONS_Printf(M_GetText("Player %d sent a bad name change\n"), playernum+1);
-				if (server && netgame)
-				{
-					XBOXSTATIC UINT8 buf[2];
-
-					buf[0] = (UINT8)playernum;
-					buf[1] = KICK_MSG_CON_FAIL;
-					SendNetXCmd(XD_KICK, &buf, 2);
-				}
-			}
-		}
-	}
-
 	// Clear player before joining, lest some things get set incorrectly
 	// HACK: don't do this for splitscreen, it relies on preset values
 	if (!splitscreen && !botingame)
@@ -3107,21 +3077,16 @@ static void Got_AddPlayer(UINT8 **p, INT32 playernum)
 	if (newplayernum+1 > doomcom->numslots)
 		doomcom->numslots = (INT16)(newplayernum+1);
 
-	/// JimitaMPC
 	if (netgame)
 	{
-		CONS_Printf(M_GetText("\x82%s\x80"), playername);
-		CONS_Printf(M_GetText(" has joined the game (player %d, node %d"), newplayernum+1, node);
-
+		CONS_Printf(M_GetText("Player %d has joined the game (node %d"), newplayernum+1, node);
 		if (server && cv_showjoinaddress.value)
 		{
 			const char *address;
 			if (I_GetNodeAddress && (address = I_GetNodeAddress(node)) != NULL)
 				CONS_Printf(M_GetText(", %s"), address);
 		}
-
 		CONS_Printf(M_GetText(")\n"));
-
 		S_StartSound(NULL, sfx_radio);
 	}
 
@@ -3170,8 +3135,8 @@ static void Got_AddPlayer(UINT8 **p, INT32 playernum)
 static boolean SV_AddWaitingPlayers(void)
 {
 	INT32 node, n, newplayer = false;
+	XBOXSTATIC UINT8 buf[2];
 	UINT8 newplayernum = 0;
-	UINT8 thisplayernum = 0;
 
 	// What is the reason for this? Why can't newplayernum always be 0?
 	if (dedicated)
@@ -3253,28 +3218,18 @@ static boolean SV_AddWaitingPlayers(void)
 
 			playernode[newplayernum] = (UINT8)node;
 
-			thisplayernum = newplayernum;
+			buf[0] = (UINT8)node;
+			buf[1] = newplayernum;
 			if (playerpernode[node] < 1)
 				nodetoplayer[node] = newplayernum;
 			else
 			{
 				nodetoplayer2[node] = newplayernum;
-				thisplayernum |= 0x80;
+				buf[1] |= 0x80;
 			}
 			playerpernode[node]++;
 
-			{
-				XBOXSTATIC UINT8 buf[2];
-				UINT8 *p = buf;
-
-				WRITEUINT8  (p, (UINT8)node);
-				WRITEUINT8  (p, (UINT8)thisplayernum);
-
-				//WRITEUINT8  (p, 0x2A);
-				//WRITESTRINGN(p, nodenames[node], MAXPLAYERNAME);
-
-				SendNetXCmd(XD_ADDPLAYER, buf, p - buf);
-			}
+			SendNetXCmd(XD_ADDPLAYER, &buf, 2);
 
 			DEBFILE(va("Server added player %d node %d\n", newplayernum, node));
 			// use the next free slot (we can't put playeringame[newplayernum] = true here)
@@ -3429,7 +3384,6 @@ static void HandleConnect(SINT8 node)
 
 		// client authorized to join
 		nodewaiting[node] = (UINT8)(netbuffer->u.clientcfg.localplayers - playerpernode[node]);
-		//strcpy(nodenames[node], netbuffer->u.clientcfg.playername);
 		if (!nodeingame[node])
 		{
 			gamestate_t backupstate = gamestate;
