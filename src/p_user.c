@@ -7779,6 +7779,9 @@ consvar_t cv_cam_still = {"cam_still", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 
 consvar_t cv_cam_speed = {"cam_speed", "0.25", CV_FLOAT, CV_CamSpeed, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_cam_rotate = {"cam_rotate", "0", CV_CALL|CV_NOINIT, CV_CamRotate, CV_CamRotate_OnChange, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_cam_rotspeed = {"cam_rotspeed", "10", 0, rotation_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+consvar_t cv_cam_orbital = {"cam_orbital", "On", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
 consvar_t cv_cam2_dist = {"cam2_dist", "128", CV_FLOAT, NULL, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_cam2_height = {"cam2_height", "20", CV_FLOAT, NULL, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_cam2_still = {"cam2_still", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -8051,8 +8054,13 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 	if (checkdist < 128*FRACUNIT)
 		checkdist = 128*FRACUNIT;
 
-	x = mo->x - FixedMul(FINECOSINE((angle>>ANGLETOFINESHIFT) & FINEMASK), dist);
-	y = mo->y - FixedMul(FINESINE((angle>>ANGLETOFINESHIFT) & FINEMASK), dist);
+	if (cv_cam_orbital.value) {
+		x = mo->x - FixedMul(FINECOSINE((angle>>ANGLETOFINESHIFT) & FINEMASK), FixedMul(FINECOSINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist));
+		y = mo->y - FixedMul(FINESINE((angle>>ANGLETOFINESHIFT) & FINEMASK), FixedMul(FINECOSINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist));
+	} else {
+		x = mo->x - FixedMul(FINECOSINE((angle>>ANGLETOFINESHIFT) & FINEMASK), dist);
+		y = mo->y - FixedMul(FINESINE((angle>>ANGLETOFINESHIFT) & FINEMASK), dist);
+	}
 
 #if 0
 	if (twodlevel || (mo->flags2 & MF2_TWOD))
@@ -8088,10 +8096,17 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 
 	pviewheight = FixedMul(cv_viewheight.value<<FRACBITS, mo->scale);
 
-	if (mo->eflags & MFE_VERTICALFLIP)
-		z = mo->z + mo->height - pviewheight - camheight;
-	else
-		z = mo->z + pviewheight + camheight;
+	if (mo->eflags & MFE_VERTICALFLIP) {
+		if (cv_cam_orbital.value)
+			z = mo->z + mo->height - pviewheight - camheight - FixedMul(FINESINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist);
+		else
+			z = mo->z + mo->height - pviewheight - camheight;
+	} else {
+		if (cv_cam_orbital.value)
+			z = mo->z + pviewheight + camheight - FixedMul(FINESINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist);
+		else
+			z = mo->z + pviewheight + camheight;
+	}
 
 	// move camera down to move under lower ceilings
 	newsubsec = R_IsPointInSubsector(((mo->x>>FRACBITS) + (thiscam->x>>FRACBITS))<<(FRACBITS-1), ((mo->y>>FRACBITS) + (thiscam->y>>FRACBITS))<<(FRACBITS-1));
