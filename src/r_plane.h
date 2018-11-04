@@ -84,10 +84,8 @@ extern fixed_t basexscale, baseyscale;
 
 extern lighttable_t **planezlight;
 
-#define YSLOPESIZE 2048
-
 extern fixed_t *yslope;
-extern fixed_t yslopetab[YSLOPESIZE][MAXVIDHEIGHT];
+extern fixed_t yslopetab[MAXVIDHEIGHT*8];
 extern fixed_t distscale[MAXVIDWIDTH];
 
 void R_SetupPlanes(void);

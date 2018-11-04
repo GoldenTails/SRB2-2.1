@@ -80,7 +80,7 @@ lighttable_t **planezlight;
 static fixed_t planeheight;
 
 fixed_t *yslope;
-fixed_t yslopetab[YSLOPESIZE][MAXVIDHEIGHT];
+fixed_t yslopetab[MAXVIDHEIGHT*8];
 fixed_t distscale[MAXVIDWIDTH];
 fixed_t basexscale, baseyscale;
 
@@ -94,6 +94,7 @@ static fixed_t xoffs, yoffs;
 //
 // R_SetupPlanes
 //
+#define AIMINGTODY(a) ((FINETANGENT((2048+(((INT32)a)>>ANGLETOFINESHIFT)) & FINEMASK)*160)>>FRACBITS)
 void R_SetupPlanes(void)
 {
 	fixed_t dy;
@@ -108,12 +109,8 @@ void R_SetupPlanes(void)
 	if (rendermode != render_soft)
 		return;
 
-	// MPC
-	dy >>= FRACBITS;
-	if (dy < 0)
-		yslope = yslopetab[(-dy)+YSLOPESIZE/2];
-	else
-		yslope = yslopetab[dy];
+	dy = AIMINGTODY(aimingangle) * viewwidth/BASEVIDWIDTH;
+	yslope = &yslopetab[(3*viewheight/2) - dy];
 }
 
 // R_PortalStoreClipValues

@@ -454,11 +454,6 @@ static void R_InitTextureMapping(void)
 
 	clipangle = xtoviewangle[0];
 	doubleclipangle = clipangle*2;
-
-	// MPC
-	for (t = 0; t < YSLOPESIZE; t++)
-		for (i = 0; i < viewheight; i++)
-			yslopetab[t][i] = FixedDiv(aspectx<<FRACBITS, abs(((i-((viewheight/2)+(t > YSLOPESIZE/2 ? -t+(YSLOPESIZE/2) : t)))<<FRACBITS) + FRACUNIT/2)); //SLOPETAB;
 }
 
 //
@@ -520,7 +515,7 @@ void R_SetViewSize(void)
 void R_ExecuteSetViewSize(void)
 {
 	fixed_t cosadj;
-	INT32 i, j;
+	INT32 i, j, dy;
 	INT32 level;
 	INT32 startmapl;
 
@@ -566,6 +561,18 @@ void R_ExecuteSetViewSize(void)
 	aspectx = centerx;
 	if (cv_stretchview.value)
 		aspectx = (((vid.height*centerx*BASEVIDWIDTH)/BASEVIDHEIGHT)/vid.width);
+
+	if (rendermode == render_soft)
+	{
+		// this is only used for planes rendering in software mode
+		j = viewheight*8;
+		for (i = 0; i < j; i++)
+		{
+			dy = ((i - viewheight*2)<<FRACBITS) + FRACUNIT/2;
+			dy = abs(dy);
+			yslopetab[i] = FixedDiv(aspectx*FRACUNIT, dy);
+		}
+	}
 
 	for (i = 0; i < viewwidth; i++)
 	{
