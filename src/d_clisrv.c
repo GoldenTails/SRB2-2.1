@@ -130,6 +130,16 @@ SINT8 servernode = 0; // the number of the server node
 /// \todo WORK!
 boolean acceptnewnode = true;
 
+INT32 server_to_connect = 0;
+char serverconnname[255];
+
+boolean serverconnlist = false;
+boolean quittingserverconnlist = false;
+boolean display_server_info = false;
+
+serverconnectioninfo_t serverconnectioninfo;
+serverplayerinfo_t serverplayerinfo[MAXPLAYERS];
+
 // engine
 
 // Must be a power of two
@@ -441,58 +451,6 @@ void D_ResetTiccmds(void)
 
 // -----------------------------------------------------------------
 // end of extra data function
-// -----------------------------------------------------------------
-
-// -----------------------------------------------------------------
-// extra data function for lmps
-// -----------------------------------------------------------------
-
-// if extradatabit is set, after the ziped tic you find this:
-//
-//   type   |  description
-// ---------+--------------
-//   byte   | size of the extradata
-//   byte   | the extradata (xd) bits: see XD_...
-//            with this byte you know what parameter folow
-// if (xd & XDNAMEANDCOLOR)
-//   byte   | color
-//   char[MAXPLAYERNAME] | name of the player
-// endif
-// if (xd & XD_WEAPON_PREF)
-//   byte   | original weapon switch: boolean, true if use the old
-//          | weapon switch methode
-//   char[NUMWEAPONS] | the weapon switch priority
-//   byte   | autoaim: true if use the old autoaim system
-// endif
-/*boolean AddLmpExtradata(UINT8 **demo_point, INT32 playernum)
-{
-	UINT8 *textcmd = D_GetExistingTextcmd(gametic, playernum);
-
-	if (!textcmd)
-		return false;
-
-	M_Memcpy(*demo_point, textcmd, textcmd[0]+1);
-	*demo_point += textcmd[0]+1;
-	return true;
-}
-
-void ReadLmpExtraData(UINT8 **demo_pointer, INT32 playernum)
-{
-	UINT8 nextra;
-	UINT8 *textcmd;
-
-	if (!demo_pointer)
-		return;
-
-	textcmd = D_GetTextcmd(gametic, playernum);
-	nextra = **demo_pointer;
-	M_Memcpy(textcmd, *demo_pointer, nextra + 1);
-	// increment demo pointer
-	*demo_pointer += nextra + 1;
-}*/
-
-// -----------------------------------------------------------------
-// end extra data function for lmps
 // -----------------------------------------------------------------
 
 // -----------------------------------------------------------------
@@ -1146,7 +1104,7 @@ static inline void CL_DrawConnectionStatus(void)
 				cltext = M_GetText("Requesting to join...");
 				break;
 			default:
-				cltext = M_GetText("Connecting to server...");
+				cltext = M_GetText("Connecting to the server...");
 				break;
 		}
 		V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-24-32, V_YELLOWMAP, cltext);
@@ -1674,6 +1632,7 @@ static void SL_InsertServer(serverinfo_pak* info, SINT8 node)
 	M_SortServerList();
 }
 
+static const msg_server_t *server_list;
 void CL_UpdateServerList(boolean internetsearch, INT32 room)
 {
 	SL_ClearServerList(0);
@@ -1694,7 +1653,6 @@ void CL_UpdateServerList(boolean internetsearch, INT32 room)
 
 	if (internetsearch)
 	{
-		const msg_server_t *server_list;
 		INT32 i = -1;
 		server_list = GetShortServersList(room);
 		if (server_list)
@@ -1729,8 +1687,50 @@ void CL_UpdateServerList(boolean internetsearch, INT32 room)
 		}
 	}
 }
-
 #endif // ifndef NONET
+
+void CL_SendAskInfo(void)
+{
+#ifndef NONET
+	boolean found_server = false;
+	INT32 i = -1;
+	if (server_list)
+	{
+		char version[8] = "";
+#if VERSION > 0 || SUBVERSION > 0
+		snprintf(version, sizeof (version), "%d.%d.%d", VERSION/100, VERSION%100, SUBVERSION);
+#else
+		strcpy(version, GetRevisionString());
+#endif
+		version[sizeof (version) - 1] = '\0';
+
+		for (i = 0; server_list[i].header.buffer[0]; i++)
+		{
+			// Make sure MS version matches our own, to
+			// thwart nefarious servers who lie to the MS.
+			if (strcmp(version, server_list[i].version) == 0)
+			{
+				INT32 node = I_NetMakeNodewPort(server_list[i].ip, server_list[i].port);
+				if (node == -1)
+					break; // no more node free
+				if (!strcmp(server_list[i].name, serverconnname))
+				{
+					SendAskInfo(node, true);
+					found_server = true;
+					break;
+				}
+			}
+		}
+	}
+	if (!found_server)
+	{
+		D_QuitNetGame();
+		CL_Reset();
+		D_StartTitle();
+		M_StartMessage(M_GetText("Could not contact the server\n\nPress ESC\n"), NULL, MM_NOTHING);
+	}
+#endif // NONET
+}
 
 /** Called by CL_ServerConnectionTicker
   *
@@ -1775,8 +1775,7 @@ static boolean CL_ServerConnectionSearchTicker(boolean viams, tic_t *asksent)
 
 		if (client)
 		{
-			D_ParseFileneeded(serverlist[i].info.fileneedednum,
-				serverlist[i].info.fileneeded);
+			D_ParseFileneeded(serverlist[i].info.fileneedednum, serverlist[i].info.fileneeded);
 			CONS_Printf(M_GetText("Checking files...\n"));
 			i = CL_CheckFiles();
 			if (i == 3) // too many files
@@ -1946,18 +1945,16 @@ static boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic
 		key = I_GetKey();
 		if (key == KEY_ESCAPE)
 		{
-			CONS_Printf(M_GetText("Network game synchronization aborted.\n"));
-//				M_StartMessage(M_GetText("Network game synchronization aborted.\n\nPress ESC\n"), NULL, MM_NOTHING);
+			serverconnlist = false;
+			quittingserverconnlist = false;
+			M_ClearMenus(false);
+			M_StartMessage(M_GetText("Network game synchronization aborted.\n\nPress ESC\n"), NULL, MM_NOTHING);
 			D_QuitNetGame();
 			CL_Reset();
 			D_StartTitle();
 			return false;
 		}
 
-		// why are these here? this is for servers, we're a client
-		//if (key == 's' && server)
-		//	doomcom->numnodes = (INT16)pnumnodes;
-		//SV_FileSendTicker();
 		*oldtic = I_GetTime();
 
 #ifdef CLIENT_LOADINGSCREEN
@@ -2035,7 +2032,7 @@ static void CL_ConnectToServer(boolean viams)
 
 	i = SL_SearchServer(servernode);
 
-	if (i != -1)
+	if (i != -1 && netgame)
 	{
 		INT32 j;
 		const char *gametypestr = NULL;
@@ -2050,8 +2047,7 @@ static void CL_ConnectToServer(boolean viams)
 		}
 		if (gametypestr)
 			CONS_Printf(M_GetText("Gametype: %s\n"), gametypestr);
-		CONS_Printf(M_GetText("Version: %d.%d.%u\n"), serverlist[i].info.version/100,
-		 serverlist[i].info.version%100, serverlist[i].info.subversion);
+		CONS_Printf(M_GetText("Version: %d.%d.%u\n"), serverlist[i].info.version/100, serverlist[i].info.version%100, serverlist[i].info.subversion);
 	}
 	SL_ClearServerList(servernode);
 #endif
@@ -3082,7 +3078,17 @@ static void Got_AddPlayer(UINT8 **p, INT32 playernum)
 		doomcom->numslots = (INT16)(newplayernum+1);
 
 	if (netgame)
-		CONS_Printf(M_GetText("Player %d has joined the game (node %d)\n"), newplayernum+1, node);
+	{
+		CONS_Printf(M_GetText("Player %d has joined the game (node %d"), newplayernum+1, node);
+		if (server && cv_showjoinaddress.value)
+		{
+			const char *address;
+			if (I_GetNodeAddress && (address = I_GetNodeAddress(node)) != NULL)
+				CONS_Printf(M_GetText(", %s"), address);
+		}
+		CONS_Printf(M_GetText(")\n"));
+		S_StartSound(NULL, sfx_radio);
+	}
 
 	// the server is creating my player
 	if (node == mynode)
@@ -3116,12 +3122,6 @@ static void Got_AddPlayer(UINT8 **p, INT32 playernum)
 		}
 		D_SendPlayerConfig();
 		addedtogame = true;
-	}
-	else if (server && netgame && cv_showjoinaddress.value)
-	{
-		const char *address;
-		if (I_GetNodeAddress && (address = I_GetNodeAddress(node)) != NULL)
-			CONS_Printf(M_GetText("Player Address is %s\n"), address);
 	}
 
 	if (server && multiplayer && motd[0] != '\0')
@@ -3273,7 +3273,8 @@ boolean SV_SpawnServer(void)
 
 	if (!serverrunning)
 	{
-		CONS_Printf(M_GetText("Starting Server....\n"));
+		if (netgame)
+			CONS_Printf(M_GetText("Starting server....\n"));
 		serverrunning = true;
 		SV_ResetServer();
 		SV_GenContext();
@@ -3381,7 +3382,7 @@ static void HandleConnect(SINT8 node)
 		boolean newnode = false;
 #endif
 
-		// client authorised to join
+		// client authorized to join
 		nodewaiting[node] = (UINT8)(netbuffer->u.clientcfg.localplayers - playerpernode[node]);
 		if (!nodeingame[node])
 		{
@@ -3477,7 +3478,95 @@ static void HandleServerInfo(SINT8 node)
 	netbuffer->u.serverinfo.time = (tic_t)LONG(ticdiff);
 	netbuffer->u.serverinfo.servername[MAXSERVERNAME-1] = 0;
 
+	if (display_server_info)
+	{
+		strcpy(serverconnectioninfo.servername, netbuffer->u.serverinfo.servername);
+		strcpy(serverconnectioninfo.maptitle, netbuffer->u.serverinfo.maptitle);
+
+		serverconnectioninfo.maxplayers = netbuffer->u.serverinfo.maxplayer;
+		serverconnectioninfo.gametype = netbuffer->u.serverinfo.gametype;
+		serverconnectioninfo.modifiedgame = netbuffer->u.serverinfo.modifiedgame;
+		serverconnectioninfo.cheatsenabled = netbuffer->u.serverinfo.cheatsenabled;
+		serverconnectioninfo.isdedicated = netbuffer->u.serverinfo.isdedicated;
+
+		serverconnectioninfo.actnum = netbuffer->u.serverinfo.actnum;
+		serverconnectioninfo.iszone = netbuffer->u.serverinfo.iszone;
+	}
+
 	SL_InsertServer(&netbuffer->u.serverinfo, node);
+}
+
+/** Called when a PT_PLAYERINFO packet is received
+  *
+  * \param node The packet sender
+  *
+  */
+static void HandlePlayerInfo(void)
+{
+	int i;
+	if (!display_server_info)
+		return;
+
+	for (i = 0; i < MAXPLAYERS; i++)
+	{
+		char name[MAXPLAYERNAME+1];
+		INT32 team = 0, score = 0, skin = 0, color = 0, xd = 0;
+		boolean spectator = false, tagit = false, gotflag = false, superon = false, unknownskin = false;
+
+		serverplayerinfo[i].exists = true;
+		if (netbuffer->u.playerinfo[i].node == 255)
+		{
+			serverplayerinfo[i].exists = false;
+			continue;
+		}
+
+		strncpy(name, netbuffer->u.playerinfo[i].name, MAXPLAYERNAME+1);
+
+		team = netbuffer->u.playerinfo[i].team;
+		if (team == 255)
+		{
+			spectator = true;
+			team = 0;
+		}
+		else if (team == 0)
+			team = 0;
+		else
+			spectator = false;
+
+		score = netbuffer->u.playerinfo[i].score;
+		skin = netbuffer->u.playerinfo[i].skin;
+
+		if (skin > numskins-1)
+		{
+			unknownskin = true;
+			skin = 0;
+		}
+
+		xd = color = netbuffer->u.playerinfo[i].data;
+		color &= ~0x20;
+		color &= ~0x40;
+		color &= ~0x80;
+
+		if (xd & 0x20)
+			tagit = true;
+		if (xd & 0x40)
+			gotflag = true;
+		if (xd & 0x80)
+			superon = true;
+
+		strcpy(serverplayerinfo[i].name, name);
+		serverplayerinfo[i].score = score;
+		serverplayerinfo[i].skin = skin;
+		serverplayerinfo[i].color = color;
+		serverplayerinfo[i].team = team;
+
+		serverplayerinfo[i].spectator = spectator;
+		serverplayerinfo[i].tagit = tagit;
+		serverplayerinfo[i].gotflag = gotflag;
+		serverplayerinfo[i].superon = superon;
+		serverplayerinfo[i].unknownskin = unknownskin;
+	}
+	display_server_info = false;
 }
 #endif
 
@@ -4130,10 +4219,12 @@ FILESTAMP
 			HandleServerInfo(node);
 			continue;
 		}
-#endif
-
 		if (netbuffer->packettype == PT_PLAYERINFO)
-			continue; // We do nothing with PLAYERINFO, that's for the MS browser.
+		{
+			HandlePlayerInfo();
+			continue;
+		}
+#endif
 
 		// Packet received from someone already playing
 		if (nodeingame[node])
