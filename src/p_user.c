@@ -8051,8 +8051,8 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 	if (checkdist < 128*FRACUNIT)
 		checkdist = 128*FRACUNIT;
 
-	x = mo->x - FixedMul(FINECOSINE((angle>>ANGLETOFINESHIFT) & FINEMASK), dist);
-	y = mo->y - FixedMul(FINESINE((angle>>ANGLETOFINESHIFT) & FINEMASK), dist);
+	x = mo->x - FixedMul(FINECOSINE((angle>>ANGLETOFINESHIFT) & FINEMASK), FixedMul(FINECOSINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist));
+	y = mo->y - FixedMul(FINESINE((angle>>ANGLETOFINESHIFT) & FINEMASK), FixedMul(FINECOSINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist));
 
 #if 0
 	if (twodlevel || (mo->flags2 & MF2_TWOD))
@@ -8089,9 +8089,9 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 	pviewheight = FixedMul(cv_viewheight.value<<FRACBITS, mo->scale);
 
 	if (mo->eflags & MFE_VERTICALFLIP)
-		z = mo->z + mo->height - pviewheight - camheight;
+		z = mo->z + mo->height - pviewheight - camheight - FixedMul(FINESINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist);
 	else
-		z = mo->z + pviewheight + camheight;
+		z = mo->z + pviewheight + camheight - FixedMul(FINESINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist);
 
 	// move camera down to move under lower ceilings
 	newsubsec = R_IsPointInSubsector(((mo->x>>FRACBITS) + (thiscam->x>>FRACBITS))<<(FRACBITS-1), ((mo->y>>FRACBITS) + (thiscam->y>>FRACBITS))<<(FRACBITS-1));
