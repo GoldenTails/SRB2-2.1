@@ -8054,7 +8054,7 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 	if (checkdist < 128*FRACUNIT)
 		checkdist = 128*FRACUNIT;
 
-	if (cv_cam_orbital.value) {
+	if (cv_cam_orbital.value && !player->playerstate == PST_DEAD) {
 		x = mo->x - FixedMul(FINECOSINE((angle>>ANGLETOFINESHIFT) & FINEMASK), FixedMul(FINECOSINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist));
 		y = mo->y - FixedMul(FINESINE((angle>>ANGLETOFINESHIFT) & FINEMASK), FixedMul(FINECOSINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist));
 	} else {
@@ -8097,12 +8097,12 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 	pviewheight = FixedMul(cv_viewheight.value<<FRACBITS, mo->scale);
 
 	if (mo->eflags & MFE_VERTICALFLIP) {
-		if (cv_cam_orbital.value)
+		if (cv_cam_orbital.value && !player->playerstate == PST_DEAD)
 			z = mo->z + mo->height - pviewheight - camheight - FixedMul(FINESINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist);
 		else
 			z = mo->z + mo->height - pviewheight - camheight;
 	} else {
-		if (cv_cam_orbital.value)
+		if (cv_cam_orbital.value && !player->playerstate == PST_DEAD)
 			z = mo->z + pviewheight + camheight - FixedMul(FINESINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist);
 		else
 			z = mo->z + pviewheight + camheight;
