@@ -8051,8 +8051,15 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 	if (checkdist < 128*FRACUNIT)
 		checkdist = 128*FRACUNIT;
 
-	x = mo->x - FixedMul(FINECOSINE((angle>>ANGLETOFINESHIFT) & FINEMASK), FixedMul(FINECOSINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist));
-	y = mo->y - FixedMul(FINESINE((angle>>ANGLETOFINESHIFT) & FINEMASK), FixedMul(FINECOSINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist));
+	if (player->playerstate != PST_DEAD) { // Are we not dead?
+		// Then use the orbital camera
+		x = mo->x - FixedMul(FINECOSINE((angle>>ANGLETOFINESHIFT) & FINEMASK), FixedMul(FINECOSINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist));
+		y = mo->y - FixedMul(FINESINE((angle>>ANGLETOFINESHIFT) & FINEMASK), FixedMul(FINECOSINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist));
+	} else { // Otherwise (if we're alive or reborn)
+		// Use the default, not buggy vanilla SRB2 2.1 camera.
+		x = mo->x - FixedMul(FINECOSINE((angle>>ANGLETOFINESHIFT) & FINEMASK), dist);
+		y = mo->y - FixedMul(FINESINE((angle>>ANGLETOFINESHIFT) & FINEMASK), dist);
+	}
 
 #if 0
 	if (twodlevel || (mo->flags2 & MF2_TWOD))
