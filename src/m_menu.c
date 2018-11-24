@@ -20,6 +20,8 @@
 
 #include "doomdef.h"
 #include "d_main.h"
+#include "d_clisrv.h"
+#include "d_netfil.h"
 #include "d_netcmd.h"
 #include "console.h"
 #include "r_local.h"
@@ -66,7 +68,7 @@ int	snprintf(char *str, size_t n, const char *fmt, ...);
 //int	vsnprintf(char *str, size_t n, const char *fmt, va_list ap);
 #endif
 
-#define SKULLXOFF -32
+#define CURSORXOFF -32
 #define LINEHEIGHT 16
 #define STRINGHEIGHT 8
 #define FONTBHEIGHT 20
@@ -169,8 +171,8 @@ static saveinfo_t savegameinfo[MAXSAVEGAMES]; // Extra info about the save games
 
 INT16 startmap; // Mario, NiGHTS, or just a plain old normal game?
 
-static INT16 itemOn = 1; // menu item skull is on, Hack by Tails 09-18-2002
-static INT16 skullAnimCounter = 10; // skull animation counter
+static INT16 itemOn = 1;
+static INT16 cursorAnimCounter = 10;
 
 static  boolean setupcontrols_secondaryplayer;
 static  INT32   (*setupcontrols)[2];  // pointer to the gamecontrols of the player being edited
@@ -254,7 +256,7 @@ static menu_t SP_NightsAttackDef, SP_NightsReplayDef, SP_NightsGuestReplayDef, S
 #ifndef NONET
 static void M_StartServerMenu(INT32 choice);
 static void M_ConnectMenu(INT32 choice);
-static void M_ConnectIPMenu(INT32 choice);
+static void M_ShowServerInfo(INT32 choice);
 #endif
 static void M_StartSplitServerMenu(INT32 choice);
 static void M_StartServer(INT32 choice);
@@ -283,6 +285,7 @@ static void M_ChangeControl(INT32 choice);
 
 // Video & Sound
 menu_t OP_VideoOptionsDef, OP_VideoModeDef;
+menu_t OP_SoftwareTogglesDef;
 #ifdef HWRENDER
 menu_t OP_OpenGLOptionsDef, OP_OpenGLFogDef, OP_OpenGLColorDef;
 #endif
@@ -322,10 +325,15 @@ static void M_DrawMonitorToggles(void);
 static void M_OGL_DrawFogMenu(void);
 static void M_OGL_DrawColorMenu(void);
 #endif
+static void M_DrawMPMainMenu(void);
 #ifndef NONET
 static void M_DrawConnectMenu(void);
-static void M_DrawConnectIPMenu(void);
 static void M_DrawRoomMenu(void);
+static void M_DrawServerInfoMenu(void);
+#define MAXSERVERINFOPAGES 2
+static UINT8 ServerInfoPage = 0;
+static UINT8 ServerInfoSelections[MAXSERVERINFOPAGES];
+static UINT8 ServerInfoMaxSelections[MAXSERVERINFOPAGES];
 #endif
 static void M_DrawJoystick(void);
 static void M_DrawSetupMultiPlayerMenu(void);
@@ -333,6 +341,7 @@ static void M_DrawSetupMultiPlayerMenu(void);
 // Handling functions
 #ifndef NONET
 static boolean M_CancelConnect(void);
+static boolean M_QuitServerInfo(void);
 #endif
 static boolean M_ExitPandorasBox(void);
 static boolean M_QuitMultiPlayerMenu(void);
@@ -354,6 +363,9 @@ static void M_HandleVideoMode(INT32 choice);
 static void Nextmap_OnChange(void);
 static void Newgametype_OnChange(void);
 static void Dummymares_OnChange(void);
+
+// IP Validity function
+static boolean M_CheckIfValidIP(const char *str);
 
 // ==========================================================================
 // CONSOLE VARIABLES AND THEIR POSSIBLE VALUES GO HERE.
@@ -867,12 +879,12 @@ static menuitem_t MP_MainMenu[] =
 #ifndef NONET
 	{IT_CALL | IT_STRING, NULL, "HOST GAME",              M_StartServerMenu,      10},
 	{IT_CALL | IT_STRING, NULL, "JOIN GAME (Search)",	  M_ConnectMenu,		  30},
-	{IT_CALL | IT_STRING, NULL, "JOIN GAME (Specify IP)", M_ConnectIPMenu,        40},
+	{IT_KEYHANDLER | IT_STRING, NULL, "JOIN GAME (Specify IP)", M_HandleConnectIP,        40},
 #endif
-	{IT_CALL | IT_STRING, NULL, "TWO PLAYER GAME",        M_StartSplitServerMenu, 60},
+	{IT_CALL | IT_STRING, NULL, "TWO PLAYER GAME",        M_StartSplitServerMenu, 80},
 
-	{IT_CALL | IT_STRING, NULL, "SETUP PLAYER 1",         M_SetupMultiPlayer,     80},
-	{IT_CALL | IT_STRING, NULL, "SETUP PLAYER 2",         M_SetupMultiPlayer2,    90},
+	{IT_CALL | IT_STRING, NULL, "SETUP PLAYER 1",         M_SetupMultiPlayer,     100},
+	{IT_CALL | IT_STRING, NULL, "SETUP PLAYER 2",         M_SetupMultiPlayer2,    110},
 };
 
 static menuitem_t MP_ServerMenu[] =
@@ -907,17 +919,22 @@ static menuitem_t MP_ConnectMenu[] =
 	{IT_STRING | IT_KEYHANDLER, NULL, "Page",     M_HandleServerPage, 20},
 	{IT_STRING | IT_CALL,       NULL, "Refresh",  M_Refresh,          28},
 
-	{IT_STRING | IT_SPACE, NULL, "",              M_Connect,          48-4},
-	{IT_STRING | IT_SPACE, NULL, "",              M_Connect,          60-4},
-	{IT_STRING | IT_SPACE, NULL, "",              M_Connect,          72-4},
-	{IT_STRING | IT_SPACE, NULL, "",              M_Connect,          84-4},
-	{IT_STRING | IT_SPACE, NULL, "",              M_Connect,          96-4},
-	{IT_STRING | IT_SPACE, NULL, "",              M_Connect,         108-4},
-	{IT_STRING | IT_SPACE, NULL, "",              M_Connect,         120-4},
-	{IT_STRING | IT_SPACE, NULL, "",              M_Connect,         132-4},
-	{IT_STRING | IT_SPACE, NULL, "",              M_Connect,         144-4},
-	{IT_STRING | IT_SPACE, NULL, "",              M_Connect,         156-4},
-	{IT_STRING | IT_SPACE, NULL, "",              M_Connect,         168-4},
+	{IT_STRING | IT_SPACE, NULL, "",              M_ShowServerInfo,   48-4},
+	{IT_STRING | IT_SPACE, NULL, "",              M_ShowServerInfo,   60-4},
+	{IT_STRING | IT_SPACE, NULL, "",              M_ShowServerInfo,   72-4},
+	{IT_STRING | IT_SPACE, NULL, "",              M_ShowServerInfo,   84-4},
+	{IT_STRING | IT_SPACE, NULL, "",              M_ShowServerInfo,   96-4},
+	{IT_STRING | IT_SPACE, NULL, "",              M_ShowServerInfo,   108-4},
+	{IT_STRING | IT_SPACE, NULL, "",              M_ShowServerInfo,   120-4},
+	{IT_STRING | IT_SPACE, NULL, "",              M_ShowServerInfo,   132-4},
+	{IT_STRING | IT_SPACE, NULL, "",              M_ShowServerInfo,   144-4},
+	{IT_STRING | IT_SPACE, NULL, "",              M_ShowServerInfo,   156-4},
+	{IT_STRING | IT_SPACE, NULL, "",              M_ShowServerInfo,   168-4},
+};
+
+static menuitem_t MP_ServerInfoOptions[] =
+{
+	{IT_STRING | IT_CALL, NULL, "Connect", M_Connect, 146},
 };
 
 enum
@@ -949,11 +966,6 @@ static menuitem_t MP_RoomMenu[] =
 	{IT_DISABLED,         NULL, "",               M_ChooseRoom, 144},
 	{IT_DISABLED,         NULL, "",               M_ChooseRoom, 153},
 	{IT_DISABLED,         NULL, "",               M_ChooseRoom, 162},
-};
-
-static menuitem_t MP_ConnectIPMenu[] =
-{
-	{IT_KEYHANDLER | IT_STRING, NULL, "  IP Address:", M_HandleConnectIP, 0},
 };
 #endif
 
@@ -1147,8 +1159,9 @@ static menuitem_t OP_VideoOptionsMenu[] =
 	{IT_STRING | IT_CALL,  NULL,   "Video Modes...",      M_VideoModeMenu,     10},
 
 #ifdef HWRENDER
-	{IT_SUBMENU|IT_STRING, NULL,   "3D Card Options...",  &OP_OpenGLOptionsDef,    20},
+	{IT_SUBMENU|IT_STRING, NULL,   "Hardware Mode Options...", &OP_OpenGLOptionsDef,   20},
 #endif
+	{IT_SUBMENU|IT_STRING, NULL,   "Software Mode Options...", &OP_SoftwareTogglesDef, 20},
 
 #if (defined (__unix__) && !defined (MSDOS)) || defined (UNIXCOMMON) || defined (HAVE_SDL)
 	{IT_STRING|IT_CVAR,      NULL, "Fullscreen",          &cv_fullscreen,    30},
@@ -1164,6 +1177,11 @@ static menuitem_t OP_VideoOptionsMenu[] =
 	{IT_STRING | IT_CVAR,    NULL, "Show FPS",            &cv_ticrate,    110},
 	{IT_STRING | IT_CVAR,    NULL, "Clear Before Redraw", &cv_homremoval, 120},
 	{IT_STRING | IT_CVAR,    NULL, "Vertical Sync",       &cv_vidwait,    130},
+};
+
+static menuitem_t OP_SoftwareTogglesMenu[] =
+{
+	{IT_STRING | IT_CVAR,    NULL, "Translucency",        &cv_translucency, 20},
 };
 
 static menuitem_t OP_VideoModeMenu[] =
@@ -1603,7 +1621,17 @@ menu_t SP_PlayerDef =
 };
 
 // Multiplayer
-menu_t MP_MainDef = DEFAULTMENUSTYLE("M_MULTI", MP_MainMenu, &MainDef, 60, 40);
+menu_t MP_MainDef =
+{
+	"M_MULTI",
+	sizeof (MP_MainMenu)/sizeof (menuitem_t),
+	&MainDef,
+	MP_MainMenu,
+	M_DrawMPMainMenu,
+	60, 45,
+	0,
+	M_CancelConnect
+};
 menu_t MP_ServerDef = MAPICONMENUSTYLE("M_MULTI", MP_ServerMenu, &MP_MainDef);
 #ifndef NONET
 menu_t MP_ConnectDef =
@@ -1617,17 +1645,6 @@ menu_t MP_ConnectDef =
 	0,
 	M_CancelConnect
 };
-menu_t MP_ConnectIPDef =
-{
-	"M_MULTI",
-	sizeof (MP_ConnectIPMenu)/sizeof (menuitem_t),
-	&MP_MainDef,
-	MP_ConnectIPMenu,
-	M_DrawConnectIPMenu,
-	27,40,
-	0,
-	M_CancelConnect
-};
 menu_t MP_RoomDef =
 {
 	"M_MULTI",
@@ -1638,6 +1655,17 @@ menu_t MP_RoomDef =
 	27, 32,
 	0,
 	NULL
+};
+menu_t MP_ServerInfoDef =
+{
+	"M_MULTI",
+	sizeof (MP_ServerInfoOptions)/sizeof (menuitem_t),
+	&MP_ConnectDef,
+	MP_ServerInfoOptions,
+	M_DrawServerInfoMenu,
+	27, 32,
+	0,
+	M_QuitServerInfo
 };
 #endif
 menu_t MP_SplitServerDef = MAPICONMENUSTYLE("M_MULTI", MP_SplitServerMenu, &MP_MainDef);
@@ -1691,6 +1719,19 @@ menu_t OP_VideoModeDef =
 	0,
 	NULL
 };
+
+menu_t OP_SoftwareTogglesDef =
+{
+	"M_VIDEO",
+	sizeof(OP_SoftwareTogglesMenu)/sizeof(menuitem_t),
+	&OP_VideoOptionsDef,
+	OP_SoftwareTogglesMenu,
+	M_DrawGenericMenu,
+	30, 30,
+	0,
+	NULL
+};
+
 menu_t OP_SoundOptionsDef = DEFAULTMENUSTYLE("M_SOUND", OP_SoundOptionsMenu, &OP_MainDef, 60, 30);
 menu_t OP_GameOptionsDef = DEFAULTMENUSTYLE("M_GAME", OP_GameOptionsMenu, &OP_MainDef, 30, 30);
 menu_t OP_ServerOptionsDef = DEFAULTMENUSTYLE("M_SERVER", OP_ServerOptionsMenu, &OP_MainDef, 30, 30);
@@ -2314,16 +2355,6 @@ boolean M_Responder(event_t *ev)
 	// Keys usable within menu
 	switch (ch)
 	{
-		case KEY_DOWNARROW:
-			M_NextOpt();
-			S_StartSound(NULL, sfx_menu1);
-			if (currentMenu == &SP_PlayerDef)
-			{
-				Z_Free(char_notes);
-				char_notes = NULL;
-			}
-			return true;
-
 		case KEY_UPARROW:
 			M_PrevOpt();
 			S_StartSound(NULL, sfx_menu1);
@@ -2332,6 +2363,30 @@ boolean M_Responder(event_t *ev)
 				Z_Free(char_notes);
 				char_notes = NULL;
 			}
+			#ifndef NONET
+			else if (currentMenu == &MP_ServerInfoDef)
+			{
+				ServerInfoSelections[ServerInfoPage] = ServerInfoSelections[ServerInfoPage] > 0 ? ServerInfoSelections[ServerInfoPage]-1 : 0;
+				S_StartSound(NULL, sfx_menu1);
+			}
+			#endif
+			return true;
+
+		case KEY_DOWNARROW:
+			M_NextOpt();
+			S_StartSound(NULL, sfx_menu1);
+			if (currentMenu == &SP_PlayerDef)
+			{
+				Z_Free(char_notes);
+				char_notes = NULL;
+			}
+			#ifndef NONET
+			else if (currentMenu == &MP_ServerInfoDef)
+			{
+				ServerInfoSelections[ServerInfoPage] = ServerInfoSelections[ServerInfoPage] < ServerInfoMaxSelections[ServerInfoPage]-1 ? ServerInfoSelections[ServerInfoPage]+1 : ServerInfoMaxSelections[ServerInfoPage]-1;
+				S_StartSound(NULL, sfx_menu1);
+			}
+			#endif
 			return true;
 
 		case KEY_LEFTARROW:
@@ -2342,6 +2397,13 @@ boolean M_Responder(event_t *ev)
 					S_StartSound(NULL, sfx_menu1);
 				routine(0);
 			}
+			#ifndef NONET
+			else if (currentMenu == &MP_ServerInfoDef)
+			{
+				ServerInfoPage = ServerInfoPage > 0 ? ServerInfoPage-1 : 0;
+				S_StartSound(NULL, sfx_menu1);
+			}
+			#endif
 			return true;
 
 		case KEY_RIGHTARROW:
@@ -2352,6 +2414,13 @@ boolean M_Responder(event_t *ev)
 					S_StartSound(NULL, sfx_menu1);
 				routine(1);
 			}
+			#ifndef NONET
+			else if (currentMenu == &MP_ServerInfoDef)
+			{
+				ServerInfoPage = ServerInfoPage < MAXSERVERINFOPAGES-1 ? ServerInfoPage+1 : MAXSERVERINFOPAGES-1;
+				S_StartSound(NULL, sfx_menu1);
+			}
+			#endif
 			return true;
 
 		case KEY_ENTER:
@@ -2393,15 +2462,16 @@ boolean M_Responder(event_t *ev)
 			currentMenu->lastOn = itemOn;
 			if (currentMenu->prevMenu)
 			{
-				//If we entered the game search menu, but didn't enter a game,
-				//make sure the game doesn't still think we're in a netgame.
-				if (!Playing() && netgame && multiplayer)
+				// If we entered the game search menu, but didn't enter a game,
+				// make sure the game doesn't still think we're in a netgame.
+				if (!Playing() && netgame && multiplayer && !serverconnlist)
 				{
 					MSCloseUDPSocket();		// Clean up so we can re-open the connection later.
 					netgame = false;
 					multiplayer = false;
 				}
-
+				serverconnlist = false;
+				quittingserverconnlist = true;
 				if (currentMenu == &SP_TimeAttackDef || currentMenu == &SP_NightsAttackDef)
 				{
 					// D_StartTitle does its own wipe, since GS_TIMEATTACK is now a complete gamestate.
@@ -2675,8 +2745,8 @@ void M_Ticker(void)
 	if (dedicated)
 		return;
 
-	if (--skullAnimCounter <= 0)
-		skullAnimCounter = 8;
+	if (--cursorAnimCounter <= 0)
+		cursorAnimCounter = 8;
 
 	//added : 30-01-98 : test mode for five seconds
 	if (vidm_testingmode > 0)
@@ -2737,6 +2807,8 @@ void M_Init(void)
 	// Permanently hide some options based on render mode
 	if (rendermode == render_soft)
 		OP_VideoOptionsMenu[1].status = IT_DISABLED;
+	else
+		OP_VideoOptionsMenu[2].status = IT_DISABLED;
 #endif
 
 #ifndef NONET
@@ -2843,53 +2915,6 @@ void M_DrawTextBox(INT32 x, INT32 y, INT32 width, INT32 boxlines)
 {
 	// Solid color textbox.
 	V_DrawFill(x+5, y+5, width*8+6, boxlines*8+6, 239);
-	//V_DrawFill(x+8, y+8, width*8, boxlines*8, 31);
-/*
-	patch_t *p;
-	INT32 cx, cy, n;
-	INT32 step, boff;
-
-	step = 8;
-	boff = 8;
-
-	// draw left side
-	cx = x;
-	cy = y;
-	V_DrawScaledPatch(cx, cy, 0, W_CachePatchNum(viewborderlump[BRDR_TL], PU_CACHE));
-	cy += boff;
-	p = W_CachePatchNum(viewborderlump[BRDR_L], PU_CACHE);
-	for (n = 0; n < boxlines; n++)
-	{
-		V_DrawScaledPatch(cx, cy, V_WRAPY, p);
-		cy += step;
-	}
-	V_DrawScaledPatch(cx, cy, 0, W_CachePatchNum(viewborderlump[BRDR_BL], PU_CACHE));
-
-	// draw middle
-	V_DrawFlatFill(x + boff, y + boff, width*step, boxlines*step, st_borderpatchnum);
-
-	cx += boff;
-	cy = y;
-	while (width > 0)
-	{
-		V_DrawScaledPatch(cx, cy, V_WRAPX, W_CachePatchNum(viewborderlump[BRDR_T], PU_CACHE));
-		V_DrawScaledPatch(cx, y + boff + boxlines*step, V_WRAPX, W_CachePatchNum(viewborderlump[BRDR_B], PU_CACHE));
-		width--;
-		cx += step;
-	}
-
-	// draw right side
-	cy = y;
-	V_DrawScaledPatch(cx, cy, 0, W_CachePatchNum(viewborderlump[BRDR_TR], PU_CACHE));
-	cy += boff;
-	p = W_CachePatchNum(viewborderlump[BRDR_R], PU_CACHE);
-	for (n = 0; n < boxlines; n++)
-	{
-		V_DrawScaledPatch(cx, cy, V_WRAPY, p);
-		cy += step;
-	}
-	V_DrawScaledPatch(cx, cy, 0, W_CachePatchNum(viewborderlump[BRDR_BR], PU_CACHE));
-*/
 }
 
 //
@@ -3058,7 +3083,7 @@ static void M_DrawGenericMenu(void)
 							case IT_CV_STRING:
 								M_DrawTextBox(x, y + 4, MAXSTRINGLENGTH, 1);
 								V_DrawString(x + 8, y + 12, V_ALLOWLOWERCASE, cv->string);
-								if (skullAnimCounter < 4 && i == itemOn)
+								if (cursorAnimCounter < 4 && i == itemOn)
 									V_DrawCharacter(x + 8 + V_StringWidth(cv->string, 0), y + 12,
 										'_' | 0x80, false);
 								y += 16;
@@ -3109,11 +3134,11 @@ static void M_DrawGenericMenu(void)
 		}
 	}
 
-	// DRAW THE SKULL CURSOR
+	// DRAW THE CURSOR
 	if (((currentMenu->menuitems[itemOn].status & IT_DISPLAY) == IT_PATCH)
 		|| ((currentMenu->menuitems[itemOn].status & IT_DISPLAY) == IT_NOTHING))
 	{
-		V_DrawScaledPatch(currentMenu->x + SKULLXOFF, cursory - 5, 0,
+		V_DrawScaledPatch(currentMenu->x + CURSORXOFF, cursory - 5, 0,
 			W_CachePatchName("M_CURSOR", PU_CACHE));
 	}
 	else
@@ -3335,7 +3360,7 @@ static void M_DrawCenteredMenu(void)
 							case IT_CV_STRING:
 								M_DrawTextBox(x, y + 4, MAXSTRINGLENGTH, 1);
 								V_DrawString(x + 8, y + 12, V_ALLOWLOWERCASE, cv->string);
-								if (skullAnimCounter < 4 && i == itemOn)
+								if (cursorAnimCounter < 4 && i == itemOn)
 									V_DrawCharacter(x + 8 + V_StringWidth(cv->string, 0), y + 12,
 										'_' | 0x80, false);
 								y += 16;
@@ -3371,11 +3396,11 @@ static void M_DrawCenteredMenu(void)
 		}
 	}
 
-	// DRAW THE SKULL CURSOR
+	// DRAW THE CURSOR
 	if (((currentMenu->menuitems[itemOn].status & IT_DISPLAY) == IT_PATCH)
 		|| ((currentMenu->menuitems[itemOn].status & IT_DISPLAY) == IT_NOTHING))
 	{
-		V_DrawScaledPatch(x + SKULLXOFF, cursory - 5, 0,
+		V_DrawScaledPatch(x + CURSORXOFF, cursory - 5, 0,
 			W_CachePatchName("M_CURSOR", PU_CACHE));
 	}
 	else
@@ -5272,7 +5297,7 @@ void M_DrawTimeAttackMenu(void)
 		}
 	}
 
-	// DRAW THE SKULL CURSOR
+	// DRAW THE CURSOR
 	V_DrawScaledPatch(currentMenu->x - 24, cursory, 0, W_CachePatchName("M_CURSOR", PU_CACHE));
 	V_DrawString(currentMenu->x, cursory, V_YELLOWMAP, currentMenu->menuitems[itemOn].text);
 
@@ -5851,12 +5876,67 @@ static void M_HandleServerPage(INT32 choice)
 	}
 }
 
+static void M_ShowServerInfo(INT32 choice)
+{
+	int i;
+	for (i = 0; i < MAXPLAYERS; i++)
+		serverplayerinfo[i].exists = false;
+
+	display_server_info = true;
+	server_to_connect = choice;
+	choice = server_to_connect-FIRSTSERVERLINE + serverlistpage * SERVERS_PER_PAGE;
+	strcpy(serverconnname, serverlist[choice].info.servername);
+
+	CL_SendAskInfo();
+	D_ParseFileneeded(serverlist[choice].info.fileneedednum, serverlist[choice].info.fileneeded);
+
+	ServerInfoPage = 0;
+	for (i = 0; i < MAXSERVERINFOPAGES; i++)
+	{
+		ServerInfoSelections[i] = 0;
+		ServerInfoMaxSelections[i] = 0;
+	}
+
+	wipegamestate = -1;
+	S_ChangeMusicInternal("racent", true);
+	M_SetupNextMenu(&MP_ServerInfoDef);
+}
+
 static void M_Connect(INT32 choice)
 {
-	// do not call menuexitfunc
+	serverelem_t *thisserver;
+	INT32 i;
+	boolean found_server = false;
+
+	(void)choice;
+	if (display_server_info)
+		return;
+
 	M_ClearMenus(false);
 
-	COM_BufAddText(va("connect node %d\n", serverlist[choice-FIRSTSERVERLINE + serverlistpage * SERVERS_PER_PAGE].node));
+	for (i = 0; i < MAXSERVERLIST; i++)
+	{
+		thisserver = &serverlist[i];
+		if (!strcmp(thisserver->info.servername, serverconnname))
+		{
+			found_server = true;
+			break;
+		}
+	}
+
+	if (found_server)
+		COM_BufAddText(va("connect node %d\n", thisserver->node));
+	else
+	{
+		serverconnlist = false;
+		quittingserverconnlist = false;
+		display_server_info = false;
+
+		D_QuitNetGame();
+		CL_Reset();
+		D_StartTitle();
+		M_StartMessage(M_GetText("Could not contact the server\n\nPress ESC\n"), NULL, MM_NOTHING);
+	}
 }
 
 static void M_Refresh(INT32 choice)
@@ -5871,6 +5951,9 @@ static void M_Refresh(INT32 choice)
 	I_UpdateNoBlit();
 	if (rendermode == render_soft)
 		I_FinishUpdate(); // page flip or blit buffer
+
+	serverconnlist = true;
+	quittingserverconnlist = false;
 
 	// note: this is the one case where 0 is a valid room number
 	// because it corresponds to "All"
@@ -5900,6 +5983,239 @@ static void M_DrawRoomMenu(void)
 
 	rmotd = V_WordWrap(0, 20*8, 0, rmotd);
 	V_DrawString(144+8, 32, V_ALLOWLOWERCASE|V_RETURN8, rmotd);
+}
+
+static void M_DrawServerInfoMenu(void)
+{
+	INT32 i, j;
+	INT32 x = 20, y = 20;
+	char maptitle[2048];
+	const char *gametypestr = NULL;
+	static INT32 serverinfotimeout = 0;
+
+	V_DrawPatchFill(W_CachePatchName("SRB2BACK", PU_CACHE));
+
+	if (display_server_info)
+	{
+		char conntext[32];
+		UINT32 k;
+
+		strcpy(conntext, "Contacting the server");
+		for (k = 0; k < ((serverinfotimeout+48) / 16) % 4; k++)
+			strcat(conntext, ".");
+
+		M_DrawTextBox(52, BASEVIDHEIGHT/2-10, 25, 3);
+		V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT/2, 0, conntext);
+		V_DrawCenteredString(BASEVIDWIDTH/2, (BASEVIDHEIGHT/2)+12, 0, "Please wait.");
+		if (serverinfotimeout++ > 10*TICRATE)
+		{
+			serverconnlist = false;
+			quittingserverconnlist = false;
+			display_server_info = false;
+
+			M_ClearMenus(false);
+			D_QuitNetGame();
+			CL_Reset();
+			D_StartTitle();
+			M_StartMessage(M_GetText("Server Timeout\n\nPress ESC\n"), NULL, MM_NOTHING);
+			serverinfotimeout = 0;
+		}
+		return;
+	}
+
+	y -= 4;
+	V_DrawCenteredString(BASEVIDWIDTH/2, y+10, V_ALLOWLOWERCASE, serverconnname);
+
+	if (strcmp(serverconnectioninfo.maptitle, ""))
+	{
+		strcpy(maptitle, serverconnectioninfo.maptitle);
+		if (serverconnectioninfo.iszone)
+			strcat(maptitle, " ZONE");
+		if (serverconnectioninfo.actnum)
+			strcat(maptitle, va(" %d", serverconnectioninfo.actnum));
+	}
+	else
+		strcpy(maptitle, "UNKNOWN MAP");
+
+	V_DrawCenteredString(BASEVIDWIDTH/2, y+20, V_ALLOWLOWERCASE, maptitle);
+
+	for (j = 0; gametype_cons_t[j].strvalue; j++)
+	{
+		if (gametype_cons_t[j].value == serverconnectioninfo.gametype)
+		{
+			gametypestr = gametype_cons_t[j].strvalue;
+			break;
+		}
+	}
+	if (gametypestr)
+		V_DrawCenteredString(BASEVIDWIDTH/2, y+30, V_ALLOWLOWERCASE, gametypestr);
+	else
+		y -= 10;
+
+	y += 44;
+
+	if (ServerInfoPage == 0)
+	{
+		boolean hasplayers = false;
+
+		ServerInfoMaxSelections[0] = 0;
+		for (i = 0; i < MAXPLAYERS; i++)
+		{
+			if (!serverplayerinfo[i].exists) continue;
+			ServerInfoMaxSelections[0]++;
+		}
+
+		for (i = 0; i < 7; i++)
+		{
+			UINT8 *colormap;
+			if (!serverplayerinfo[i].exists) continue;
+
+			V_DrawString(x + 20, y, /*(thisplayer == ServerInfoSelections[0] ? V_YELLOWMAP : 0)|*/V_ALLOWLOWERCASE, serverplayerinfo[i].name);
+			V_DrawSmallScaledPatch(x, y-4, 0, livesback);
+
+			colormap = R_GetTranslationColormap(serverplayerinfo[i].skin, serverplayerinfo[i].color, 0);
+			if (!serverplayerinfo[i].unknownskin)
+				V_DrawSmallMappedPatch(x, y-4, 0, faceprefix[serverplayerinfo[i].skin], colormap);
+			else
+				V_DrawSmallMappedPatch(x, y-4, 0, W_CachePatchNum(W_GetNumForName("CHARICO"), PU_CACHE), colormap);
+
+			if (serverplayerinfo[i].tagit)
+				V_DrawSmallScaledPatch(x+240+8, y-4, 0, tagico);
+			if (serverplayerinfo[i].gotflag && serverplayerinfo[i].team == 2)
+				V_DrawSmallScaledPatch(x+240+8, y-4, 0, rflagico);
+			else if (serverplayerinfo[i].gotflag && serverplayerinfo[i].team == 1)
+				V_DrawSmallScaledPatch(x+240+8, y-4, 0, bflagico);
+
+			V_DrawRightAlignedString(x+280, y, 0, va("%d", serverplayerinfo[i].score));
+
+			y += 16;
+			hasplayers = true;
+		}
+
+		if (!hasplayers)
+			V_DrawString(x, y, V_ALLOWLOWERCASE, "\x85No players are connected.");
+
+		V_DrawRightAlignedString(BASEVIDWIDTH-20, 146+30, V_YELLOWMAP|V_MONOSPACE, "   PLAYER LIST =>");
+	}
+	else if (ServerInfoPage == 1)
+	{
+		ServerInfoMaxSelections[1] = 0;
+		if (fileneedednum <= mainwads)
+			V_DrawString(x, y, V_ALLOWLOWERCASE, "\x83No files needed to download.");
+		else
+		{
+			boolean downloadson = true;
+			boolean cantsend = false;
+			INT32 j;
+
+			for (j = 5; j < fileneedednum; j++)
+			{
+				if (fileneeded[j].important)
+				{
+					if (fileneeded[j].willsend == 2)
+						downloadson = false;
+					else if (fileneeded[j].willsend == 0)
+						cantsend = true;
+					ServerInfoMaxSelections[1]++;
+				}
+			}
+
+			for (i = 5; i < fileneedednum; i++)
+			{
+				if (i-5 > 6)
+				{
+					char str[512];
+					str[0] = 0;
+
+					strcat(str,va("... and %d more", fileneedednum-i));
+
+					if (M_CheckParm("-nodownload"))
+					{
+						strcat(str," - \x87");
+						strcat(str,"You disabled downloads");
+					}
+					else if (!downloadson)
+					{
+						strcat(str," - \x85");
+						strcat(str,"Server disabled downloads");
+					}
+					else if (cantsend)
+					{
+						strcat(str," - \x85");
+						strcat(str,"Some files are too large");
+					}
+
+					strcat(str,"\0");
+
+					V_DrawString(x, y, V_ALLOWLOWERCASE, str);
+					break;
+				}
+				else
+				{
+					char filestring[2048];
+					filestring[0] = 0;
+					if (fileneeded[i].important)
+					{
+						static char tempname[28];
+						char *filename = fileneeded[i].filename;
+
+						memset(tempname, 0, sizeof(tempname));
+						filename += strlen(filename) - nameonlylength(filename);
+
+						if (strlen(filename) > sizeof(tempname)-1) // too long to display fully
+						{
+							size_t endhalfpos = strlen(filename)-10;
+							snprintf(tempname, sizeof(tempname), "%.14s...%.10s", filename, filename+endhalfpos);
+						}
+						else
+							strncpy(tempname, filename, sizeof(tempname)-1);
+
+						strcat(filestring,va("%s ",tempname));
+
+						if (fileneeded[i].willsend == 1)
+							strcat(filestring,"\x83");
+						else
+							strcat(filestring,"\x85");
+
+						{
+							INT32 filesize = fileneeded[i].totalsize;
+							strcat(filestring,"(");
+							if (filesize>>10 != 0)
+							{
+								strcat(filestring,va("%d",filesize>>10));
+								strcat(filestring,"K)");
+							}
+							else
+							{
+								strcat(filestring,va("%d",filesize));
+								strcat(filestring," bytes)");
+							}
+						}
+
+						strcat(filestring,"\0");
+
+						V_DrawString(x, y, V_ALLOWLOWERCASE, filestring);
+
+						y += 16;
+					}
+					if (i-5 <= 6 && fileneedednum-5 <= 6 && i == fileneedednum-1)
+					{
+						if (M_CheckParm("-nodownload"))
+							strcpy(filestring,"\x87You chose to disable file downloading\0");
+						else if (!downloadson)
+							strcpy(filestring,"\x85The server disabled downloads\0");
+						else if (cantsend)
+							strcpy(filestring,"\x85Some files are too large to send\0");
+						V_DrawString(x, y, V_ALLOWLOWERCASE, filestring);
+						break;
+					}
+				}
+			}
+		}
+		V_DrawRightAlignedString(BASEVIDWIDTH-20, 146+30, V_YELLOWMAP|V_MONOSPACE, "<= FILE LIST     ");
+	}
+
+	M_DrawGenericMenu();
 }
 
 static void M_DrawConnectMenu(void)
@@ -5971,7 +6287,20 @@ static void M_DrawConnectMenu(void)
 
 static boolean M_CancelConnect(void)
 {
-	D_CloseConnection();
+	if (quittingserverconnlist)
+		D_CloseConnection();
+	return true;
+}
+
+static boolean M_QuitServerInfo(void)
+{
+	serverconnlist = false;
+	quittingserverconnlist = false;
+
+	M_ClearMenus(false);
+	D_QuitNetGame();
+	CL_Reset();
+	D_StartTitle();
 	return true;
 }
 
@@ -6265,30 +6594,19 @@ static void M_StartServerMenu(INT32 choice)
 
 static char setupm_ip[16];
 
-// Connect using IP address Tails 11-19-2002
-static void M_ConnectIPMenu(INT32 choice)
-{
-	(void)choice;
-	// modified game check: no longer handled
-	// we don't request a restart unless the filelist differs
-
-	M_SetupNextMenu(&MP_ConnectIPDef);
-}
-
-// Draw the funky Connect IP menu. Tails 11-19-2002
-// So much work for such a little thing!
-static void M_DrawConnectIPMenu(void)
+static void M_DrawMPMainMenu(void)
 {
 	// use generic drawer for cursor, items and title
 	M_DrawGenericMenu();
 
 	// draw name string
-	V_DrawString(128,40, V_MONOSPACE, setupm_ip);
+	M_DrawTextBox(58,90,22,1);
+	V_DrawString(68,98, V_MONOSPACE, setupm_ip);
 
 	// draw text cursor for name
-	if (itemOn == 0 &&
-	    skullAnimCounter < 4)   //blink cursor
-		V_DrawCharacter(128+V_StringWidth(setupm_ip, V_MONOSPACE),40,'_',false);
+	if (itemOn == 2 &&
+	    cursorAnimCounter < 4)   //blink cursor
+		V_DrawCharacter(68+V_StringWidth(setupm_ip, V_MONOSPACE),98,'_',false);
 }
 
 // Tails 11-19-2002
@@ -6296,9 +6614,22 @@ static void M_ConnectIP(INT32 choice)
 {
 	(void)choice;
 
+	M_ClearMenus(true);
+
 	if (*setupm_ip == 0)
 	{
 		M_StartMessage("You must specify an IP address.\n", NULL, MM_NOTHING);
+		return;
+	}
+
+	if (!M_CheckIfValidIP(setupm_ip) && strstr(setupm_ip, ":") == NULL)
+	{
+		M_StartMessage("You must specify a valid IP address.\n", NULL, MM_NOTHING);
+		return;
+	}
+
+	if (setupm_ip[(strlen(setupm_ip)-1)] == 58) {
+		M_StartMessage("Please specify a valid port.\n", NULL, MM_NOTHING);
 		return;
 	}
 
@@ -6313,17 +6644,69 @@ static void M_ConnectIP(INT32 choice)
 		I_FinishUpdate(); // page flip or blit buffer
 }
 
-// Tails 11-19-2002
+static boolean M_CheckIfValidIP(const char *str)
+{
+    int segs = 0;   // Segment count.
+    int chcnt = 0;  // Character count within segment.
+    int accum = 0;  // Accumulator for segment.
+    // Catch NULL pointer.
+    if (str == NULL)
+        return false;
+    // Process every character in string.
+    while (*str != '\0') {
+        // Segment changeover.
+        if (*str == '.') {
+            // Must have some digits in segment.
+            if (chcnt == 0)
+                return false;
+            // Limit number of segments.
+            if (++segs == 4)
+                return false;
+            // Reset segment values and restart loop.
+            chcnt = accum = 0;
+            str++;
+            continue;
+        }
+        // Check numeric.
+        if ((*str < '0') || (*str > '9'))
+            return false;
+        // Accumulate and check segment.
+        if ((accum = accum * 10 + *str - '0') > 255)
+            return false;
+        // Advance other segment specific stuff and continue loop.
+        chcnt++;
+        str++;
+    }
+    // Check enough segments and enough characters in last segment.
+    if (segs != 3)
+        return false;
+    if (chcnt == 0)
+        return false;
+    // Address okay.
+    return true;
+}
+
 static void M_HandleConnectIP(INT32 choice)
 {
-	size_t   l;
-	boolean  exitmenu = false;  // exit to previous menu and send name change
+	size_t l;
+	int colons = 0; // For checking amount of colons in the string
+	boolean exitmenu = false;  // exit to previous menu and send name change
 
 	switch (choice)
 	{
+		case KEY_DOWNARROW:
+			M_NextOpt();
+			S_StartSound(NULL,sfx_menu1); // Tails
+			break;
+
+		case KEY_UPARROW:
+			M_PrevOpt();
+			S_StartSound(NULL,sfx_menu1); // Tails
+			break;
+
 		case KEY_ENTER:
 			S_StartSound(NULL,sfx_menu1); // Tails
-			M_ClearMenus(true);
+			currentMenu->lastOn = itemOn;
 			M_ConnectIP(1);
 			break;
 
@@ -6332,29 +6715,49 @@ static void M_HandleConnectIP(INT32 choice)
 			break;
 
 		case KEY_BACKSPACE:
-			if ((l = strlen(setupm_ip))!=0 && itemOn == 0)
+			cursorAnimCounter = 4; // For a nice looking cursor
+			if ((l = strlen(setupm_ip)) != 0)
 			{
 				S_StartSound(NULL,sfx_menu1); // Tails
-				setupm_ip[l-1] =0;
+				setupm_ip[l-1] = 0;
+			}
+			break;
+
+		case KEY_DEL:
+			cursorAnimCounter = 4; // For a nice looking cursor
+			if (setupm_ip[0])
+			{
+				S_StartSound(NULL,sfx_menu1); // Tails
+				setupm_ip[0] = 0;
 			}
 			break;
 
 		default:
+			cursorAnimCounter = 4; // For a nice looking cursor
 			l = strlen(setupm_ip);
-			if (l < 16-1 && (choice == 46 || (choice >= 48 && choice <= 57))) // Rudimentary number and period enforcing
+			if (l >= 19-1)
+				break;
+
+			int i;
+			for (i = 0; i<l; i++)
+				if (setupm_ip[i] == 58)
+					colons++;
+
+			if (choice == 46 || (choice == 58 && colons == 0 && M_CheckIfValidIP(setupm_ip)) || (choice >= 48 && choice <= 57)) // Rudimentary number, period, and colon enforcing
 			{
 				S_StartSound(NULL,sfx_menu1); // Tails
-				setupm_ip[l] =(char)choice;
-				setupm_ip[l+1] =0;
+				setupm_ip[l] = (char)choice;
+				setupm_ip[l+1] = 0;
 			}
-			else if (l < 16-1 && choice >= 199 && choice <= 211 && choice != 202 && choice != 206) //numpad too!
+			else if (choice >= 199 && choice <= 211 && choice != 202 && choice != 206) //numpad too!
 			{
-				XBOXSTATIC char keypad_translation[] = {'7','8','9','-','4','5','6','+','1','2','3','0','.'};
+				char keypad_translation[] = {'7','8','9','-','4','5','6','+','1','2','3','0','.'};
 				choice = keypad_translation[choice - 199];
 				S_StartSound(NULL,sfx_menu1); // Tails
-				setupm_ip[l] =(char)choice;
-				setupm_ip[l+1] =0;
+				setupm_ip[l] = (char)choice;
+				setupm_ip[l+1] = 0;
 			}
+
 			break;
 	}
 
@@ -6417,7 +6820,7 @@ static void M_DrawSetupMultiPlayerMenu(void)
 	V_DrawString(208, 72, V_YELLOWMAP|V_ALLOWLOWERCASE, Color_Names[setupm_fakecolor]);
 
 	// draw text cursor for name
-	if (!itemOn && skullAnimCounter < 4) // blink cursor
+	if (!itemOn && cursorAnimCounter < 4) // blink cursor
 		V_DrawCharacter(mx + 98 + V_StringWidth(setupm_name, 0), my, '_',false);
 
 	// anim the player in the box
@@ -7390,7 +7793,7 @@ static void M_OGL_DrawFogMenu(void)
 	V_DrawString(BASEVIDWIDTH - mx - V_StringWidth(cv_grfogcolor.string, 0),
 		my + currentMenu->menuitems[FOG_COLOR_ITEM].alphaKey, V_YELLOWMAP, cv_grfogcolor.string);
 	// blink cursor on FOG_COLOR_ITEM if selected
-	if (itemOn == FOG_COLOR_ITEM && skullAnimCounter < 4)
+	if (itemOn == FOG_COLOR_ITEM && cursorAnimCounter < 4)
 		V_DrawCharacter(BASEVIDWIDTH - mx,
 			my + currentMenu->menuitems[FOG_COLOR_ITEM].alphaKey, '_' | 0x80,false);
 }
