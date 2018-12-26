@@ -1757,6 +1757,7 @@ static void R_CreateDrawNodes(void)
 				bestdelta = 0;
 				for (p = 0; p < ds->numffloorplanes; p++)
 				{
+					fixed_t plane_height;
 					if (!ds->ffloorplanes[p])
 						continue;
 					plane = ds->ffloorplanes[p];
@@ -1768,7 +1769,35 @@ static void R_CreateDrawNodes(void)
 						continue;
 					}
 
-					delta = abs(plane->height - viewz);
+					// Set the plane's regular height
+					plane_height = plane->height;
+
+					// Jimita: Okay, tell me if this is correct.
+					// We're comparing two planes, one that is flat and another that is sloped.
+					// Since planes that are sloped have two different height values,
+					// we need to use the highest height such that
+					// it can be compared to the flat plane's height. Right?
+
+					// I noticed this happens with "horizontal" slope
+					// setups, as the further away the control sector
+					// is from the target sector, the resulting slope
+					// has a different height.
+
+#ifdef ESLOPE
+					if (plane->slope && ds->curline->frontsector)
+					{
+						size_t l;
+						for (l = 0; l < ds->curline->frontsector->linecount; l++)
+						{
+							fixed_t height = P_GetZAt(plane->slope, ds->curline->frontsector->lines[l]->v1->x, ds->curline->frontsector->lines[l]->v1->y);
+							if (height > plane_height)
+								plane_height = height;
+						}
+					}
+#endif
+
+					// Compare from latest plane height
+					delta = abs(plane_height - viewz);
 					if (delta > bestdelta)
 					{
 						best = p;
