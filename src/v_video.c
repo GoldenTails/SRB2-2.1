@@ -188,7 +188,6 @@ static void LoadPalette(const char *lumpname)
 	Z_Free(pLocalPalette);
 
 	pLocalPalette = Z_Malloc(sizeof (*pLocalPalette)*palsize, PU_STATIC, NULL);
-
 	pal = W_CacheLumpNum(lumpnum, PU_CACHE);
 	for (i = 0; i < palsize; i++)
 	{
@@ -292,7 +291,7 @@ void VID_BlitLinearScreen(UINT32 *srcptr, UINT32 *destptr, INT32 width, INT32 he
 UINT32 V_GetTrueColor(INT32 c)
 {
 	RGBA_t rgba = (st_palette > 0) ? V_GetColorPal(c,st_palette) : V_GetColor(c);
-	return 0xFF000000|((rgba.s.blue&0xff)<<16)|((rgba.s.green&0xff)<<8)|(rgba.s.red&0xff);
+	return rgba.rgba;
 }
 
 // Jimita: True-color
