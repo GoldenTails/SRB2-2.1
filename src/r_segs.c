@@ -183,13 +183,13 @@ static void R_DrawWallSplats(void)
 				colfunc = basecolfunc;
 				break;
 			case SPLATDRAWMODE_TRANS:
-				if (!cv_translucency.value)
-					colfunc = basecolfunc;
-				else
+				if (vfx_translucency)
 				{
 					dc_transmap = V_AlphaTrans(tr_trans50);
 					colfunc = fuzzcolfunc;
 				}
+				else
+					colfunc = basecolfunc;
 				break;
 		}
 
@@ -274,7 +274,7 @@ static void R_Render2sidedMultiPatchColumn(column_t *column)
 	{
 		dc_source = (UINT8 *)column + 3;
 
-		if (colfunc == wallcolfunc)
+		if (colfunc == basecolfunc)
 			twosmultipatchfunc();
 		else if (colfunc == fuzzcolfunc)
 			twosmultipatchtransfunc();
@@ -313,29 +313,34 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 	// hack translucent linedef types
 	dc_transmap = 255;
 	ldef = curline->linedef;
-	switch (ldef->special)
+	if (vfx_translucency)
 	{
-		case 900:
-		case 901:
-		case 902:
-		case 903:
-		case 904:
-		case 905:
-		case 906:
-		case 907:
-		case 908:
-			dc_transmap = V_AlphaTrans(ldef->special-900);
-			colfunc = fuzzcolfunc;
-			break;
-		case 909:
-			colfunc = R_DrawFogColumn_32;
-			windowtop = frontsector->ceilingheight;
-			windowbottom = frontsector->floorheight;
-			break;
-		default:
-			colfunc = wallcolfunc;
-			break;
+		switch (ldef->special)
+		{
+			case 900:
+			case 901:
+			case 902:
+			case 903:
+			case 904:
+			case 905:
+			case 906:
+			case 907:
+			case 908:
+				dc_transmap = V_AlphaTrans(ldef->special-900);
+				colfunc = fuzzcolfunc;
+				break;
+			case 909:
+				colfunc = fogcolfunc;
+				windowtop = frontsector->ceilingheight;
+				windowbottom = frontsector->floorheight;
+				break;
+			default:
+				colfunc = basecolfunc;
+				break;
+		}
 	}
+	else
+		colfunc = basecolfunc;
 
 	if (curline->polyseg && curline->polyseg->translucency > 0)
 	{
@@ -436,7 +441,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 		else
 			lightnum = (frontsector->lightlevel >> LIGHTSEGSHIFT);
 
-		if (colfunc == R_DrawFogColumn_32
+		if (colfunc == fogcolfunc
 			|| (frontsector->extra_colormap && frontsector->extra_colormap->fog))
 			;
 		else if (curline->v1->y == curline->v2->y)
@@ -738,7 +743,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 			spryscale += rw_scalestep;
 		}
 	}
-	colfunc = wallcolfunc;
+	colfunc = basecolfunc;
 }
 
 // Loop through R_DrawMaskedColumn calls
@@ -801,7 +806,7 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 	frontsector = curline->frontsector == pfloor->target ? curline->backsector : curline->frontsector;
 	texnum = R_GetTextureNum(sides[pfloor->master->sidenum[0]].midtexture);
 
-	colfunc = wallcolfunc;
+	colfunc = basecolfunc;
 
 	if (pfloor->master->flags & ML_TFERLINE)
 	{
@@ -816,11 +821,15 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 		boolean fuzzy = true;
 
 		// Hacked up support for alpha value in software mode Tails 09-24-2002
-		// Edited by Jimita for True-Color Mode
-		if (pfloor->alpha < 1)
-			return; // Don't even draw it
-		else if (pfloor->alpha != 255)
-			dc_transmap = pfloor->alpha;
+		if (vfx_translucency)
+		{
+			if (pfloor->alpha < 1)
+				return; // Don't even draw it
+			else if (pfloor->alpha != 256)
+				dc_transmap = pfloor->alpha;
+			else
+				fuzzy = false; // Opaque
+		}
 		else
 			fuzzy = false; // Opaque
 
@@ -828,7 +837,7 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 			colfunc = fuzzcolfunc;
 	}
 	else if (pfloor->flags & FF_FOG)
-		colfunc = R_DrawFogColumn_32;
+		colfunc = fogcolfunc;
 
 #ifdef ESLOPE
 	range = max(ds->x2-ds->x1, 1);
@@ -1204,6 +1213,15 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 							{
 								rlight->rcolormap = pfloor->master->frontsector->extra_colormap->colormap + (xwalllights[pindex] - colormaps);
 								rlight->tc_rcolormap = pfloor->master->frontsector->extra_colormap->truecolormap + (xwalllights[pindex] - colormaps);
+								// Jimita (27-12-2018)
+								if (vfx_translucency)
+								{
+									dc_transmap = 128;
+									dc_blendcolor = pfloor->master->frontsector->extra_colormap->tc_rgba;
+									colfunc = blendcolfunc;
+								}
+								else
+									colfunc = basecolfunc;
 							}
 							else
 							{
@@ -1308,18 +1326,34 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 			if (pindex >= MAXLIGHTSCALE)
 				pindex = MAXLIGHTSCALE-1;
 
+			// Jimita: True-color
 			{
 				UINT8 *colormap_pointer;
 				dc_colormap = walllights[pindex];
 				R_SetTrueColormap(walllights_tc[pindex]);
 				colormap_pointer = dc_colormap;
 
-				if (pfloor->flags & FF_FOG)
-					dc_foglight = colormap_pointer-colormaps;
-				else if (frontsector->extra_colormap)
+				if (frontsector->extra_colormap)
 				{
 					dc_colormap = frontsector->extra_colormap->colormap + (colormap_pointer - colormaps);
 					R_SetTrueColormap(frontsector->extra_colormap->truecolormap + (colormap_pointer - colormaps));
+				}
+				if (pfloor->flags & FF_FOG)
+				{
+					dc_foglight = colormap_pointer-colormaps;
+					if (pfloor->master->frontsector->extra_colormap)
+					{
+						dc_colormap = pfloor->master->frontsector->extra_colormap->colormap + (colormap_pointer - colormaps);
+						// Jimita (27-12-2018)
+						if (vfx_translucency)
+						{
+							dc_transmap = 128;
+							dc_blendcolor = pfloor->master->frontsector->extra_colormap->tc_rgba;
+							colfunc = blendcolfunc;
+						}
+						else
+							colfunc = basecolfunc;
+					}
 				}
 			}
 
@@ -1328,7 +1362,7 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 			spryscale += rw_scalestep;
 		}
 	}
-	colfunc = wallcolfunc;
+	colfunc = basecolfunc;
 
 #undef CLAMPMAX
 #undef CLAMPMIN
@@ -1562,7 +1596,7 @@ static void R_RenderSegLoop (void)
 					dc_lightlist[i].tc_rcolormap = xwalllights_tc[pindex];
 				}
 
-				colfunc = R_DrawColumnShadowed_32;
+				colfunc = shadowcolfunc;
 			}
 		}
 
@@ -3172,21 +3206,8 @@ void R_StoreWallRange(INT32 start, INT32 stop)
 		}
 	}
 
-/*#ifdef WALLSPLATS
-	if (linedef->splats && cv_splats.value)
-	{
-		// Isn't a bit wasteful to copy the ENTIRE array for every drawseg?
-		M_Memcpy(last_ceilingclip + ds_p->x1, ceilingclip + ds_p->x1,
-			sizeof (INT16) * (ds_p->x2 - ds_p->x1 + 1));
-		M_Memcpy(last_floorclip + ds_p->x1, floorclip + ds_p->x1,
-			sizeof (INT16) * (ds_p->x2 - ds_p->x1 + 1));
-		R_RenderSegLoop();
-		R_DrawWallSplats();
-	}
-	else
-#endif*/
-		R_RenderSegLoop();
-	colfunc = wallcolfunc;
+	R_RenderSegLoop();
+	colfunc = basecolfunc;
 
 	if (portalline) // if curline is a portal, set portalrender for drawseg
 		ds_p->portalpass = portalrender+1;

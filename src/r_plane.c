@@ -184,6 +184,7 @@ void R_MapPlane(INT32 y, INT32 x1, INT32 x2)
 	angle_t angle, planecos, planesin;
 	fixed_t distance, span;
 	size_t pindex;
+	extracolormap_t *colormap;
 
 #ifdef RANGECHECK
 	if (x2 < x1 || x1 < 0 || x2 >= viewwidth || y > viewheight)
@@ -250,18 +251,32 @@ void R_MapPlane(INT32 y, INT32 x1, INT32 x2)
 
 	// Jimita: True-color
 	ds_truecolormap = NULL;
-	if (cv_truecolormaps.value)
+	if (vfx_colormaps)
 	{
 		ds_foglight = ds_colormap-colormaps;
+
 		if (currentplane->slope)
 			R_SetTrueColormapDS(truecolormaps);
 		else
 			R_SetTrueColormapDS(planezlight_tc[pindex]);
-		if (currentplane->extra_colormap)
+		if ((colormap = currentplane->extra_colormap))
 			R_SetTrueColormapDS(currentplane->extra_colormap->truecolormap + (ds_truecolormap - truecolormaps));
 	}
-	else if (currentplane->extra_colormap)
+	else if ((colormap = currentplane->extra_colormap))
 		ds_colormap = currentplane->extra_colormap->colormap + (ds_colormap - colormaps);
+
+	// Jimita (27-12-2018)
+	if (vfx_translucency)
+	{
+		if (colormap && spanfunc == fogspanfunc)
+		{
+			ds_transmap = 128;
+			ds_blendcolor = colormap->tc_rgba;
+			spanfunc = transspanfunc;
+		}
+	}
+	else
+		spanfunc = basespanfunc;
 
 	ds_y = y;
 	ds_x1 = x1;
@@ -590,7 +605,6 @@ void R_DrawPlanes(void)
 	INT32 i;
 
 	spanfunc = basespanfunc;
-	wallcolfunc = walldrawerfunc;
 
 	for (i = 0; i < MAXVISPLANES; i++, pl++)
 	{
@@ -628,7 +642,7 @@ void R_DrawPlanes(void)
 						angle = (pl->viewangle + xtoviewangle[x])>>ANGLETOSKYSHIFT;
 						//dc_iscale = FixedMul(skyscale, FINECOSINE(xtoviewangle[x]>>ANGLETOFINESHIFT));
 						dc_source = R_GetColumn(skytexture, angle);
-						wallcolfunc();
+						basecolfunc();
 					}
 				}
 				continue;
@@ -670,14 +684,19 @@ void R_DrawSinglePlane(visplane_t *pl)
 #ifdef POLYOBJECTS_PLANES
 	if (pl->polyobj && pl->polyobj->translucency != 0)
 	{
-		spanfunc = R_DrawTranslucentSpan_32;
-
-		// Hacked up support for alpha value in software mode Tails 09-24-2002 (sidenote: ported to polys 10-15-2014, there was no time travel involved -Red)
-		if (pl->polyobj->translucency >= 10)
-			return; // Don't even draw it
-		else if (pl->polyobj->translucency > 0)
-			ds_transmap = V_AlphaTrans(pl->polyobj->translucency);
-		else // Opaque, but allow transparent flat pixels
+		// Hacked up support for alpha value in software mode Tails 09-24-2002
+		// (sidenote: ported to polys 10-15-2014, there was no time travel involved -Red)
+		if (vfx_translucency)
+		{
+			spanfunc = transspanfunc;
+			if (pl->polyobj->translucency >= 10)
+				return; // Don't even draw it
+			else if (pl->polyobj->translucency > 0)
+				ds_transmap = V_AlphaTrans(pl->polyobj->translucency);
+			else // Opaque, but allow transparent flat pixels
+				spanfunc = splatfunc;
+		}
+		else
 			spanfunc = splatfunc;
 
 		if (!pl->extra_colormap || !(pl->extra_colormap->fog & 2))
@@ -708,15 +727,18 @@ void R_DrawSinglePlane(visplane_t *pl)
 
 		if (pl->ffloor->flags & FF_TRANSLUCENT)
 		{
-			spanfunc = R_DrawTranslucentSpan_32;
-
 			// Hacked up support for alpha value in software mode Tails 09-24-2002
-			// Edited by Jimita for True-Color Mode
-			if (pl->ffloor->alpha < 1)
-				return; // Don't even draw it
-			else if (pl->ffloor->alpha != 255)
-				ds_transmap = pl->ffloor->alpha;
-			else // Opaque, but allow transparent flat pixels
+			if (vfx_translucency)
+			{
+				spanfunc = transspanfunc;
+				if (pl->ffloor->alpha < 1)
+					return; // Don't even draw it
+				else if (pl->ffloor->alpha != 256)
+					ds_transmap = pl->ffloor->alpha;
+				else // Opaque, but allow transparent flat pixels
+					spanfunc = splatfunc;
+			}
+			else
 				spanfunc = splatfunc;
 
 			if (!pl->extra_colormap || !(pl->extra_colormap->fog & 2))
@@ -726,40 +748,43 @@ void R_DrawSinglePlane(visplane_t *pl)
 		}
 		else if (pl->ffloor->flags & FF_FOG)
 		{
-			spanfunc = R_DrawFogSpan_32;
+			spanfunc = fogspanfunc;
 			light = (pl->lightlevel >> LIGHTSEGSHIFT);
 		}
 		else light = (pl->lightlevel >> LIGHTSEGSHIFT);
 
-#ifndef NOWATER
-		if (pl->ffloor->flags & FF_RIPPLE
-#ifdef ESLOPE
-				&& !pl->slope
-#endif
-			)
+		if (vfx_water)
 		{
-			INT32 top, bottom;
-
-			itswater = true;
-			if (spanfunc == R_DrawTranslucentSpan_32)
+#ifndef NOWATER
+			if (pl->ffloor->flags & FF_RIPPLE
+#ifdef ESLOPE
+					&& !pl->slope
+#endif
+				)
 			{
-				spanfunc = R_DrawTranslucentWaterSpan_32;
+				INT32 top, bottom;
 
-				// Copy the current scene, ugh
-				top = pl->high-8;
-				bottom = pl->low+8;
+				itswater = true;
+				if (spanfunc == transspanfunc)
+				{
+					spanfunc = waterspanfunc;
 
-				if (top < 0)
-					top = 0;
-				if (bottom > vid.height)
-					bottom = vid.height;
+					// Copy the current scene, ugh
+					top = pl->high-8;
+					bottom = pl->low+8;
 
-				// Only copy the part of the screen we need
-				VID_BlitLinearScreen(
-					(splitscreen && viewplayer == &players[secondarydisplayplayer]) ? screen_main + (top+(vid.height>>1))*vid.width : screen_main+((top)*vid.width),
-					screen_altblit+((top)*vid.width),
-					vid.width, bottom-top
-				);
+					if (top < 0)
+						top = 0;
+					if (bottom > vid.height)
+						bottom = vid.height;
+
+					// Only copy the part of the screen we need
+					VID_BlitLinearScreen(
+						(splitscreen && viewplayer == &players[secondarydisplayplayer]) ? screen_main + (top+(vid.height>>1))*vid.width : screen_main+((top)*vid.width),
+						screen_altblit+((top)*vid.width),
+						vid.width, bottom-top
+					);
+				}
 			}
 		}
 #endif
@@ -931,19 +956,19 @@ void R_DrawSinglePlane(visplane_t *pl)
 		ds_sv.z *= SFMULT;
 #undef SFMULT
 
-		if (spanfunc == R_DrawTranslucentSpan_32)
-			spanfunc = R_DrawTiltedTranslucentSpan_32;
+		if (spanfunc == transspanfunc)
+			spanfunc = tiltedtransspanfunc;
 		else if (spanfunc == splatfunc)
-			spanfunc = R_DrawTiltedSplat_32;
+			spanfunc = tiltedsplatfunc;
 		else
-			spanfunc = R_DrawTiltedSpan_32;
+			spanfunc = tiltedspanfunc;
 
-		planezlight    = scalelight[light];
+		planezlight = scalelight[light];
 		planezlight_tc = scalelight_tc[light];
 	} else
 #endif // ESLOPE
 	{
-		planezlight    = zlight   [light];
+		planezlight = zlight[light];
 		planezlight_tc = zlight_tc[light];
 	}
 
@@ -986,11 +1011,11 @@ a 'smoothing' of the texture while
 using the palette colors.
 */
 #ifdef QUINCUNX
-	if (spanfunc == R_DrawSpan_32)
+	if (vfx_quincunx && spanfunc == basespanfunc)
 	{
 		INT32 i;
 		ds_transmap = V_AlphaTrans(tr_trans50);
-		spanfunc = R_DrawTranslucentSpan_32;
+		spanfunc = transspanfunc;
 		for (i=0; i<4; i++)
 		{
 			xoffs = pl->xoffs;

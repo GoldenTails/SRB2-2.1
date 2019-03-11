@@ -567,6 +567,7 @@ void R_DrawFogSpan_32(void)
 
 		dest += 4;
 		count -= 4;
+		#undef FOG
 	}
 
 	while (count--)
@@ -602,7 +603,7 @@ void R_DrawFogColumn_32(void)
 	} while (count--);
 }
 
-/**	\brief The R_DrawShadeColumn_32 function
+/**	\brief The R_DrawColumnShadowed_32 function
 	This is for 3D floors that cast shadows on walls.
 
 	This function just cuts the column up into sections and calls R_DrawColumn_32
@@ -671,7 +672,7 @@ void R_DrawColumnShadowed_32(void)
 	}
 	dc_yh = realyh;
 	if (dc_yl <= realyh)
-		walldrawerfunc();		// R_DrawWallColumn_32
+		basecolfunc();		// R_DrawColumn_32
 }
 
 // ==========================================================================
@@ -682,7 +683,7 @@ void R_DrawColumnShadowed_32(void)
 	Draws the actual span.
 	Edited by Jimita for True-Color Mode
 */
-void R_DrawSpan_32 (void)
+void R_DrawSpan_32(void)
 {
 	UINT32 xposition;
 	UINT32 yposition;
@@ -751,6 +752,242 @@ void R_DrawSpan_32 (void)
 	}
 }
 
+/**	\brief The R_DrawSplat_32 function
+	Just like R_DrawSpan_32, but skips transparent pixels.
+	Edited by Jimita for True-Color Mode
+*/
+void R_DrawSplat_32(void)
+{
+	UINT32 xposition;
+	UINT32 yposition;
+	UINT32 xstep, ystep;
+
+	UINT8 *source;
+	UINT8 *colormap;
+	UINT32 *dest;
+
+	size_t count;
+	UINT32 val;
+
+	// SoM: we only need 6 bits for the integer part (0 thru 63) so the rest
+	// can be used for the fraction part. This allows calculation of the memory address in the
+	// texture with two shifts, an OR and one AND. (see below)
+	// for texture sizes > 64 the amount of precision we can allow will decrease, but only by one
+	// bit per power of two (obviously)
+	// Ok, because I was able to eliminate the variable spot below, this function is now FASTER
+	// than the original span renderer. Whodathunkit?
+	xposition = ds_xfrac << nflatshiftup; yposition = ds_yfrac << nflatshiftup;
+	xstep = ds_xstep << nflatshiftup; ystep = ds_ystep << nflatshiftup;
+
+	source = ds_source;
+	colormap = ds_colormap;
+	dest = &topleft[ds_y*vid.width + ds_x1];
+	count = ds_x2 - ds_x1 + 1;
+
+	while (count >= 8)
+	{
+		// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
+		// have the uber complicated math to calculate it now, so that was a memory write we didn't
+		// need!
+		//
+		// <Callum> 4194303 = (2048x2048)-1 (2048x2048 is maximum flat size)
+		#define MAINSPANLOOP(i) \
+		val = ((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift); \
+		val &= 4194303; \
+		val = source[val]; \
+		if (val != TRANSPARENTPIXEL) \
+		{ \
+			if (ds_truecolormap) \
+				V_DrawPixelTrueColor(&(dest[i]), V_TrueColormapRGBA_DS(val)); \
+			else \
+				V_DrawPixelTrueColor(&(dest[i]), V_GetTrueColor(colormap[val])); \
+		} \
+		xposition += xstep; \
+		yposition += ystep;
+
+		MAINSPANLOOP(0)
+		MAINSPANLOOP(1)
+		MAINSPANLOOP(2)
+		MAINSPANLOOP(3)
+		MAINSPANLOOP(4)
+		MAINSPANLOOP(5)
+		MAINSPANLOOP(6)
+		MAINSPANLOOP(7)
+
+		#undef MAINSPANLOOP
+
+		dest += 8;
+		count -= 8;
+	}
+	while (count--)
+	{
+		val = ((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift);
+		val &= 4194303;
+		val = source[val];
+		if (val != TRANSPARENTPIXEL)
+		{
+			if (ds_truecolormap)
+				V_DrawPixelTrueColor(dest, V_TrueColormapRGBA_DS(val));
+			else
+				V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[val]));
+		}
+
+		dest++;
+		xposition += xstep;
+		yposition += ystep;
+	}
+}
+
+/**	\brief The R_DrawTranslucentSplat_32 function
+	Just like R_DrawSplat_32 but is translucent!
+	Edited by Jimita for True-Color Mode
+*/
+void R_DrawTranslucentSplat_32(void)
+{
+	UINT32 xposition;
+	UINT32 yposition;
+	UINT32 xstep, ystep;
+
+	UINT8 *source;
+	UINT8 *colormap;
+	UINT32 *dest;
+
+	size_t count;
+	UINT8 val;
+
+	// SoM: we only need 6 bits for the integer part (0 thru 63) so the rest
+	// can be used for the fraction part. This allows calculation of the memory address in the
+	// texture with two shifts, an OR and one AND. (see below)
+	// for texture sizes > 64 the amount of precision we can allow will decrease, but only by one
+	// bit per power of two (obviously)
+	// Ok, because I was able to eliminate the variable spot below, this function is now FASTER
+	// than the original span renderer. Whodathunkit?
+	xposition = ds_xfrac << nflatshiftup; yposition = ds_yfrac << nflatshiftup;
+	xstep = ds_xstep << nflatshiftup; ystep = ds_ystep << nflatshiftup;
+
+	source = ds_source;
+	colormap = ds_colormap;
+	dest = &topleft[ds_y*vid.width + ds_x1];
+	count = ds_x2 - ds_x1 + 1;
+
+	while (count >= 8)
+	{
+		// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
+		// have the uber complicated math to calculate it now, so that was a memory write we didn't
+		// need!
+		#define MAINSPANLOOP(i) \
+		val = source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]; \
+		if (val != TRANSPARENTPIXEL) \
+		{ \
+			if (ds_truecolormap) \
+				V_DrawPixelTrueColor(&(dest[i]), V_BlendTrueColor(dest[i], V_TrueColormapRGBA_DS(val), ds_transmap)); \
+			else \
+				V_DrawPixelTrueColor(&(dest[i]), V_BlendTrueColor(dest[i], V_GetTrueColor(colormap[val]), ds_transmap)); \
+		} \
+		xposition += xstep; \
+		yposition += ystep;
+
+		MAINSPANLOOP(0)
+		MAINSPANLOOP(1)
+		MAINSPANLOOP(2)
+		MAINSPANLOOP(3)
+		MAINSPANLOOP(4)
+		MAINSPANLOOP(5)
+		MAINSPANLOOP(6)
+		MAINSPANLOOP(7)
+
+		#undef MAINSPANLOOP
+
+		dest += 8;
+		count -= 8;
+	}
+	while (count--)
+	{
+		val = source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)];
+		if (val != TRANSPARENTPIXEL)
+		{
+			if (ds_truecolormap)
+				V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA_DS(val), ds_transmap));
+			else
+				V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), ds_transmap));
+		}
+
+		dest++;
+		xposition += xstep;
+		yposition += ystep;
+	}
+}
+
+/**	\brief The R_DrawTranslucentSpan_32 function
+	Draws the actual span with translucency.
+	Edited by Jimita for True-Color Mode
+*/
+void R_DrawTranslucentSpan_32(void)
+{
+	UINT32 xposition;
+	UINT32 yposition;
+	UINT32 xstep, ystep;
+
+	UINT8 *source;
+	UINT8 *colormap;
+	UINT32 *dest;
+
+	size_t count;
+
+	// SoM: we only need 6 bits for the integer part (0 thru 63) so the rest
+	// can be used for the fraction part. This allows calculation of the memory address in the
+	// texture with two shifts, an OR and one AND. (see below)
+	// for texture sizes > 64 the amount of precision we can allow will decrease, but only by one
+	// bit per power of two (obviously)
+	// Ok, because I was able to eliminate the variable spot below, this function is now FASTER
+	// than the original span renderer. Whodathunkit?
+	xposition = ds_xfrac << nflatshiftup; yposition = ds_yfrac << nflatshiftup;
+	xstep = ds_xstep << nflatshiftup; ystep = ds_ystep << nflatshiftup;
+
+	source = ds_source;
+	colormap = ds_colormap;
+	dest = &topleft[ds_y*vid.width + ds_x1];
+	count = ds_x2 - ds_x1 + 1;
+
+	while (count >= 8)
+	{
+		// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
+		// have the uber complicated math to calculate it now, so that was a memory write we didn't
+		// need!
+		#define MAINSPANLOOP(i) \
+		if (ds_truecolormap) \
+			V_DrawPixelTrueColor(&(dest[i]), V_BlendTrueColor(dest[i], V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]), ds_transmap)); \
+		else \
+			V_DrawPixelTrueColor(&(dest[i]), V_BlendTrueColor(dest[i], V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap)); \
+		xposition += xstep; \
+		yposition += ystep;
+
+		MAINSPANLOOP(0)
+		MAINSPANLOOP(1)
+		MAINSPANLOOP(2)
+		MAINSPANLOOP(3)
+		MAINSPANLOOP(4)
+		MAINSPANLOOP(5)
+		MAINSPANLOOP(6)
+		MAINSPANLOOP(7)
+
+		#undef MAINSPANLOOP
+
+		dest += 8;
+		count -= 8;
+	}
+	while (count--)
+	{
+		if (ds_truecolormap)
+			V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]), ds_transmap));
+		else
+			V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap));
+		dest++;
+		xposition += xstep;
+		yposition += ystep;
+	}
+}
+
 #ifdef ESLOPE
 // R_CalcTiltedLighting
 // Exactly what it says on the tin. I wish I wasn't too lazy to explain things properly.
@@ -774,7 +1011,6 @@ void R_CalcTiltedLighting(fixed_t start, fixed_t end)
 			tiltlighting[i] = MAXLIGHTSCALE-1;
 	}
 }
-
 
 /**	\brief The R_DrawTiltedSpan_32 function
 	Edited by Jimita for True-Color Mode
@@ -1212,242 +1448,6 @@ void R_DrawTiltedSplat_32(void)
 }
 #endif // ESLOPE
 
-/**	\brief The R_DrawSplat_32 function
-	Just like R_DrawSpan_32, but skips transparent pixels.
-	Edited by Jimita for True-Color Mode
-*/
-void R_DrawSplat_32 (void)
-{
-	UINT32 xposition;
-	UINT32 yposition;
-	UINT32 xstep, ystep;
-
-	UINT8 *source;
-	UINT8 *colormap;
-	UINT32 *dest;
-
-	size_t count;
-	UINT32 val;
-
-	// SoM: we only need 6 bits for the integer part (0 thru 63) so the rest
-	// can be used for the fraction part. This allows calculation of the memory address in the
-	// texture with two shifts, an OR and one AND. (see below)
-	// for texture sizes > 64 the amount of precision we can allow will decrease, but only by one
-	// bit per power of two (obviously)
-	// Ok, because I was able to eliminate the variable spot below, this function is now FASTER
-	// than the original span renderer. Whodathunkit?
-	xposition = ds_xfrac << nflatshiftup; yposition = ds_yfrac << nflatshiftup;
-	xstep = ds_xstep << nflatshiftup; ystep = ds_ystep << nflatshiftup;
-
-	source = ds_source;
-	colormap = ds_colormap;
-	dest = &topleft[ds_y*vid.width + ds_x1];
-	count = ds_x2 - ds_x1 + 1;
-
-	while (count >= 8)
-	{
-		// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
-		// have the uber complicated math to calculate it now, so that was a memory write we didn't
-		// need!
-		//
-		// <Callum> 4194303 = (2048x2048)-1 (2048x2048 is maximum flat size)
-		#define MAINSPANLOOP(i) \
-		val = ((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift); \
-		val &= 4194303; \
-		val = source[val]; \
-		if (val != TRANSPARENTPIXEL) \
-		{ \
-			if (ds_truecolormap) \
-				V_DrawPixelTrueColor(&(dest[i]), V_TrueColormapRGBA_DS(val)); \
-			else \
-				V_DrawPixelTrueColor(&(dest[i]), V_GetTrueColor(colormap[val])); \
-		} \
-		xposition += xstep; \
-		yposition += ystep;
-
-		MAINSPANLOOP(0)
-		MAINSPANLOOP(1)
-		MAINSPANLOOP(2)
-		MAINSPANLOOP(3)
-		MAINSPANLOOP(4)
-		MAINSPANLOOP(5)
-		MAINSPANLOOP(6)
-		MAINSPANLOOP(7)
-
-		#undef MAINSPANLOOP
-
-		dest += 8;
-		count -= 8;
-	}
-	while (count--)
-	{
-		val = ((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift);
-		val &= 4194303;
-		val = source[val];
-		if (val != TRANSPARENTPIXEL)
-		{
-			if (ds_truecolormap)
-				V_DrawPixelTrueColor(dest, V_TrueColormapRGBA_DS(val));
-			else
-				V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[val]));
-		}
-
-		dest++;
-		xposition += xstep;
-		yposition += ystep;
-	}
-}
-
-/**	\brief The R_DrawTranslucentSplat_32 function
-	Just like R_DrawSplat_32 but is translucent!
-	Edited by Jimita for True-Color Mode
-*/
-void R_DrawTranslucentSplat_32 (void)
-{
-	UINT32 xposition;
-	UINT32 yposition;
-	UINT32 xstep, ystep;
-
-	UINT8 *source;
-	UINT8 *colormap;
-	UINT32 *dest;
-
-	size_t count;
-	UINT8 val;
-
-	// SoM: we only need 6 bits for the integer part (0 thru 63) so the rest
-	// can be used for the fraction part. This allows calculation of the memory address in the
-	// texture with two shifts, an OR and one AND. (see below)
-	// for texture sizes > 64 the amount of precision we can allow will decrease, but only by one
-	// bit per power of two (obviously)
-	// Ok, because I was able to eliminate the variable spot below, this function is now FASTER
-	// than the original span renderer. Whodathunkit?
-	xposition = ds_xfrac << nflatshiftup; yposition = ds_yfrac << nflatshiftup;
-	xstep = ds_xstep << nflatshiftup; ystep = ds_ystep << nflatshiftup;
-
-	source = ds_source;
-	colormap = ds_colormap;
-	dest = &topleft[ds_y*vid.width + ds_x1];
-	count = ds_x2 - ds_x1 + 1;
-
-	while (count >= 8)
-	{
-		// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
-		// have the uber complicated math to calculate it now, so that was a memory write we didn't
-		// need!
-		#define MAINSPANLOOP(i) \
-		val = source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]; \
-		if (val != TRANSPARENTPIXEL) \
-		{ \
-			if (ds_truecolormap) \
-				V_DrawPixelTrueColor(&(dest[i]), V_BlendTrueColor(dest[i], V_TrueColormapRGBA_DS(val), ds_transmap)); \
-			else \
-				V_DrawPixelTrueColor(&(dest[i]), V_BlendTrueColor(dest[i], V_GetTrueColor(colormap[val]), ds_transmap)); \
-		} \
-		xposition += xstep; \
-		yposition += ystep;
-
-		MAINSPANLOOP(0)
-		MAINSPANLOOP(1)
-		MAINSPANLOOP(2)
-		MAINSPANLOOP(3)
-		MAINSPANLOOP(4)
-		MAINSPANLOOP(5)
-		MAINSPANLOOP(6)
-		MAINSPANLOOP(7)
-
-		#undef MAINSPANLOOP
-
-		dest += 8;
-		count -= 8;
-	}
-	while (count--)
-	{
-		val = source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)];
-		if (val != TRANSPARENTPIXEL)
-		{
-			if (ds_truecolormap)
-				V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA_DS(val), ds_transmap));
-			else
-				V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), ds_transmap));
-		}
-
-		dest++;
-		xposition += xstep;
-		yposition += ystep;
-	}
-}
-
-/**	\brief The R_DrawTranslucentSpan_32 function
-	Draws the actual span with translucency.
-	Edited by Jimita for True-Color Mode
-*/
-void R_DrawTranslucentSpan_32 (void)
-{
-	UINT32 xposition;
-	UINT32 yposition;
-	UINT32 xstep, ystep;
-
-	UINT8 *source;
-	UINT8 *colormap;
-	UINT32 *dest;
-
-	size_t count;
-
-	// SoM: we only need 6 bits for the integer part (0 thru 63) so the rest
-	// can be used for the fraction part. This allows calculation of the memory address in the
-	// texture with two shifts, an OR and one AND. (see below)
-	// for texture sizes > 64 the amount of precision we can allow will decrease, but only by one
-	// bit per power of two (obviously)
-	// Ok, because I was able to eliminate the variable spot below, this function is now FASTER
-	// than the original span renderer. Whodathunkit?
-	xposition = ds_xfrac << nflatshiftup; yposition = ds_yfrac << nflatshiftup;
-	xstep = ds_xstep << nflatshiftup; ystep = ds_ystep << nflatshiftup;
-
-	source = ds_source;
-	colormap = ds_colormap;
-	dest = &topleft[ds_y*vid.width + ds_x1];
-	count = ds_x2 - ds_x1 + 1;
-
-	while (count >= 8)
-	{
-		// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
-		// have the uber complicated math to calculate it now, so that was a memory write we didn't
-		// need!
-		#define MAINSPANLOOP(i) \
-		if (ds_truecolormap) \
-			V_DrawPixelTrueColor(&(dest[i]), V_BlendTrueColor(dest[i], V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]), ds_transmap)); \
-		else \
-			V_DrawPixelTrueColor(&(dest[i]), V_BlendTrueColor(dest[i], V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap)); \
-		xposition += xstep; \
-		yposition += ystep;
-
-		MAINSPANLOOP(0)
-		MAINSPANLOOP(1)
-		MAINSPANLOOP(2)
-		MAINSPANLOOP(3)
-		MAINSPANLOOP(4)
-		MAINSPANLOOP(5)
-		MAINSPANLOOP(6)
-		MAINSPANLOOP(7)
-
-		#undef MAINSPANLOOP
-
-		dest += 8;
-		count -= 8;
-	}
-	while (count--)
-	{
-		if (ds_truecolormap)
-			V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]), ds_transmap));
-		else
-			V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap));
-		dest++;
-		xposition += xstep;
-		yposition += ystep;
-	}
-}
-
 #ifndef NOWATER
 void R_DrawTranslucentWaterSpan_32(void)
 {
@@ -1514,3 +1514,51 @@ void R_DrawTranslucentWaterSpan_32(void)
 	}
 }
 #endif
+
+// Jimita (27-12-2018)
+void R_DrawBlendColumn_32(void)
+{
+	UINT32 *dest;
+	INT32 count = (dc_yh-dc_yl);
+
+	// Zero length, column does not exceed a pixel.
+	if (count < 0)
+		return;
+
+#ifdef RANGECHECK
+	if ((unsigned)dc_x >= (unsigned)vid.width || dc_yl < 0 || dc_yh >= vid.height)
+		I_Error("R_DrawBlendColumn_32: %d to %d at %d", dc_yl, dc_yh, dc_x);
+#endif
+
+	dest = &topleft[dc_yl*vid.width + dc_x];
+	do
+	{
+		V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, dc_blendcolor, dc_transmap));
+		dest += vid.width;
+	} while (count--);
+}
+
+void R_DrawBlendSpan_32(void)
+{
+	UINT32 *dest = &topleft[ds_y*vid.width+ds_x1];
+	size_t count = (ds_x2-ds_x1)+1;
+
+	while (count >= 4)
+	{
+		#define FOG(i) V_DrawPixelTrueColor(dest+i, V_BlendTrueColor(*(dest+i), ds_blendcolor, ds_transmap));
+		FOG(0)
+		FOG(1)
+		FOG(2)
+		FOG(3)
+
+		dest += 4;
+		count -= 4;
+		#undef FOG
+	}
+
+	while (count--)
+	{
+		V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, ds_blendcolor, ds_transmap));
+		dest++;
+	}
+}

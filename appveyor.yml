@@ -75,13 +75,6 @@ install:
 configuration:
 - SDL
 - SDL64
-- DD
-- DD64
-
-matrix:
-  allow_failures:
-    - configuration: DD
-    - configuration: DD64
 
 before_build:
 - set "Path=%MINGW_SDK%\bin;%Path%"

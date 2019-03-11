@@ -188,7 +188,6 @@ static void LoadPalette(const char *lumpname)
 	Z_Free(pLocalPalette);
 
 	pLocalPalette = Z_Malloc(sizeof (*pLocalPalette)*palsize, PU_STATIC, NULL);
-
 	pal = W_CacheLumpNum(lumpnum, PU_CACHE);
 	for (i = 0; i < palsize; i++)
 	{
@@ -292,13 +291,13 @@ void VID_BlitLinearScreen(UINT32 *srcptr, UINT32 *destptr, INT32 width, INT32 he
 UINT32 V_GetTrueColor(INT32 c)
 {
 	RGBA_t rgba = (st_palette > 0) ? V_GetColorPal(c,st_palette) : V_GetColor(c);
-	return 0xFF000000|((rgba.s.blue&0xff)<<16)|((rgba.s.green&0xff)<<8)|(rgba.s.red&0xff);
+	return rgba.rgba;
 }
 
 // Jimita: True-color
 UINT32 V_BlendTrueColor(UINT32 bg, UINT32 fg, UINT8 alpha)
 {
-	return (alpha==255) ? fg : 0xFF000000|(((((bg>>16)&0xff)*(0xff-alpha))+(((fg>>16)&0xff)*alpha))>>8)<<16|(((((bg>>8)&0xff)*(0xff-alpha))+(((fg>>8)&0xff)*alpha))>>8)<<8|((((bg&0xff)*(0xff-alpha))+((fg&0xff)*alpha))>>8);
+	return (!alpha)?bg:((alpha==255)?fg:0xFF000000|(((((bg>>16)&0xff)*(0xff-alpha))+(((fg>>16)&0xff)*alpha))>>8)<<16|(((((bg>>8)&0xff)*(0xff-alpha))+(((fg>>8)&0xff)*alpha))>>8)<<8|((((bg&0xff)*(0xff-alpha))+((fg&0xff)*alpha))>>8));
 }
 
 // Jimita: True-color
@@ -322,14 +321,13 @@ UINT32 V_TrueColormapRGBA_DS(INT32 c)
 // Jimita: True-color
 UINT8 V_AlphaTrans(INT32 num)
 {
-	if (!cv_translucency.value) return 0;
 	switch (num)
 	{
 		case tr_trans10: return 0xe6;
 		case tr_trans20: return 0xcc;
 		case tr_trans30: return 0xb3;
 		case tr_trans40: return 0x99;
-		case tr_trans50: return 0x80;		// 128
+		case tr_trans50: return 0x80;
 		case tr_trans60: return 0x66;
 		case tr_trans70: return 0x4c;
 		case tr_trans80: return 0x33;
@@ -886,6 +884,12 @@ void V_DrawFillConsoleMap(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 	if (rendermode == render_none)
 		return;
 
+	if (!vfx_translucency)
+	{
+		V_DrawFill(x, y, w, h, c|palindex);
+		return;
+	}
+
 #ifdef HWRENDER
 	if (rendermode == render_opengl && !con_startup)
 	{
@@ -1115,6 +1119,12 @@ void V_DrawFadeConsBack(INT32 plines)
 		return;
 	}
 #endif
+
+	if (!vfx_translucency)
+	{
+		V_DrawFill(0, 0, vid.width, min(plines, vid.height), V_NOSCALESTART|palindex);
+		return;
+	}
 
 	// heavily simplified -- we don't need to know x or y position,
 	// just the stop position
