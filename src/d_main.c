@@ -533,9 +533,6 @@ void D_SRB2Loop(void)
 	if (dedicated)
 		server = true;
 
-	if (M_CheckParm("-voodoo")) // 256x256 Texture Limiter
-		COM_BufAddText("gr_voodoocompatibility on\n");
-
 	// Pushing of + parameters is now done back in D_SRB2Main, not here.
 
 	CONS_Printf("I_StartupKeyboard()...\n");
@@ -1178,6 +1175,15 @@ void D_SRB2Main(void)
 
 	CONS_Printf("I_StartupGraphics()...\n");
 	I_StartupGraphics();
+
+#ifdef HWRENDER
+	if (rendermode == render_opengl)
+	{
+		INT32 i;
+		for (i = 0; i < numwadfiles; i++)
+			HWR_LoadShaders(i, (wadfiles[i]->type == RET_PK3));
+	}
+#endif
 
 	//--------------------------------------------------------- CONSOLE
 	// setup loading screen
