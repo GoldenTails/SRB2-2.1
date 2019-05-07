@@ -74,6 +74,7 @@ consvar_t cv_grgammablue = {"gr_gammablue", "127", CV_SAVE|CV_CALL, grgamma_cons
 static CV_PossibleValue_t CV_MD2[] = {{0, "Off"}, {1, "On"}, {2, "Old"}, {0, NULL}};
 // console variables in development
 consvar_t cv_grmd2 = {"gr_md2", "Off", CV_SAVE, CV_MD2, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_grspritebillboarding = {"gr_spritebillboarding", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 #endif
 
 const UINT8 gammatable[5][256] =
