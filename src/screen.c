@@ -419,9 +419,9 @@ void SCR_DisplayTicRate(void)
 	else if (totaltics == TICRATE) ticcntcolor = V_GREENMAP;
 
 	if (cv_thinfps.value) {
-		V_DrawThinString(vid.width-(V_ThinStringWidth("FPS",V_YELLOWMAP|V_NOSCALESTART)*vid.dupx), vid.height-(15*vid.dupy),
+		V_DrawThinString(vid.width-(V_ThinStringWidth("FPS",V_YELLOWMAP|V_NOSCALESTART)*vid.dupx), vid.height-(16*vid.dupy),
 			V_YELLOWMAP|V_NOSCALESTART, "FPS");
-		V_DrawThinString(vid.width-(V_ThinStringWidth(va("%02d/%02u", totaltics, TICRATE),ticcntcolor|V_NOSCALESTART)*vid.dupx), vid.height-( 7*vid.dupy),
+		V_DrawThinString(vid.width-(V_ThinStringWidth(va("%02d/%02u", totaltics, TICRATE),ticcntcolor|V_NOSCALESTART)*vid.dupx), vid.height-( 8*vid.dupy),
 			ticcntcolor|V_NOSCALESTART, va("%02d/%02u", totaltics, TICRATE));
 	} else {
 		V_DrawString(vid.width-(V_StringWidth("FPS",V_YELLOWMAP|V_NOSCALESTART)*vid.dupx), vid.height-(16*vid.dupy),
