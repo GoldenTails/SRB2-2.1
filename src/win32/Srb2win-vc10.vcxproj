@@ -91,6 +91,7 @@
     <Import Project="..\..\libs\FMOD.props" />
     <Import Project="..\..\libs\zlib.props" />
     <Import Project="..\..\libs\libpng.props" />
+    <Import Project="..\..\libs\libgme.props" />
     <Import Project="SRB2Win.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -182,6 +183,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\am_map.c" />
+    <ClCompile Include="..\apng.c" />
     <ClCompile Include="..\blua\lapi.c" />
     <ClCompile Include="..\blua\lauxlib.c" />
     <ClCompile Include="..\blua\lbaselib.c" />
@@ -327,6 +329,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\am_map.h" />
+    <ClInclude Include="..\apng.h" />
     <ClInclude Include="..\blua\lapi.h" />
     <ClInclude Include="..\blua\lauxlib.h" />
     <ClInclude Include="..\blua\lcode.h" />
