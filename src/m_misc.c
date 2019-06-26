@@ -2320,7 +2320,6 @@ void M_SetupMemcpy(void)
 		M_Memcpy = mmx_cpy;
 }
 
-// Jimita
 void M_Memset32(void *dest, UINT64 value, uintptr_t size)
 {
 	uintptr_t i;

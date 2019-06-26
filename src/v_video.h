@@ -17,22 +17,18 @@
 #include "doomdef.h"
 #include "doomtype.h"
 #include "r_defs.h"
+#include "st_stuff.h"
 
 //
 // VIDEO
 //
-
-// Jimita: True-color
-UINT32 V_GetTrueColor(INT32 c);
-UINT32 V_TrueColormapRGBA(INT32 c);
-UINT32 V_TrueColormapRGBA_DS(INT32 c);
+#define V_GetTrueColor(c) ((st_palette > 0) ? V_GetColorPal(c,st_palette) : V_GetColor(c)).rgba
+#define V_TrueColormapRGBA(c) dc_truecolormap[c]
+#define V_TrueColormapRGBA_DS(c) ds_truecolormap[c]
 
 UINT32 V_BlendTrueColor(UINT32 bg, UINT32 fg, UINT8 alpha);
 UINT8 V_AlphaTrans(INT32 num);
 
-void V_DrawPixelTrueColor(UINT32 *dest, UINT32 rgb_color);
-
-// Jimita
 extern UINT32 *screen_main;
 extern UINT32 *screen_altblit;
 extern UINT32 *screen_sshotbuffer;

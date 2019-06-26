@@ -871,18 +871,6 @@ INT32 W_InitMultipleFiles(char **filenames)
 	return rc;
 }
 
-#ifdef JIMITA_PNG		// HAVE_PNG
-//#include "jimita_png.h"
-boolean W_CheckPNGFile(UINT8 *lump)
-{
-	return (lump[0] == 0x89		// 0x89
-		&&  lump[1] == 0x50		// P
-		&&  lump[2] == 0x4E		// N
-		&&  lump[3] == 0x47		// G
-	);
-}
-#endif
-
 /** Make sure a lump number is valid.
   * Compiles away to nothing if PARANOIA is not defined.
   */

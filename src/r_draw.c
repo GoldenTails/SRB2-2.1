@@ -73,7 +73,6 @@ UINT8 dc_hires;
 UINT8 *dc_source;
 UINT8 dc_transmap;
 
-// Jimita: True-color
 lighttable32_t *dc_truecolormap;
 UINT32 dc_foglight;
 UINT32 dc_blendcolor;
@@ -97,7 +96,6 @@ fixed_t ds_xfrac, ds_yfrac, ds_xstep, ds_ystep;
 UINT8 *ds_source;
 UINT8 ds_transmap;
 
-// Jimita: True-color
 UINT32 *ds_truecolormap;
 UINT32 ds_foglight;
 UINT32 ds_blendcolor;

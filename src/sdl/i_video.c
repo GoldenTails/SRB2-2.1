@@ -1277,7 +1277,7 @@ static void Impl_VideoSetupSDLBuffer(void)
 		SDL_FreeSurface(bufSurface);
 		bufSurface = NULL;
 	}
-	// Set up the SDL palletized buffer (copied to vidbuffer before being rendered to texture)
+	// Set up the SDL buffer (copied to vidbuffer before being rendered to texture)
 	bufSurface = SDL_CreateRGBSurfaceFrom(screen_main,vid.width,vid.height,32,
 		(int)vid.rowbytes,0x000000FF,0x0000FF00,0x00FF0000,0xFF000000);
 	if (!bufSurface)

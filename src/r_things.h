@@ -140,7 +140,7 @@ typedef struct vissprite_s
 	lighttable_t *colormap; // for color translation and shadow draw
 	                        // maxbright frames as well
 
-	UINT8 transmap;	// Jimita: True-color
+	UINT8 transmap;
 
 	INT32 mobjflags;
 

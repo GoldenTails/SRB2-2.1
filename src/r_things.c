@@ -20,7 +20,7 @@
 #include "z_zone.h"
 #include "m_misc.h"
 #include "i_video.h"	// rendermode
-#include "v_video.h"	// Jimita: True-color
+#include "v_video.h"
 #include "r_things.h"
 #include "r_plane.h"
 #include "p_tick.h"
@@ -770,7 +770,7 @@ static void R_DrawVisSprite(vissprite_t *vis)
 	else if (vis->mobj->color && vis->transmap) // Color mapping
 	{
 		colfunc = transtransfunc;
-		dc_transmap = vis->transmap;	// Jimita: True-color
+		dc_transmap = vis->transmap;
 		if (vis->mobj->skin && vis->mobj->sprite == SPR_PLAY) // MT_GHOST LOOKS LIKE A PLAYER SO USE THE PLAYER TRANSLATION TABLES. >_>
 		{
 			size_t skinnum = (skin_t*)vis->mobj->skin-skins;
@@ -782,7 +782,7 @@ static void R_DrawVisSprite(vissprite_t *vis)
 	else if (vis->transmap)
 	{
 		colfunc = fuzzcolfunc;
-		dc_transmap = vis->transmap;	// Jimita: True-color
+		dc_transmap = vis->transmap;
 	}
 	else if (vis->mobj->color)
 	{
@@ -804,7 +804,6 @@ static void R_DrawVisSprite(vissprite_t *vis)
 		dc_translation = R_GetTranslationColormap(TC_DEFAULT, SKINCOLOR_BLUE, GTC_CACHE);
 	}
 
-	// Jimita: True-color
 	if (dc_colormap != NULL)
 		R_SetTrueColormap(truecolormaps + (dc_colormap - colormaps));
 	if (vis->extra_colormap)
@@ -910,7 +909,7 @@ static void R_DrawPrecipitationVisSprite(vissprite_t *vis)
 	if (vis->transmap)
 	{
 		colfunc = fuzzcolfunc;
-		dc_transmap = vis->transmap;	// Jimita: True-color
+		dc_transmap = vis->transmap;
 	}
 
 	dc_colormap = colormaps;

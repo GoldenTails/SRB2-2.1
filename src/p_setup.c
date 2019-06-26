@@ -2689,7 +2689,7 @@ boolean P_SetupLevel(boolean skipprecip)
 	I_FinishUpdate(); // page flip or blit buffer
 
 	// Reset the palette
-	st_palette = 0;				// jim 01012019
+	st_palette = 0;
 	if (rendermode != render_none)
 		V_SetPaletteLump("PLAYPAL");
 

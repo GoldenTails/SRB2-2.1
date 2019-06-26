@@ -30,7 +30,7 @@
 #include "p_spec.h" // skyboxmo
 #include "z_zone.h"
 #include "m_random.h" // quake camera shake
-#include "m_misc.h" // Jimita: True-color
+#include "m_misc.h"
 
 #ifdef HWRENDER
 #include "hardware/hw_main.h"
@@ -107,7 +107,6 @@ angle_t xtoviewangle[MAXVIDWIDTH+1];
 lighttable_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
 lighttable_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
 
-// Jimita: True-color
 lighttable32_t *scalelight_tc[LIGHTLEVELS][MAXLIGHTSCALE];
 lighttable32_t *zlight_tc[LIGHTLEVELS][MAXLIGHTZ];
 
@@ -146,7 +145,6 @@ consvar_t cv_allowmlook = {"allowmlook", "Yes", CV_NETVAR, CV_YesNo, NULL, 0, NU
 consvar_t cv_showhud = {"showhud", "Yes", CV_CALL,  CV_YesNo, R_SetViewSize, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_translucenthud = {"translucenthud", "10", CV_SAVE, translucenthud_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 
-// Jimita: True-color
 consvar_t cv_truecolormaps = {"truecolormaps", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_translucency = {"translucency", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
@@ -1205,7 +1203,6 @@ void R_RenderPlayerView(player_t *player)
 	portal_pair *portal;
 	const boolean skybox = (skyboxmo[0] && cv_skybox.value);
 
-	M_Memset32(screen_main, 0, vid.width * vid.height * 4);
 	if (cv_homremoval.value && player == &players[displayplayer]) // if this is display player 1
 	{
 		if (cv_homremoval.value == 1)
@@ -1330,7 +1327,6 @@ void R_RegisterEngineStuff(void)
 	if (dedicated)
 		return;
 
-	// Jimita: True-color
 	CV_RegisterVar(&cv_truecolormaps);
 	CV_RegisterVar(&cv_translucency);
 

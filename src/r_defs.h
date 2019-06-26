@@ -61,7 +61,6 @@ typedef struct
 
 	lighttable_t *colormap;
 
-	// Jimita: True-color
 	lighttable32_t *truecolormap;
 	INT32 tc_rgba;
 	INT32 tc_fadergba;

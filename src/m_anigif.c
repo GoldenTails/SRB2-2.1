@@ -339,7 +339,6 @@ static void GIF_lzw(void)
 {
 	while (scrbuf_pos <= scrbuf_writeend)
 	{
-		// Jimita: True-color
 		GIF_feedByte(NearestColor((*scrbuf_pos)&0xff,((*scrbuf_pos)>>8)&0xff,((*scrbuf_pos)>>16)&0xff));
 		if (giflzw_nextCodeToAssign >= GIFLZW_MAXCODE)
 		{

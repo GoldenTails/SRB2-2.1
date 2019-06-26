@@ -187,8 +187,5 @@ void W_VerifyFileMD5(UINT16 wadfilenum, const char *matchmd5);
 
 int W_VerifyNMUSlumps(const char *filename);
 
-#ifdef HAVE_PNG
-boolean W_CheckPNGFile(UINT8 *lump);
-#endif
 
 #endif // __W_WAD__

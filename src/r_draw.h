@@ -37,7 +37,6 @@ extern INT32 dc_texheight;
 
 extern UINT8 *dc_source; // first pixel in a column
 
-// Jimita: True-color
 extern UINT8 dc_transmap;
 extern UINT32 dc_foglight;
 extern UINT32 dc_blendcolor;
@@ -62,7 +61,6 @@ extern fixed_t ds_xfrac, ds_yfrac, ds_xstep, ds_ystep;
 
 extern UINT8 *ds_source; // first pixel in a span
 
-// Jimita: True-color
 extern UINT8 ds_transmap;
 extern UINT32 ds_foglight;
 extern UINT32 ds_blendcolor;

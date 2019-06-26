@@ -237,7 +237,6 @@ static void D_Display(void)
 	if (nodrawers)
 		return; // for comparative timing/profiling
 
-	// Jimita (27-12-2018)
 	vfx_translucency = cv_translucency.value;
 	vfx_colormaps = cv_truecolormaps.value;
 	vfx_water = true;
@@ -538,7 +537,6 @@ void D_SRB2Loop(void)
 
 	// hack to start on a nice clear console screen.
 	COM_ImmedExecute("cls;version");
-	//CONS_Printf("True-color rendering code by Jimita\n");
 
 	if (rendermode == render_soft)
 		V_DrawScaledPatch(0, 0, 0, (patch_t *)W_CacheLumpNum(W_GetNumForName("CONSBACK"), PU_CACHE));
@@ -701,7 +699,7 @@ void D_StartTitle(void)
 	F_StartTitleScreen();
 
 	// Reset the palette
-	st_palette = 0;				// jim 01012019
+	st_palette = 0;
 	if (rendermode != render_none)
 		V_SetPaletteLump("PLAYPAL");
 }

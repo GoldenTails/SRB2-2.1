@@ -198,7 +198,7 @@ static void F_DrawPatchCol(INT32 x, patch_t *patch, INT32 col)
 					INT32 dupxcount = vid.dupx;
 					while (dupxcount-- && dest <= deststop)
 					{
-						V_DrawPixelTrueColor(dest, V_GetTrueColor(*source));
+						*dest = V_GetTrueColor(*source);
 						dest++;
 					}
 					dest += (vid.width - vid.dupx);

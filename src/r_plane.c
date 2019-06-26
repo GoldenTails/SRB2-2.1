@@ -83,8 +83,6 @@ static INT32 spanstart[MAXVIDHEIGHT];
 //
 lighttable_t **planezlight;
 static fixed_t planeheight;
-
-// Jimita: True-color
 lighttable32_t **planezlight_tc;
 
 //added : 10-02-98: yslopetab is what yslope used to be,
@@ -249,7 +247,6 @@ void R_MapPlane(INT32 y, INT32 x1, INT32 x2)
 #endif
 		ds_colormap = planezlight[pindex];
 
-	// Jimita: True-color
 	ds_truecolormap = NULL;
 	if (vfx_colormaps)
 	{
@@ -265,7 +262,6 @@ void R_MapPlane(INT32 y, INT32 x1, INT32 x2)
 	else if ((colormap = currentplane->extra_colormap))
 		ds_colormap = currentplane->extra_colormap->colormap + (ds_colormap - colormaps);
 
-	// Jimita (27-12-2018)
 	if (vfx_translucency)
 	{
 		if (colormap && spanfunc == fogspanfunc)
