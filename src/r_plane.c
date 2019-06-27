@@ -82,7 +82,7 @@ static INT32 spanstart[MAXVIDHEIGHT];
 //
 // texture mapping
 //
-lighttable32_t **planezlight;
+UINT8 *planezlight;
 static fixed_t planeheight;
 
 //added : 10-02-98: yslopetab is what yslope used to be,
@@ -240,16 +240,10 @@ void R_MapPlane(INT32 y, INT32 x1, INT32 x2)
 	if (pindex >= MAXLIGHTZ)
 		pindex = MAXLIGHTZ - 1;
 
-#ifdef ESLOPE
-	if (currentplane->slope)
-		ds_truecolormap = truecolormaps;
-	else
-#endif
-		ds_truecolormap = planezlight[pindex];
+	ds_lighting = ds_foglight = planezlight[pindex];
+	ds_levelcolormap = 0;
 	if ((colormap = currentplane->extra_colormap))
-		ds_truecolormap = (currentplane->extra_colormap->truecolormap + (ds_truecolormap - truecolormaps));
-
-	ds_foglight = (ds_truecolormap - truecolormaps);
+		ds_levelcolormap = (extra_colormaps - currentplane->extra_colormap)+1;
 
 	if (translucency)
 	{
@@ -611,10 +605,10 @@ void R_DrawPlanes(void)
 				//  i.e. colormaps[0] is used.
 				// Because of this hack, sky is not affected
 				//  by INVUL inverse mapping.
-				dc_truecolormap = truecolormaps;
+				dc_levelcolormap = 0;
+				dc_lighting = 32;
 				dc_texturemid = skytexturemid;
-				dc_texheight = textureheight[skytexture]
-					>>FRACBITS;
+				dc_texheight = textureheight[skytexture]>>FRACBITS;
 				for (x = pl->minx; x <= pl->maxx; x++)
 				{
 					dc_yl = pl->top[x];
@@ -1093,10 +1087,10 @@ void R_DrawSinglePlane(visplane_t *pl)
 		else
 			spanfunc = tiltedspanfunc;
 
-		planezlight = scalelight[light];
+		planezlight = scalelight_uint8[light];
 	} else
 #endif // ESLOPE
-		planezlight = zlight[light];
+		planezlight = zlight_uint8[light];
 
 	// set the maximum value for unsigned
 	pl->top[pl->maxx+1] = 0xffff;
@@ -1174,7 +1168,7 @@ using the palette colors.
 			if (light < 0)
 				light = 0;
 
-			planezlight = zlight[light];
+			planezlight = zlight_uint8[light];
 
 			// set the maximum value for unsigned
 			pl->top[pl->maxx+1] = 0xffff;

@@ -80,6 +80,7 @@ lighttable32_t *dc_truecolormap;
 
 UINT32 dc_foglight;
 UINT32 dc_blendcolor;
+UINT32 dc_fadecolor;
 
 // ----------------------
 // translation stuff here

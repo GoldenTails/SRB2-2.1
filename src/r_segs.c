@@ -569,7 +569,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 					dc_iscale = 0xffffffffu / (unsigned)spryscale;
 
 					// draw the texture
-					col = (column_t *)((UINT8 *)R_GetColumn2(texnum, maskedtexturecol[dc_x]) - 3);
+					col = (column_t *)((UINT8 *)R_GetColumn(texnum, maskedtexturecol[dc_x]) - 3);
 
 					for (i = 0; i < dc_numlights; i++)
 					{
@@ -590,13 +590,14 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 							pindex = MAXLIGHTSCALE-1;
 
 						rlight->rlighting = xwalllights[pindex];
-						rlight->rcolormap = rlight->extra_colormap_num;
+						rlight->rcolormap = rlight->extra_colormap_num+1;
 
 						height = rlight->height;
 						rlight->height += rlight->heightstep;
 
 						if (height <= windowtop)
 						{
+							dc_lighting = rlight->rlighting;
 							dc_levelcolormap = rlight->rcolormap;
 							continue;
 						}
@@ -615,6 +616,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 						}
 						colfunc_2s(col);
 						windowtop = windowbottom + 1;
+						dc_lighting = rlight->rlighting;
 						dc_levelcolormap = rlight->rcolormap;
 					}
 					windowbottom = realbot;
@@ -638,7 +640,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 				dc_iscale = 0xffffffffu / (unsigned)spryscale;
 
 				// draw the texture
-				col = (column_t *)((UINT8 *)R_GetColumn2(texnum, maskedtexturecol[dc_x]) - 3);
+				col = (column_t *)((UINT8 *)R_GetColumn(texnum, maskedtexturecol[dc_x]) - 3);
 
 //#ifdef POLYOBJECTS_PLANES
 #if 0 // Disabling this allows inside edges to render below the planes, for until the clipping is fixed to work right when POs are near the camera. -Red
@@ -1116,7 +1118,7 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 			dc_iscale = 0xffffffffu / (unsigned)spryscale;
 
 			// Get data for the column
-			col = (column_t *)((UINT8 *)R_GetColumn2(texnum,maskedtexturecol[dc_x]) - 3);
+			col = (column_t *)((UINT8 *)R_GetColumn(texnum,maskedtexturecol[dc_x]) - 3);
 
 			// SoM: New code does not rely on R_DrawColumnShadowed_8 which
 			// will (hopefully) put less strain on the stack.
@@ -1153,7 +1155,7 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 							rlight->rlighting = xwalllights[pindex];
 							if (pfloor->master->frontsector->extra_colormap)
 							{
-								rlight->rcolormap = pfloor->master->frontsector->midmap+1;
+								rlight->rcolormap = pfloor->master->frontsector->midmap;
 								if (translucency)
 								{
 									dc_transmap = 128;
@@ -1169,10 +1171,7 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 						else
 						{
 							rlight->rlighting = xwalllights[pindex];
-							if (rlight->extra_colormap)
-								rlight->rcolormap = rlight->extra_colormap_num;
-							else
-								rlight->rcolormap = 0;
+							rlight->rcolormap = rlight->extra_colormap_num+1;
 						}
 					}
 
@@ -1208,7 +1207,10 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 					if (height <= windowtop)
 					{
 						if (lighteffect)
+						{
+							dc_lighting = rlight->rlighting;
 							dc_levelcolormap = rlight->rcolormap;
+						}
 						if (solid && windowtop < bheight)
 							windowtop = bheight;
 						continue;
@@ -1236,7 +1238,10 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 					else
 						windowtop = windowbottom + 1;
 					if (lighteffect)
+					{
+						dc_lighting = rlight->rlighting;
 						dc_levelcolormap = rlight->rcolormap;
+					}
 				}
 				windowbottom = sprbotscreen;
 				// draw the texture, if there is any space left
@@ -1485,10 +1490,10 @@ static void R_RenderSegLoop (void)
 					pindex = MAXLIGHTSCALE-1;
 
 				dc_lighting = xwalllights[pindex];
-				/*if (dc_lightlist[i].extra_colormap)
-					dc_lightlist[i].rcolormap = dc_lightlist[i].extra_colormap->truecolormap + (xwalllights[pindex] - truecolormaps);
-				else
-					dc_lightlist[i].rcolormap = xwalllights[pindex];*/
+				dc_levelcolormap = dc_lightlist[i].extra_colormap_num;
+				// Don't ask
+				dc_lightlist[i].rlighting = dc_lighting;
+				dc_lightlist[i].rcolormap = dc_levelcolormap;
 
 				colfunc = shadowcolfunc;
 			}
@@ -1505,7 +1510,7 @@ static void R_RenderSegLoop (void)
 				dc_yl = yl;
 				dc_yh = yh;
 				dc_texturemid = rw_midtexturemid;
-				dc_source = R_GetColumn2(midtexture,texturecolumn);
+				dc_source = R_GetColumn(midtexture,texturecolumn);
 				dc_texheight = textureheight[midtexture]>>FRACBITS;
 
 				// dont draw anything more for this column, since
@@ -1544,7 +1549,7 @@ static void R_RenderSegLoop (void)
 						dc_yl = yl;
 						dc_yh = mid;
 						dc_texturemid = rw_toptexturemid;
-						dc_source = R_GetColumn2(toptexture,texturecolumn);
+						dc_source = R_GetColumn(toptexture,texturecolumn);
 						dc_texheight = textureheight[toptexture]>>FRACBITS;
 						colfunc();
 						ceilingclip[rw_x] = (INT16)mid;
@@ -1577,7 +1582,7 @@ static void R_RenderSegLoop (void)
 						dc_yl = mid;
 						dc_yh = yh;
 						dc_texturemid = rw_bottomtexturemid;
-						dc_source = R_GetColumn2(bottomtexture,
+						dc_source = R_GetColumn(bottomtexture,
 							texturecolumn);
 						dc_texheight = textureheight[bottomtexture]>>FRACBITS;
 						colfunc();

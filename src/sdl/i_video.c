@@ -1344,7 +1344,7 @@ void I_StartupGraphics(void)
 
 	borderlesswindow = M_CheckParm("-borderless");
 	VID_Command_ModeList_f();
-#ifdef HWRENDER
+/*#ifdef HWRENDER
 	if (M_CheckParm("-opengl") || rendermode == render_opengl)
 	{
 		rendermode = render_opengl;
@@ -1384,7 +1384,7 @@ void I_StartupGraphics(void)
 			rendermode = render_soft;
 		}
 	}
-#endif
+#endif*/
 
 	// Fury: we do window initialization after GL setup to allow
 	// SDL_GL_LoadLibrary to work well on Windows

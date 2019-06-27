@@ -69,7 +69,7 @@ extern fixed_t cachedystep[MAXVIDHEIGHT];
 extern fixed_t basexscale, baseyscale;
 
 extern fixed_t *yslope;
-extern lighttable32_t **planezlight;
+extern UINT8 *planezlight;
 
 void R_InitPlanes(void);
 void R_PortalStoreClipValues(INT32 start, INT32 end, INT16 *ceil, INT16 *floor, fixed_t *scale);

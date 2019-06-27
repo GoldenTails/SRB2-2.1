@@ -66,18 +66,6 @@ extern textureflat_t *texflats;
 extern INT32 *texturewidth;
 extern fixed_t *textureheight; // needed for texture pegging
 
-// Truecolor bullshit
-// This kind of memory gets allocated and freed between level changes.
-typedef struct
-{
-	UINT8 *lightmapped[32];		// NUMCOLORMAPS
-} texmappedentry_t;
-typedef struct
-{
-	texmappedentry_t colormapped[MAXCOLORMAPS+1];
-} texmapped_t;
-extern texmapped_t *texmapped;
-
 // Load TEXTURE1/TEXTURE2/PNAMES definitions, create lookup tables
 void R_LoadTextures(void);
 void R_FlushTextureCache(void);
@@ -87,7 +75,7 @@ void R_CheckTextureCache(INT32 tex);
 
 // Retrieve column data for span blitting.
 UINT8 *R_GetColumn(fixed_t tex, INT32 col);
-UINT8 *R_GetColumn2(fixed_t tex, INT32 col);
+UINT8 *R_GetColumn(fixed_t tex, INT32 col);
 UINT8 *R_GetFlat(lumpnum_t flatnum);
 
 // I/O, setting up the stuff.

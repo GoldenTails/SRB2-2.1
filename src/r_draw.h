@@ -45,6 +45,7 @@ extern lighttable32_t *dc_truecolormap;
 
 extern UINT32 dc_foglight;
 extern UINT32 dc_blendcolor;
+extern UINT32 dc_fadecolor;
 
 // translucency stuff here
 #define NUMTRANSTABLES 9 // how many translucency tables are used
@@ -118,11 +119,7 @@ void R_DrawTranslatedTranslucentColumn_32(void);
 
 // Spans
 void R_DrawSpan_32(void);
-void R_DrawSplat_32(void);
-
 void R_DrawTranslucentSpan_32(void);
-void R_DrawTranslucentSplat_32(void);
-
 void R_DrawFogSpan_32(void);
 void R_DrawBlendSpan_32(void);
 
@@ -136,7 +133,6 @@ extern INT32 ds_watertimer;
 // Tilted spans
 #ifdef ESLOPE
 void R_DrawTiltedSpan_32(void);
-void R_DrawTiltedSplat_32(void);
 void R_DrawTiltedTranslucentSpan_32(void);
 void R_CalcTiltedLighting(fixed_t start, fixed_t end);
 #endif

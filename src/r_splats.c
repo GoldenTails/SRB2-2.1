@@ -363,7 +363,7 @@ static void R_RenderFloorSplat(floorsplat_t *pSplat, vertex_t *verts, UINT8 *pTe
 	UINT32 *pDest;
 	INT32 tdx, tdy, ty, tx, x;
 #else
-	lighttable_t **planezlight;
+	UINT8 *planezlight;
 	fixed_t planeheight;
 	angle_t angle, planecos, planesin;
 	fixed_t distance, span;
@@ -460,7 +460,7 @@ static void R_RenderFloorSplat(floorsplat_t *pSplat, vertex_t *verts, UINT8 *pTe
 		light = LIGHTLEVELS - 1;
 	if (light < 0)
 		light = 0;
-	planezlight = zlight[light];
+	planezlight = zlight_uint8[light];
 
 	ds_transmap = 255;
 	if (translucency)

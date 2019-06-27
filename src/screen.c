@@ -142,15 +142,15 @@ void SCR_SetMode(void)
 	twosmultipatchtransfunc = fuzzcolfunc_ex;
 
 	spanfunc = basespanfunc = R_DrawSpan_32;
-	splatfunc = R_DrawSplat_32;
+	splatfunc = basespanfunc;
 	transspanfunc = R_DrawTranslucentSpan_32;
-	transsplatfunc = R_DrawTranslucentSplat_32;
+	transsplatfunc = transspanfunc;
 #ifndef NOWATER
 	waterspanfunc = R_DrawTranslucentWaterSpan_32;
 #endif
 #ifdef ESLOPE
 	tiltedspanfunc = R_DrawTiltedSpan_32;
-	tiltedsplatfunc = R_DrawTiltedSplat_32;
+	tiltedsplatfunc = tiltedspanfunc;
 	tiltedtransspanfunc = R_DrawTiltedTranslucentSpan_32;
 #endif
 

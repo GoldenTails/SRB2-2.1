@@ -287,9 +287,42 @@ void VID_BlitLinearScreen(UINT32 *srcptr, UINT32 *destptr, INT32 width, INT32 he
 	M_Memcpy(destptr, srcptr, (width*4) * height);
 }
 
+// Truecolor bullshit
 UINT32 V_BlendTrueColor(UINT32 bg, UINT32 fg, UINT8 alpha)
 {
 	return (!alpha)?bg:((alpha==255)?fg:0xFF000000|(((((bg>>16)&0xff)*(0xff-alpha))+(((fg>>16)&0xff)*alpha))>>8)<<16|(((((bg>>8)&0xff)*(0xff-alpha))+(((fg>>8)&0xff)*alpha))>>8)<<8|((((bg&0xff)*(0xff-alpha))+((fg&0xff)*alpha))>>8));
+}
+
+UINT32 V_TintTrueColor(RGBA_t rgba, UINT32 blendcolor, UINT8 tintamt)
+{
+	double r, g, b;
+	double cmaskr, cmaskg, cmaskb;
+	double cbrightness;
+	double maskamt, othermask;
+	UINT32 origpixel = rgba.rgba;
+
+	r = cmaskr = (rgba.s.red/256.0f);
+	g = cmaskg = (rgba.s.green/256.0f);
+	b = cmaskb = (rgba.s.blue/256.0f);
+
+	cbrightness = (0.299*r + 0.587*g + 0.114*b);	// sqrt((r*r) + (g*g) + (b*b))
+	r = rgba.s.red;
+	g = rgba.s.green;
+	b = rgba.s.blue;
+
+	maskamt = (tintamt/256.0f);
+	othermask = 1 - maskamt;
+
+	maskamt /= 0xff;
+	cmaskr *= maskamt;
+	cmaskg *= maskamt;
+	cmaskb *= maskamt;
+
+	rgba.s.red = (cbrightness * cmaskr) + (r * othermask);
+	rgba.s.green = (cbrightness * cmaskg) + (g * othermask);
+	rgba.s.blue = (cbrightness * cmaskb) + (b * othermask);
+
+	return V_BlendTrueColor(origpixel, V_BlendTrueColor(rgba.rgba, blendcolor, llrint(cbrightness*256.0f)), tintamt);
 }
 
 UINT8 V_AlphaTrans(INT32 num)
