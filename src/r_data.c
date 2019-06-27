@@ -229,69 +229,6 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 	I_Assert(texture != NULL);
 
 	// allocate texture column offset lookup
-
-	// single-patch textures can have holes in them and may be used on
-	// 2sided lines so they need to be kept in 'packed' format
-	// BUT this is wrong for skies and walls with over 255 pixels,
-	// so check if there's holes and if not strip the posts.
-	/*if (texture->patchcount == 1)
-	{
-		boolean holey = false;
-		patch = texture->patches;
-
-		wadnum = patch->wad;
-		lumpnum = patch->lump;
-		lumplength = W_LumpLengthPwad(wadnum, lumpnum);
-		realpatch = W_CacheLumpNumPwad(wadnum, lumpnum, PU_CACHE);
-		if (R_IsLumpPNG((UINT8 *)realpatch, lumplength))
-			realpatch = R_PNGToPatch((UINT8 *)realpatch, lumplength);
-
-		// Check the patch for holes.
-		if (texture->width > SHORT(realpatch->width) || texture->height > SHORT(realpatch->height))
-			holey = true;
-		colofs = (UINT32 *)realpatch->columnofs;
-		for (x = 0; x < texture->width && !holey; x++)
-		{
-			column_t *col = (column_t *)((UINT8 *)realpatch + LONG(colofs[x]));
-			INT32 topdelta, prevdelta = -1, y = 0;
-			while (col->topdelta != 0xff)
-			{
-				topdelta = col->topdelta;
-				if (topdelta <= prevdelta)
-					topdelta += prevdelta;
-				prevdelta = topdelta;
-				if (topdelta > y)
-					break;
-				y = topdelta + col->length + 1;
-				col = (column_t *)((UINT8 *)col + col->length + 4);
-			}
-			if (y < texture->height)
-				holey = true; // this texture is HOLEy! D:
-		}
-
-		// If the patch uses transparency, we have to save it this way.
-		if (holey)
-		{
-			texture->holes = true;
-			blocksize = lumplength;
-			block = Z_Calloc(blocksize, PU_STATIC, // will change tag at end of this function
-				&texturecache[texnum]);
-			M_Memcpy(block, realpatch, blocksize);
-			texturememory += blocksize;
-
-			// use the patch's column lookup
-			colofs = (UINT32 *)(void *)(block + 8);
-			texturecolumnofs[texnum] = colofs;
-			blocktex = block;
-			for (x = 0; x < texture->width; x++)
-				colofs[x] = LONG(LONG(colofs[x]) + 3);
-			goto done;
-		}
-
-		// Otherwise, do multipatch format.
-	}*/
-
-	// multi-patch textures (or 'composite')
 	texture->holes = false;
 	blocksize = (texture->width * 4) + (texture->width * texture->height);
 	texturememory += blocksize;
