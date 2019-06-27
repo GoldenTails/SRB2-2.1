@@ -262,7 +262,7 @@ static void CV_usegamma_OnChange(void)
 	LoadMapPalette();
 	V_SetPalette(0);
 	if (colormaps)
-		R_InitColormapsTC(colormaps[(31*256)+31]);
+		R_InitColormapsTrueColor(colormaps[(31*256)+31]);
 }
 
 // change the palette directly to see the change
@@ -286,12 +286,6 @@ void VID_BlitLinearScreen(UINT32 *srcptr, UINT32 *destptr, INT32 width, INT32 he
 {
 	M_Memcpy(destptr, srcptr, (width*4) * height);
 }
-
-/*UINT32 V_GetTrueColor(INT32 c)
-{
-	RGBA_t rgba = (st_palette > 0) ? V_GetColorPal(c,st_palette) : V_GetColor(c);
-	return rgba.rgba;
-}*/
 
 UINT32 V_BlendTrueColor(UINT32 bg, UINT32 fg, UINT8 alpha)
 {
@@ -855,7 +849,7 @@ void V_DrawFillConsoleMap(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 	if (rendermode == render_none)
 		return;
 
-	if (!vfx_translucency)
+	if (!translucency)
 	{
 		V_DrawFill(x, y, w, h, c|palindex);
 		return;
@@ -1091,7 +1085,7 @@ void V_DrawFadeConsBack(INT32 plines)
 	}
 #endif
 
-	if (!vfx_translucency)
+	if (!translucency)
 	{
 		V_DrawFill(0, 0, vid.width, min(plines, vid.height), V_NOSCALESTART|palindex);
 		return;

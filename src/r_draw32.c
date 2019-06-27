@@ -19,7 +19,6 @@
 // a has a constant z depth from top to bottom.
 
 /**	\brief The R_DrawColumn_32 function
-	Edited by Jimita for True-Color Mode
 */
 void R_DrawColumn_32(void)
 {
@@ -50,7 +49,6 @@ void R_DrawColumn_32(void)
 	// This is as fast as it gets.
 	{
 		register const UINT8 *source = dc_source;
-		register const lighttable_t *colormap = dc_colormap;
 		register INT32 heightmask = dc_texheight-1;
 		if (dc_texheight & heightmask)   // not a power of 2 -- killough
 		{
@@ -68,10 +66,7 @@ void R_DrawColumn_32(void)
 				// Re-map color indices from wall texture column
 				//  using a lighting/special effects LUT.
 				// heightmask is the Tutti-Frutti fix
-				if (dc_truecolormap)
-					*dest = V_TrueColormapRGBA(source[frac>>FRACBITS]);
-				else
-					*dest = V_GetTrueColor(colormap[source[frac>>FRACBITS]]);
+				*dest = V_TrueColormapRGBA(source[frac>>FRACBITS]);
 				dest += vid.width;
 
 				// Avoid overflow.
@@ -88,33 +83,22 @@ void R_DrawColumn_32(void)
 		{
 			while ((count -= 2) >= 0) // texture height is a power of 2
 			{
-				if (dc_truecolormap)
-					*dest = V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]);
-				else
-					*dest = V_GetTrueColor(colormap[source[(frac>>FRACBITS) & heightmask]]);
-
+				*dest = V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]);
 				dest += vid.width;
 				frac += fracstep;
-
-				if (dc_truecolormap)
-					*dest = V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]);
-				else
-					*dest = V_GetTrueColor(colormap[source[(frac>>FRACBITS) & heightmask]]);
+				*dest = V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]);
 				dest += vid.width;
 				frac += fracstep;
 			}
 			if (count & 1)
-			{
-				if (dc_truecolormap)
-					*dest = V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]);
-				else
-					*dest = V_GetTrueColor(colormap[source[(frac>>FRACBITS) & heightmask]]);
-			}
+				*dest = V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]);
 		}
 	}
 }
 
-void R_Draw2sMultiPatchColumn_32(void)
+#define alphamix(fg, bg) V_BlendTrueColor(bg, fg, (fg & 0xFF000000)>>24)
+
+void R_DrawColumn_Ex32(void)
 {
 	INT32 count;
 	register UINT32 *dest;
@@ -142,10 +126,8 @@ void R_Draw2sMultiPatchColumn_32(void)
 	// Inner loop that does the actual texture mapping, e.g. a DDA-like scaling.
 	// This is as fast as it gets.
 	{
-		register const UINT8 *source = dc_source;
-		register const lighttable_t *colormap = dc_colormap;
+		register const UINT32 *source = (UINT32 *)dc_source;
 		register INT32 heightmask = dc_texheight-1;
-		register UINT8 val;
 		if (dc_texheight & heightmask)   // not a power of 2 -- killough
 		{
 			heightmask++;
@@ -162,14 +144,7 @@ void R_Draw2sMultiPatchColumn_32(void)
 				// Re-map color indices from wall texture column
 				//  using a lighting/special effects LUT.
 				// heightmask is the Tutti-Frutti fix
-				val = source[frac>>FRACBITS];
-				if (val != TRANSPARENTPIXEL)
-				{
-					if (dc_truecolormap)
-						*dest = V_TrueColormapRGBA(val);
-					else
-						*dest = V_GetTrueColor(colormap[val]);
-				}
+				*dest = alphamix(source[frac>>FRACBITS],*dest);
 				dest += vid.width;
 
 				// Avoid overflow.
@@ -186,155 +161,24 @@ void R_Draw2sMultiPatchColumn_32(void)
 		{
 			while ((count -= 2) >= 0) // texture height is a power of 2
 			{
-				val = source[(frac>>FRACBITS) & heightmask];
-				if (val != TRANSPARENTPIXEL)
-				{
-					if (dc_truecolormap)
-						*dest = V_TrueColormapRGBA(val);
-					else
-						*dest = V_GetTrueColor(colormap[val]);
-				}
+				*dest = alphamix(source[(frac>>FRACBITS) & heightmask],*dest);
 				dest += vid.width;
 				frac += fracstep;
-
-				val = source[(frac>>FRACBITS) & heightmask];
-				if (val != TRANSPARENTPIXEL)
-				{
-					if (dc_truecolormap)
-						*dest = V_TrueColormapRGBA(val);
-					else
-						*dest = V_GetTrueColor(colormap[val]);
-				}
+				*dest = alphamix(source[(frac>>FRACBITS) & heightmask],*dest);
 				dest += vid.width;
 				frac += fracstep;
 			}
 			if (count & 1)
-			{
-				val = source[(frac>>FRACBITS) & heightmask];
-				if (val != TRANSPARENTPIXEL)
-				{
-					if (dc_truecolormap)
-						*dest = V_TrueColormapRGBA(val);
-					else
-						*dest = V_GetTrueColor(colormap[val]);
-				}
-			}
+				*dest = alphamix(source[(frac>>FRACBITS) & heightmask],*dest);
 		}
 	}
-}
 
-void R_Draw2sMultiPatchTranslucentColumn_32(void)
-{
-	INT32 count;
-	register UINT32 *dest;
-	register fixed_t frac;
-	fixed_t fracstep;
-
-	count = dc_yh - dc_yl;
-
-	if (count < 0) // Zero length, column does not exceed a pixel.
-		return;
-
-#ifdef RANGECHECK
-	if ((unsigned)dc_x >= (unsigned)vid.width || dc_yl < 0 || dc_yh >= vid.height)
-		return;
-#endif
-
-	// Framebuffer destination address.
-	dest = &topleft[dc_yl*vid.width + dc_x];
-	count++;
-
-	// Determine scaling, which is the only mapping to be done.
-	fracstep = dc_iscale;
-	frac = (dc_texturemid + FixedMul((dc_yl << FRACBITS) - centeryfrac, fracstep))*(!dc_hires);
-
-	// Inner loop that does the actual texture mapping, e.g. a DDA-like scaling.
-	// This is as fast as it gets.
-	{
-		register const UINT8 *source = dc_source;
-		register const lighttable_t *colormap = dc_colormap;
-		register INT32 heightmask = dc_texheight-1;
-		register UINT8 val;
-		if (dc_texheight & heightmask)   // not a power of 2 -- killough
-		{
-			heightmask++;
-			heightmask <<= FRACBITS;
-
-			if (frac < 0)
-				while ((frac += heightmask) <  0);
-			else
-				while (frac >= heightmask)
-					frac -= heightmask;
-
-			do
-			{
-				// Re-map color indices from wall texture column
-				//  using a lighting/special effects LUT.
-				// heightmask is the Tutti-Frutti fix
-				val = source[frac>>FRACBITS];
-				if (val != TRANSPARENTPIXEL)
-				{
-					if (dc_truecolormap)
-						*dest = V_BlendTrueColor(*dest, V_TrueColormapRGBA(val), dc_transmap);
-					else
-						*dest = V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), dc_transmap);
-				}
-
-				dest += vid.width;
-
-				// Avoid overflow.
-				if (fracstep > 0x7FFFFFFF - frac)
-					frac += fracstep - heightmask;
-				else
-					frac += fracstep;
-
-				while (frac >= heightmask)
-					frac -= heightmask;
-			} while (--count);
-		}
-		else
-		{
-			while ((count -= 2) >= 0) // texture height is a power of 2
-			{
-				val = source[(frac>>FRACBITS) & heightmask];
-				if (val != TRANSPARENTPIXEL)
-				{
-					if (dc_truecolormap)
-						*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(val), dc_transmap));
-					else
-						*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), dc_transmap));
-				}
-				dest += vid.width;
-				frac += fracstep;
-
-				val = source[(frac>>FRACBITS) & heightmask];
-				if (val != TRANSPARENTPIXEL)
-				{
-					if (dc_truecolormap)
-						*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(val), dc_transmap));
-					else
-						*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), dc_transmap));
-				}
-				dest += vid.width;
-				frac += fracstep;
-			}
-			if (count & 1)
-			{
-				val = source[(frac>>FRACBITS) & heightmask];
-				if (val != TRANSPARENTPIXEL)
-				{
-					if (dc_truecolormap)
-						*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(val), dc_transmap));
-					else
-						*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), dc_transmap));
-				}
-			}
-		}
-	}
+	/*I_OsPolling();
+	I_UpdateNoBlit();
+	I_FinishUpdate();*/
 }
 
 /**	\brief The R_DrawTranslucentColumn_32 function
-	Edited by Jimita for True-Color Mode
 */
 void R_DrawTranslucentColumn_32(void)
 {
@@ -363,7 +207,6 @@ void R_DrawTranslucentColumn_32(void)
 	// This is as fast as it gets.
 	{
 		register const UINT8 *source = dc_source;
-		register const lighttable_t *colormap = dc_colormap;
 		register INT32 heightmask = dc_texheight-1;
 		if (dc_texheight & heightmask)
 		{
@@ -382,10 +225,7 @@ void R_DrawTranslucentColumn_32(void)
 				// Re-map color indices from wall texture column
 				// using a lighting/special effects LUT.
 				// heightmask is the Tutti-Frutti fix
-				if (dc_truecolormap)
-					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[frac>>FRACBITS]), dc_transmap));
-				else
-					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[frac>>FRACBITS]]), dc_transmap));
+				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[frac>>FRACBITS]), dc_transmap));
 				dest += vid.width;
 				if ((frac += fracstep) >= heightmask)
 					frac -= heightmask;
@@ -396,35 +236,93 @@ void R_DrawTranslucentColumn_32(void)
 		{
 			while ((count -= 2) >= 0) // texture height is a power of 2
 			{
-				if (dc_truecolormap)
-					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
-				else
-					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
+				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
 				dest += vid.width;
 				frac += fracstep;
-
-				if (dc_truecolormap)
-					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
-				else
-					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
+				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
 				dest += vid.width;
 				frac += fracstep;
 			}
 			if (count & 1)
-			{
-				if (dc_truecolormap)
-					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
-				else
-					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
-			}
+				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
 		}
 	}
 }
 
+void R_DrawTranslucentColumn_Ex32(void)
+{
+	register INT32 count;
+	register UINT32 *dest;
+	register fixed_t frac, fracstep;
+
+	count = dc_yh - dc_yl + 1;
+
+	if (count <= 0) // Zero length, column does not exceed a pixel.
+		return;
+
+#ifdef RANGECHECK
+	if ((unsigned)dc_x >= (unsigned)vid.width || dc_yl < 0 || dc_yh >= vid.height)
+		I_Error("R_DrawTranslucentColumn_32: %d to %d at %d", dc_yl, dc_yh, dc_x);
+#endif
+
+	// FIXME. As above.
+	dest = &topleft[dc_yl*vid.width + dc_x];
+
+	// Looks familiar.
+	fracstep = dc_iscale;
+	frac = (dc_texturemid + FixedMul((dc_yl << FRACBITS) - centeryfrac, fracstep))*(!dc_hires);
+
+	// Inner loop that does the actual texture mapping, e.g. a DDA-like scaling.
+	// This is as fast as it gets.
+	{
+		register const UINT32 *source = (UINT32 *)dc_source;
+		register INT32 heightmask = dc_texheight-1;
+		if (dc_texheight & heightmask)
+		{
+			heightmask++;
+			heightmask <<= FRACBITS;
+
+			if (frac < 0)
+				while ((frac += heightmask) < 0)
+					;
+			else
+				while (frac >= heightmask)
+					frac -= heightmask;
+
+			do
+			{
+				// Re-map color indices from wall texture column
+				// using a lighting/special effects LUT.
+				// heightmask is the Tutti-Frutti fix
+				*dest = (V_BlendTrueColor(*dest, alphamix(source[frac>>FRACBITS],*dest), dc_transmap));
+				dest += vid.width;
+				if ((frac += fracstep) >= heightmask)
+					frac -= heightmask;
+			}
+			while (--count);
+		}
+		else
+		{
+			while ((count -= 2) >= 0) // texture height is a power of 2
+			{
+				*dest = (V_BlendTrueColor(*dest, alphamix(source[(frac>>FRACBITS)&heightmask],*dest), dc_transmap));
+				dest += vid.width;
+				frac += fracstep;
+				*dest = (V_BlendTrueColor(*dest, alphamix(source[(frac>>FRACBITS)&heightmask],*dest), dc_transmap));
+				dest += vid.width;
+				frac += fracstep;
+			}
+			if (count & 1)
+				*dest = (V_BlendTrueColor(*dest, alphamix(source[(frac>>FRACBITS)&heightmask],*dest), dc_transmap));
+		}
+	}
+}
+
+#undef alphamix
+
 /**	\brief The R_DrawTranslatedTranslucentColumn_32 function
 	Spiffy function. Not only does it colormap a sprite, but does translucency as well.
 	Uber-kudos to Cyan Helkaraxe
-	Edited by Jimita for True-Color Mode
 */
 void R_DrawTranslatedTranslucentColumn_32(void)
 {
@@ -465,11 +363,7 @@ void R_DrawTranslatedTranslucentColumn_32(void)
 				// Re-map color indices from wall texture column
 				//  using a lighting/special effects LUT.
 				// heightmask is the Tutti-Frutti fix
-				if (dc_truecolormap)
-					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[frac>>FRACBITS]]), dc_transmap));
-				else
-					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(dc_colormap[dc_translation[dc_source[frac>>FRACBITS]]]), dc_transmap));
-
+				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[frac>>FRACBITS]]), dc_transmap));
 				dest += vid.width;
 				if ((frac += fracstep) >= heightmask)
 					frac -= heightmask;
@@ -480,33 +374,21 @@ void R_DrawTranslatedTranslucentColumn_32(void)
 		{
 			while ((count -= 2) >= 0) // texture height is a power of 2
 			{
-				if (dc_truecolormap)
-					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
-				else
-					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(dc_colormap[dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]]), dc_transmap));
+				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
 				dest += vid.width;
 				frac += fracstep;
 
-				if (dc_truecolormap)
-					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
-				else
-					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(dc_colormap[dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]]), dc_transmap));
+				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
 				dest += vid.width;
 				frac += fracstep;
 			}
 			if (count & 1)
-			{
-				if (dc_truecolormap)
-					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
-				else
-					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(dc_colormap[dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]]), dc_transmap));
-			}
+				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
 		}
 	}
 }
 
 /**	\brief The R_DrawTranslatedColumn_32 function
-	Edited by Jimita for True-Color Mode
 */
 void R_DrawTranslatedColumn_32(void)
 {
@@ -538,11 +420,7 @@ void R_DrawTranslatedColumn_32(void)
 		//  used with PLAY sprites.
 		// Thus the "green" ramp of the player 0 sprite
 		//  is mapped to gray, red, black/indigo.
-		if (dc_truecolormap)
-			*dest = (V_TrueColormapRGBA(dc_translation[dc_source[frac>>FRACBITS]]));
-		else
-			*dest = (V_GetTrueColor(dc_colormap[dc_translation[dc_source[frac>>FRACBITS]]]));
-
+		*dest = (V_TrueColormapRGBA(dc_translation[dc_source[frac>>FRACBITS]]));
 		dest += vid.width;
 		frac += fracstep;
 	} while (count--);
@@ -550,7 +428,6 @@ void R_DrawTranslatedColumn_32(void)
 
 /**	\brief The R_DrawFogSpan_32 function
 	Draws the actual span with fogging.
-	Edited by Jimita for True-Color Mode
 */
 void R_DrawFogSpan_32(void)
 {
@@ -579,7 +456,6 @@ void R_DrawFogSpan_32(void)
 
 /**	\brief The R_DrawFogColumn_32 function
 	Fog wall.
-	Edited by Jimita for True-Color Mode
 */
 void R_DrawFogColumn_32(void)
 {
@@ -598,7 +474,7 @@ void R_DrawFogColumn_32(void)
 	dest = &topleft[dc_yl*vid.width + dc_x];
 	do
 	{
-		*dest = (V_BlendTrueColor(*dest, 0xFF000000, ((dc_foglight/256)*8)));
+		*dest = V_BlendTrueColor(*dest, 0xFF000000, (dc_foglight*8));
 		dest += vid.width;
 	} while (count--);
 }
@@ -607,7 +483,6 @@ void R_DrawFogColumn_32(void)
 	This is for 3D floors that cast shadows on walls.
 
 	This function just cuts the column up into sections and calls R_DrawColumn_32
-	Edited by Jimita for True-Color Mode
 */
 void R_DrawColumnShadowed_32(void)
 {
@@ -650,8 +525,8 @@ void R_DrawColumnShadowed_32(void)
 		}
 		if (height <= dc_yl)
 		{
-			dc_colormap = dc_lightlist[i].rcolormap;
-			R_SetTrueColormap(dc_lightlist[i].tc_rcolormap);
+			dc_lighting = dc_lightlist[i].rlighting;
+			dc_levelcolormap = dc_lightlist[i].rcolormap;
 			if (solid && dc_yl < bheight)
 				dc_yl = bheight;
 			continue;
@@ -661,18 +536,18 @@ void R_DrawColumnShadowed_32(void)
 
 		if (dc_yh > realyh)
 			dc_yh = realyh;
-		basecolfunc();		// R_DrawColumn_32
+		basecolfunc_ex();		// R_DrawColumn_Ex32
 		if (solid)
 			dc_yl = bheight;
 		else
 			dc_yl = dc_yh + 1;
 
-		dc_colormap = dc_lightlist[i].rcolormap;
-		R_SetTrueColormap(dc_lightlist[i].tc_rcolormap);
+		dc_lighting = dc_lightlist[i].rlighting;
+		dc_levelcolormap = dc_lightlist[i].rcolormap;
 	}
 	dc_yh = realyh;
 	if (dc_yl <= realyh)
-		basecolfunc();		// R_DrawColumn_32
+		basecolfunc_ex();		// R_DrawColumn_Ex32
 }
 
 // ==========================================================================
@@ -681,20 +556,19 @@ void R_DrawColumnShadowed_32(void)
 
 /**	\brief The R_DrawSpan_32 function
 	Draws the actual span.
-	Edited by Jimita for True-Color Mode
 */
 void R_DrawSpan_32(void)
 {
-	UINT32 xposition;
-	UINT32 yposition;
-	UINT32 xstep, ystep;
+	fixed_t xposition;
+	fixed_t yposition;
+	fixed_t xstep, ystep;
 
-	UINT8 *source;
-	UINT8 *colormap;
+	UINT32 *source;
 	UINT32 *dest;
-	const UINT32 *deststop = screen_main + vid.width * vid.height;
 
-	size_t count;
+	size_t count = (ds_x2 - ds_x1 + 1);
+	xposition = ds_xfrac; yposition = ds_yfrac;
+	xstep = ds_xstep; ystep = ds_ystep;
 
 	// SoM: we only need 6 bits for the integer part (0 thru 63) so the rest
 	// can be used for the fraction part. This allows calculation of the memory address in the
@@ -703,71 +577,87 @@ void R_DrawSpan_32(void)
 	// bit per power of two (obviously)
 	// Ok, because I was able to eliminate the variable spot below, this function is now FASTER
 	// than the original span renderer. Whodathunkit?
-	xposition = ds_xfrac << nflatshiftup; yposition = ds_yfrac << nflatshiftup;
-	xstep = ds_xstep << nflatshiftup; ystep = ds_ystep << nflatshiftup;
+	if (ds_powersoftwo)
+	{
+		xposition <<= nflatshiftup; yposition <<= nflatshiftup;
+		xstep <<= nflatshiftup; ystep <<= nflatshiftup;
+	}
 
 	source = ds_source;
-	colormap = ds_colormap;
 	dest = &topleft[ds_y*vid.width + ds_x1];
-	count = ds_x2 - ds_x1 + 1;
 
-	if (dest+8 > deststop)
-		return;
-
-	while (count >= 8)
+	if (!ds_powersoftwo)
 	{
-		// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
-		// have the uber complicated math to calculate it now, so that was a memory write we didn't
-		// need!
-		#define MAINSPANLOOP(i) \
-		if (ds_truecolormap) \
-			dest[i] = (V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)])); \
-		else \
-			dest[i] = (V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]])); \
-		xposition += xstep; \
-		yposition += ystep;
+		while (count--)
+		{
+			fixed_t x = (xposition >> FRACBITS);
+			fixed_t y = (yposition >> FRACBITS);
 
-		MAINSPANLOOP(0)
-		MAINSPANLOOP(1)
-		MAINSPANLOOP(2)
-		MAINSPANLOOP(3)
-		MAINSPANLOOP(4)
-		MAINSPANLOOP(5)
-		MAINSPANLOOP(6)
-		MAINSPANLOOP(7)
+			// Carefully align all of my Friends.
+			if (x < 0)
+				x = ds_flatwidth - ((UINT32)(ds_flatwidth - x) % ds_flatwidth);
+			if (y < 0)
+				y = ds_flatheight - ((UINT32)(ds_flatheight - y) % ds_flatheight);
 
-		#undef MAINSPANLOOP
+			x %= ds_flatwidth;
+			y %= ds_flatheight;
 
-		dest += 8;
-		count -= 8;
+			*dest++ = source[((y * ds_flatwidth) + x)];
+			xposition += xstep;
+			yposition += ystep;
+		}
 	}
-	while (count-- && dest <= deststop)
+	else
 	{
-		if (ds_truecolormap)
-			*dest++ = (V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]));
-		else
-			*dest++ = (V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]));
-		xposition += xstep;
-		yposition += ystep;
+		while (count >= 8)
+		{
+			// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
+			// have the uber complicated math to calculate it now, so that was a memory write we didn't
+			// need!
+			#define MAINSPANLOOP(i) \
+			dest[i] = source[(((UINT32)yposition >> nflatyshift) & nflatmask) | ((UINT32)xposition >> nflatxshift)]; \
+			xposition += xstep; \
+			yposition += ystep;
+
+			MAINSPANLOOP(0)
+			MAINSPANLOOP(1)
+			MAINSPANLOOP(2)
+			MAINSPANLOOP(3)
+			MAINSPANLOOP(4)
+			MAINSPANLOOP(5)
+			MAINSPANLOOP(6)
+			MAINSPANLOOP(7)
+
+			#undef MAINSPANLOOP
+
+			dest += 8;
+			count -= 8;
+		}
+		while (count--)
+		{
+			*dest++ = source[(((UINT32)yposition >> nflatyshift) & nflatmask) | ((UINT32)xposition >> nflatxshift)];
+			xposition += xstep;
+			yposition += ystep;
+		}
 	}
 }
 
 /**	\brief The R_DrawSplat_32 function
 	Just like R_DrawSpan_32, but skips transparent pixels.
-	Edited by Jimita for True-Color Mode
 */
 void R_DrawSplat_32(void)
 {
-	UINT32 xposition;
-	UINT32 yposition;
-	UINT32 xstep, ystep;
+	fixed_t xposition;
+	fixed_t yposition;
+	fixed_t xstep, ystep;
 
-	UINT8 *source;
-	UINT8 *colormap;
+	UINT32 *source;
 	UINT32 *dest;
 
-	size_t count;
 	UINT32 val;
+	size_t count = (ds_x2 - ds_x1 + 1);
+	xposition = ds_xfrac; yposition = ds_yfrac;
+	xstep = ds_xstep; ystep = ds_ystep;
 
 	// SoM: we only need 6 bits for the integer part (0 thru 63) so the rest
 	// can be used for the fraction part. This allows calculation of the memory address in the
@@ -776,84 +666,102 @@ void R_DrawSplat_32(void)
 	// bit per power of two (obviously)
 	// Ok, because I was able to eliminate the variable spot below, this function is now FASTER
 	// than the original span renderer. Whodathunkit?
-	xposition = ds_xfrac << nflatshiftup; yposition = ds_yfrac << nflatshiftup;
-	xstep = ds_xstep << nflatshiftup; ystep = ds_ystep << nflatshiftup;
+	if (ds_powersoftwo)
+	{
+		xposition <<= nflatshiftup; yposition <<= nflatshiftup;
+		xstep <<= nflatshiftup; ystep <<= nflatshiftup;
+	}
 
 	source = ds_source;
-	colormap = ds_colormap;
 	dest = &topleft[ds_y*vid.width + ds_x1];
-	count = ds_x2 - ds_x1 + 1;
 
-	while (count >= 8)
+	if (!ds_powersoftwo)
 	{
-		// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
-		// have the uber complicated math to calculate it now, so that was a memory write we didn't
-		// need!
-		//
-		// <Callum> 4194303 = (2048x2048)-1 (2048x2048 is maximum flat size)
-		#define MAINSPANLOOP(i) \
-		val = ((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift); \
-		val &= 4194303; \
-		val = source[val]; \
-		if (val != TRANSPARENTPIXEL) \
-		{ \
-			if (ds_truecolormap) \
-				dest[i] = (V_TrueColormapRGBA_DS(val)); \
-			else \
-				dest[i] = (V_GetTrueColor(colormap[val])); \
-		} \
-		xposition += xstep; \
-		yposition += ystep;
-
-		MAINSPANLOOP(0)
-		MAINSPANLOOP(1)
-		MAINSPANLOOP(2)
-		MAINSPANLOOP(3)
-		MAINSPANLOOP(4)
-		MAINSPANLOOP(5)
-		MAINSPANLOOP(6)
-		MAINSPANLOOP(7)
-
-		#undef MAINSPANLOOP
-
-		dest += 8;
-		count -= 8;
-	}
-	while (count--)
-	{
-		val = ((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift);
-		val &= 4194303;
-		val = source[val];
-		if (val != TRANSPARENTPIXEL)
+		while (count--)
 		{
-			if (ds_truecolormap)
-				*dest = (V_TrueColormapRGBA_DS(val));
-			else
-				*dest = (V_GetTrueColor(colormap[val]));
-		}
+			fixed_t x = (xposition >> FRACBITS);
+			fixed_t y = (yposition >> FRACBITS);
 
-		dest++;
-		xposition += xstep;
-		yposition += ystep;
+			// Carefully align all of my Friends.
+			if (x < 0)
+				x = ds_flatwidth - ((UINT32)(ds_flatwidth - x) % ds_flatwidth);
+			if (y < 0)
+				y = ds_flatheight - ((UINT32)(ds_flatheight - y) % ds_flatheight);
+
+			x %= ds_flatwidth;
+			y %= ds_flatheight;
+
+			val = source[((y * ds_flatwidth) + x)];
+			if (val != TRANSPARENTPIXEL)
+				*dest = val;
+			dest++;
+			xposition += xstep;
+			yposition += ystep;
+		}
+	}
+	else
+	{
+		while (count >= 8)
+		{
+			// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
+			// have the uber complicated math to calculate it now, so that was a memory write we didn't
+			// need!
+			//
+			// <Callum> 4194303 = (2048x2048)-1 (2048x2048 is maximum flat size)
+			#define MAINSPANLOOP(i) \
+			val = (((UINT32)yposition >> nflatyshift) & nflatmask) | ((UINT32)xposition >> nflatxshift); \
+			val &= 4194303; \
+			val = source[val]; \
+			if (val != V_GetTrueColor(TRANSPARENTPIXEL)) \
+				dest[i] = val; \
+			xposition += xstep; \
+			yposition += ystep;
+
+			MAINSPANLOOP(0)
+			MAINSPANLOOP(1)
+			MAINSPANLOOP(2)
+			MAINSPANLOOP(3)
+			MAINSPANLOOP(4)
+			MAINSPANLOOP(5)
+			MAINSPANLOOP(6)
+			MAINSPANLOOP(7)
+
+			#undef MAINSPANLOOP
+
+			dest += 8;
+			count -= 8;
+		}
+		while (count--)
+		{
+			val = (((UINT32)yposition >> nflatyshift) & nflatmask) | ((UINT32)xposition >> nflatxshift);
+			val &= 4194303;
+			val = source[val];
+			if (val != V_GetTrueColor(TRANSPARENTPIXEL))
+				*dest = val;
+
+			dest++;
+			xposition += xstep;
+			yposition += ystep;
+		}
 	}
 }
 
 /**	\brief The R_DrawTranslucentSplat_32 function
 	Just like R_DrawSplat_32 but is translucent!
-	Edited by Jimita for True-Color Mode
 */
 void R_DrawTranslucentSplat_32(void)
 {
-	UINT32 xposition;
-	UINT32 yposition;
-	UINT32 xstep, ystep;
+	fixed_t xposition;
+	fixed_t yposition;
+	fixed_t xstep, ystep;
 
-	UINT8 *source;
-	UINT8 *colormap;
+	UINT32 *source;
 	UINT32 *dest;
 
-	size_t count;
-	UINT8 val;
+	UINT32 val;
+	size_t count = (ds_x2 - ds_x1 + 1);
+	xposition = ds_xfrac; yposition = ds_yfrac;
+	xstep = ds_xstep; ystep = ds_ystep;
 
 	// SoM: we only need 6 bits for the integer part (0 thru 63) so the rest
 	// can be used for the fraction part. This allows calculation of the memory address in the
@@ -862,77 +770,96 @@ void R_DrawTranslucentSplat_32(void)
 	// bit per power of two (obviously)
 	// Ok, because I was able to eliminate the variable spot below, this function is now FASTER
 	// than the original span renderer. Whodathunkit?
-	xposition = ds_xfrac << nflatshiftup; yposition = ds_yfrac << nflatshiftup;
-	xstep = ds_xstep << nflatshiftup; ystep = ds_ystep << nflatshiftup;
+	if (ds_powersoftwo)
+	{
+		xposition <<= nflatshiftup; yposition <<= nflatshiftup;
+		xstep <<= nflatshiftup; ystep <<= nflatshiftup;
+	}
 
 	source = ds_source;
-	colormap = ds_colormap;
 	dest = &topleft[ds_y*vid.width + ds_x1];
-	count = ds_x2 - ds_x1 + 1;
 
-	while (count >= 8)
+	if (!ds_powersoftwo)
 	{
-		// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
-		// have the uber complicated math to calculate it now, so that was a memory write we didn't
-		// need!
-		#define MAINSPANLOOP(i) \
-		val = source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]; \
-		if (val != TRANSPARENTPIXEL) \
-		{ \
-			if (ds_truecolormap) \
-				dest[i] = (V_BlendTrueColor(dest[i], V_TrueColormapRGBA_DS(val), ds_transmap)); \
-			else \
-				dest[i] = (V_BlendTrueColor(dest[i], V_GetTrueColor(colormap[val]), ds_transmap)); \
-		} \
-		xposition += xstep; \
-		yposition += ystep;
-
-		MAINSPANLOOP(0)
-		MAINSPANLOOP(1)
-		MAINSPANLOOP(2)
-		MAINSPANLOOP(3)
-		MAINSPANLOOP(4)
-		MAINSPANLOOP(5)
-		MAINSPANLOOP(6)
-		MAINSPANLOOP(7)
-
-		#undef MAINSPANLOOP
-
-		dest += 8;
-		count -= 8;
-	}
-	while (count--)
-	{
-		val = source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)];
-		if (val != TRANSPARENTPIXEL)
+		while (count--)
 		{
-			if (ds_truecolormap)
-				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA_DS(val), ds_transmap));
-			else
-				*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), ds_transmap));
-		}
+			fixed_t x = (xposition >> FRACBITS);
+			fixed_t y = (yposition >> FRACBITS);
 
-		dest++;
-		xposition += xstep;
-		yposition += ystep;
+			// Carefully align all of my Friends.
+			if (x < 0)
+				x = ds_flatwidth - ((UINT32)(ds_flatwidth - x) % ds_flatwidth);
+			if (y < 0)
+				y = ds_flatheight - ((UINT32)(ds_flatheight - y) % ds_flatheight);
+
+			x %= ds_flatwidth;
+			y %= ds_flatheight;
+
+			val = source[((y * ds_flatwidth) + x)];
+			if (val != TRANSPARENTPIXEL)
+				*dest = V_BlendTrueColor(*dest, val, ds_transmap);
+			dest++;
+			xposition += xstep;
+			yposition += ystep;
+		}
+	}
+	else
+	{
+		while (count >= 8)
+		{
+			// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
+			// have the uber complicated math to calculate it now, so that was a memory write we didn't
+			// need!
+			#define MAINSPANLOOP(i) \
+			val = source[(((UINT32)yposition >> nflatyshift) & nflatmask) | ((UINT32)xposition >> nflatxshift)]; \
+			if (val != TRANSPARENTPIXEL) \
+				dest[i] = V_BlendTrueColor(dest[i], val, ds_transmap); \
+			xposition += xstep; \
+			yposition += ystep;
+
+			MAINSPANLOOP(0)
+			MAINSPANLOOP(1)
+			MAINSPANLOOP(2)
+			MAINSPANLOOP(3)
+			MAINSPANLOOP(4)
+			MAINSPANLOOP(5)
+			MAINSPANLOOP(6)
+			MAINSPANLOOP(7)
+
+			#undef MAINSPANLOOP
+
+			dest += 8;
+			count -= 8;
+		}
+		while (count--)
+		{
+			val = source[(((UINT32)yposition >> nflatyshift) & nflatmask) | ((UINT32)xposition >> nflatxshift)];
+			if (val != V_GetTrueColor(TRANSPARENTPIXEL))
+				*dest = V_BlendTrueColor(*dest, val, ds_transmap);
+			dest++;
+			xposition += xstep;
+			yposition += ystep;
+		}
 	}
 }
 
 /**	\brief The R_DrawTranslucentSpan_32 function
 	Draws the actual span with translucency.
-	Edited by Jimita for True-Color Mode
 */
 void R_DrawTranslucentSpan_32(void)
 {
-	UINT32 xposition;
-	UINT32 yposition;
-	UINT32 xstep, ystep;
+	fixed_t xposition;
+	fixed_t yposition;
+	fixed_t xstep, ystep;
 
-	UINT8 *source;
-	UINT8 *colormap;
+	UINT32 *source;
 	UINT32 *dest;
 
-	size_t count;
+	size_t count = (ds_x2 - ds_x1 + 1);
+	UINT32 val;
+
+	xposition = ds_xfrac; yposition = ds_yfrac;
+	xstep = ds_xstep; ystep = ds_ystep;
 
 	// SoM: we only need 6 bits for the integer part (0 thru 63) so the rest
 	// can be used for the fraction part. This allows calculation of the memory address in the
@@ -941,50 +868,71 @@ void R_DrawTranslucentSpan_32(void)
 	// bit per power of two (obviously)
 	// Ok, because I was able to eliminate the variable spot below, this function is now FASTER
 	// than the original span renderer. Whodathunkit?
-	xposition = ds_xfrac << nflatshiftup; yposition = ds_yfrac << nflatshiftup;
-	xstep = ds_xstep << nflatshiftup; ystep = ds_ystep << nflatshiftup;
+	if (ds_powersoftwo)
+	{
+		xposition <<= nflatshiftup; yposition <<= nflatshiftup;
+		xstep <<= nflatshiftup; ystep <<= nflatshiftup;
+	}
 
 	source = ds_source;
-	colormap = ds_colormap;
 	dest = &topleft[ds_y*vid.width + ds_x1];
-	count = ds_x2 - ds_x1 + 1;
 
-	while (count >= 8)
+	if (!ds_powersoftwo)
 	{
-		// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
-		// have the uber complicated math to calculate it now, so that was a memory write we didn't
-		// need!
-		#define MAINSPANLOOP(i) \
-		if (ds_truecolormap) \
-			dest[i] = (V_BlendTrueColor(dest[i], V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]), ds_transmap)); \
-		else \
-			dest[i] = (V_BlendTrueColor(dest[i], V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap)); \
-		xposition += xstep; \
-		yposition += ystep;
+		while (count--)
+		{
+			fixed_t x = (xposition >> FRACBITS);
+			fixed_t y = (yposition >> FRACBITS);
 
-		MAINSPANLOOP(0)
-		MAINSPANLOOP(1)
-		MAINSPANLOOP(2)
-		MAINSPANLOOP(3)
-		MAINSPANLOOP(4)
-		MAINSPANLOOP(5)
-		MAINSPANLOOP(6)
-		MAINSPANLOOP(7)
+			// Carefully align all of my Friends.
+			if (x < 0)
+				x = ds_flatwidth - ((UINT32)(ds_flatwidth - x) % ds_flatwidth);
+			if (y < 0)
+				y = ds_flatheight - ((UINT32)(ds_flatheight - y) % ds_flatheight);
 
-		#undef MAINSPANLOOP
+			x %= ds_flatwidth;
+			y %= ds_flatheight;
 
-		dest += 8;
-		count -= 8;
+			val = ((y * ds_flatwidth) + x);
+			*dest = V_BlendTrueColor(*dest, val, ds_transmap);
+			dest++;
+			xposition += xstep;
+			yposition += ystep;
+		}
 	}
-	while (count--)
+	else
 	{
-		if (ds_truecolormap)
-			*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]), ds_transmap));
-		else
-			*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap));
-		dest++;
-		xposition += xstep;
-		yposition += ystep;
+		while (count >= 8)
+		{
+			// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
+			// have the uber complicated math to calculate it now, so that was a memory write we didn't
+			// need!
+			#define MAINSPANLOOP(i) \
+			dest[i] = V_BlendTrueColor(dest[i], source[(((UINT32)yposition >> nflatyshift) & nflatmask) | ((UINT32)xposition >> nflatxshift)], ds_transmap); \
+			xposition += xstep; \
+			yposition += ystep;
+
+			MAINSPANLOOP(0)
+			MAINSPANLOOP(1)
+			MAINSPANLOOP(2)
+			MAINSPANLOOP(3)
+			MAINSPANLOOP(4)
+			MAINSPANLOOP(5)
+			MAINSPANLOOP(6)
+			MAINSPANLOOP(7)
+
+			#undef MAINSPANLOOP
+
+			dest += 8;
+			count -= 8;
+		}
+		while (count--)
+		{
+			*dest = V_BlendTrueColor(*dest, source[(((UINT32)yposition >> nflatyshift) & nflatmask) | ((UINT32)xposition >> nflatxshift)], ds_transmap);
+			dest++;
+			xposition += xstep;
+			yposition += ystep;
+		}
 	}
 }
 
@@ -1013,7 +961,6 @@ void R_CalcTiltedLighting(fixed_t start, fixed_t end)
 }
 
 /**	\brief The R_DrawTiltedSpan_32 function
-	Edited by Jimita for True-Color Mode
 */
 void R_DrawTiltedSpan_32(void)
 {
@@ -1023,9 +970,7 @@ void R_DrawTiltedSpan_32(void)
 	UINT32 u, v;
 	int i;
 
-	UINT8 *source;
-	UINT8 *colormap;
-	UINT32 *truecolormap;
+	UINT32 *source;
 	UINT32 *dest;
 
 	double startz, startu, startv;
@@ -1081,17 +1026,24 @@ void R_DrawTiltedSpan_32(void)
 
 		for (i = SPANSIZE-1; i >= 0; i--)
 		{
-			colormap = planezlight[tiltlighting[ds_x1]] + (ds_colormap - colormaps);
-
-			if (ds_truecolormap)
+			if (!ds_powersoftwo)
 			{
-				truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-				*dest = ((truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
+				fixed_t x = ((u-viewx) >> FRACBITS);
+				fixed_t y = ((v-viewy) >> FRACBITS);
+
+				// Carefully align all of my Friends.
+				if (x < 0)
+					x = ds_flatwidth - ((UINT32)(ds_flatwidth - x) % ds_flatwidth);
+				if (y < 0)
+					y = ds_flatheight - ((UINT32)(ds_flatheight - y) % ds_flatheight);
+
+				x %= ds_flatwidth;
+				y %= ds_flatheight;
+
+				*dest = source[((y * ds_flatwidth) + x)];
 			}
 			else
-				*dest = (V_GetTrueColor(colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
-
-			ds_x1++;
+				*dest = source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)];
 			dest++;
 			u += stepu;
 			v += stepv;
@@ -1106,17 +1058,24 @@ void R_DrawTiltedSpan_32(void)
 		{
 			u = (INT64)(startu);
 			v = (INT64)(startv);
-			colormap = planezlight[tiltlighting[ds_x1]] + (ds_colormap - colormaps);
-
-			if (ds_truecolormap)
+			if (!ds_powersoftwo)
 			{
-				truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-				*dest = ((truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
+				fixed_t x = ((u-viewx) >> FRACBITS);
+				fixed_t y = ((v-viewy) >> FRACBITS);
+
+				// Carefully align all of my Friends.
+				if (x < 0)
+					x = ds_flatwidth - ((UINT32)(ds_flatwidth - x) % ds_flatwidth);
+				if (y < 0)
+					y = ds_flatheight - ((UINT32)(ds_flatheight - y) % ds_flatheight);
+
+				x %= ds_flatwidth;
+				y %= ds_flatheight;
+
+				*dest = source[((y * ds_flatwidth) + x)];
 			}
 			else
-				*dest = (V_GetTrueColor(colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
-
-			ds_x1++;
+				*dest = source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)];
 		}
 		else
 		{
@@ -1136,17 +1095,24 @@ void R_DrawTiltedSpan_32(void)
 
 			for (; width != 0; width--)
 			{
-				colormap = planezlight[tiltlighting[ds_x1]] + (ds_colormap - colormaps);
-
-				if (ds_truecolormap)
+				if (!ds_powersoftwo)
 				{
-					truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-					*dest = ((truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
+					fixed_t x = ((u-viewx) >> FRACBITS);
+					fixed_t y = ((v-viewy) >> FRACBITS);
+
+					// Carefully align all of my Friends.
+					if (x < 0)
+						x = ds_flatwidth - ((UINT32)(ds_flatwidth - x) % ds_flatwidth);
+					if (y < 0)
+						y = ds_flatheight - ((UINT32)(ds_flatheight - y) % ds_flatheight);
+
+					x %= ds_flatwidth;
+					y %= ds_flatheight;
+
+					*dest = source[((y * ds_flatwidth) + x)];
 				}
 				else
-					*dest = (V_GetTrueColor(colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
-
-				ds_x1++;
+					*dest = source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)];
 				dest++;
 				u += stepu;
 				v += stepv;
@@ -1157,7 +1123,6 @@ void R_DrawTiltedSpan_32(void)
 
 /**	\brief The R_DrawTiltedTranslucentSpan_32 function
 	Like R_DrawTiltedSpan_32, but translucent
-	Edited by Jimita for True-Color Mode
 */
 void R_DrawTiltedTranslucentSpan_32(void)
 {
@@ -1167,9 +1132,7 @@ void R_DrawTiltedTranslucentSpan_32(void)
 	UINT32 u, v;
 	int i;
 
-	UINT8 *source;
-	UINT8 *colormap;
-	UINT32 *truecolormap;
+	UINT32 *source;
 	UINT32 *dest;
 
 	double startz, startu, startv;
@@ -1225,14 +1188,24 @@ void R_DrawTiltedTranslucentSpan_32(void)
 
 		for (i = SPANSIZE-1; i >= 0; i--)
 		{
-			colormap = planezlight[tiltlighting[ds_x1++]] + (ds_colormap - colormaps);
-			if (ds_truecolormap)
+			if (!ds_powersoftwo)
 			{
-				truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-				*dest = (V_BlendTrueColor(*dest, (truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]), ds_transmap));
+				fixed_t x = ((u-viewx) >> FRACBITS);
+				fixed_t y = ((v-viewy) >> FRACBITS);
+
+				// Carefully align all of my Friends.
+				if (x < 0)
+					x = ds_flatwidth - ((UINT32)(ds_flatwidth - x) % ds_flatwidth);
+				if (y < 0)
+					y = ds_flatheight - ((UINT32)(ds_flatheight - y) % ds_flatheight);
+
+				x %= ds_flatwidth;
+				y %= ds_flatheight;
+
+				*dest = V_BlendTrueColor(*dest, source[((y * ds_flatwidth) + x)], ds_transmap);
 			}
 			else
-				*dest = (V_BlendTrueColor(*dest, V_GetTrueColor((colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]])), ds_transmap));
+				*dest = V_BlendTrueColor(*dest, source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)], ds_transmap);
 
 			dest++;
 			u += stepu;
@@ -1248,15 +1221,24 @@ void R_DrawTiltedTranslucentSpan_32(void)
 		{
 			u = (INT64)(startu);
 			v = (INT64)(startv);
-
-			colormap = planezlight[tiltlighting[ds_x1++]] + (ds_colormap - colormaps);
-			if (ds_truecolormap)
+			if (!ds_powersoftwo)
 			{
-				truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-				*dest = (V_BlendTrueColor(*dest, (truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]), ds_transmap));
+				fixed_t x = ((u-viewx) >> FRACBITS);
+				fixed_t y = ((v-viewy) >> FRACBITS);
+
+				// Carefully align all of my Friends.
+				if (x < 0)
+					x = ds_flatwidth - ((UINT32)(ds_flatwidth - x) % ds_flatwidth);
+				if (y < 0)
+					y = ds_flatheight - ((UINT32)(ds_flatheight - y) % ds_flatheight);
+
+				x %= ds_flatwidth;
+				y %= ds_flatheight;
+
+				*dest = V_BlendTrueColor(*dest, source[((y * ds_flatwidth) + x)], ds_transmap);
 			}
 			else
-				*dest = (V_BlendTrueColor(*dest, V_GetTrueColor((colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]])), ds_transmap));
+				*dest = V_BlendTrueColor(*dest, source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)], ds_transmap);
 		}
 		else
 		{
@@ -1276,15 +1258,24 @@ void R_DrawTiltedTranslucentSpan_32(void)
 
 			for (; width != 0; width--)
 			{
-				colormap = planezlight[tiltlighting[ds_x1++]] + (ds_colormap - colormaps);
-				if (ds_truecolormap)
+				if (!ds_powersoftwo)
 				{
-					truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-					*dest = (V_BlendTrueColor(*dest, (truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]), ds_transmap));
+					fixed_t x = ((u-viewx) >> FRACBITS);
+					fixed_t y = ((v-viewy) >> FRACBITS);
+
+					// Carefully align all of my Friends.
+					if (x < 0)
+						x = ds_flatwidth - ((UINT32)(ds_flatwidth - x) % ds_flatwidth);
+					if (y < 0)
+						y = ds_flatheight - ((UINT32)(ds_flatheight - y) % ds_flatheight);
+
+					x %= ds_flatwidth;
+					y %= ds_flatheight;
+
+					*dest = V_BlendTrueColor(*dest, source[((y * ds_flatwidth) + x)], ds_transmap);
 				}
 				else
-					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor((colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]])), ds_transmap));
-
+					*dest = V_BlendTrueColor(*dest, source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)], ds_transmap);
 				dest++;
 				u += stepu;
 				v += stepv;
@@ -1301,9 +1292,7 @@ void R_DrawTiltedSplat_32(void)
 	UINT32 u, v;
 	int i;
 
-	UINT8 *source;
-	UINT8 *colormap;
-	UINT32 *truecolormap;
+	UINT32 *source;
 	UINT32 *dest;
 
 	double startz, startu, startv;
@@ -1361,21 +1350,26 @@ void R_DrawTiltedSplat_32(void)
 
 		for (i = SPANSIZE-1; i >= 0; i--)
 		{
-			colormap = planezlight[tiltlighting[ds_x1]] + (ds_colormap - colormaps);
-
-			val = source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)];
-			if (val != TRANSPARENTPIXEL)
+			if (!ds_powersoftwo)
 			{
-				if (ds_truecolormap)
-				{
-					truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-					*dest = (truecolormap[val]);
-				}
-				else
-					*dest = (V_GetTrueColor(colormap[val]));
-			}
+				fixed_t x = ((u-viewx) >> FRACBITS);
+				fixed_t y = ((v-viewy) >> FRACBITS);
 
-			ds_x1++;
+				// Carefully align all of my Friends.
+				if (x < 0)
+					x = ds_flatwidth - ((UINT32)(ds_flatwidth - x) % ds_flatwidth);
+				if (y < 0)
+					y = ds_flatheight - ((UINT32)(ds_flatheight - y) % ds_flatheight);
+
+				x %= ds_flatwidth;
+				y %= ds_flatheight;
+
+				val = source[((y * ds_flatwidth) + x)];
+			}
+			else
+				val = source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)];
+			if (val != V_GetTrueColor(TRANSPARENTPIXEL))
+				*dest = val;
 			dest++;
 			u += stepu;
 			v += stepv;
@@ -1390,21 +1384,26 @@ void R_DrawTiltedSplat_32(void)
 		{
 			u = (INT64)(startu);
 			v = (INT64)(startv);
-			colormap = planezlight[tiltlighting[ds_x1]] + (ds_colormap - colormaps);
-
-			val = source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)];
-			if (val != TRANSPARENTPIXEL)
+			if (!ds_powersoftwo)
 			{
-				if (ds_truecolormap)
-				{
-					truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-					*dest = (truecolormap[val]);
-				}
-				else
-					*dest = (V_GetTrueColor(colormap[val]));
-			}
+				fixed_t x = ((u-viewx) >> FRACBITS);
+				fixed_t y = ((v-viewy) >> FRACBITS);
 
-			ds_x1++;
+				// Carefully align all of my Friends.
+				if (x < 0)
+					x = ds_flatwidth - ((UINT32)(ds_flatwidth - x) % ds_flatwidth);
+				if (y < 0)
+					y = ds_flatheight - ((UINT32)(ds_flatheight - y) % ds_flatheight);
+
+				x %= ds_flatwidth;
+				y %= ds_flatheight;
+
+				val = source[((y * ds_flatwidth) + x)];
+			}
+			else
+				val = source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)];
+			if (val != V_GetTrueColor(TRANSPARENTPIXEL))
+				*dest = val;
 		}
 		else
 		{
@@ -1424,21 +1423,26 @@ void R_DrawTiltedSplat_32(void)
 
 			for (; width != 0; width--)
 			{
-				colormap = planezlight[tiltlighting[ds_x1]] + (ds_colormap - colormaps);
-
-				val = source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)];
-				if (val != TRANSPARENTPIXEL)
+				if (!ds_powersoftwo)
 				{
-					if (ds_truecolormap)
-					{
-						truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-						*dest = (truecolormap[val]);
-					}
-					else
-						*dest = (V_GetTrueColor(colormap[val]));
-				}
+					fixed_t x = ((u-viewx) >> FRACBITS);
+					fixed_t y = ((v-viewy) >> FRACBITS);
 
-				ds_x1++;
+					// Carefully align all of my Friends.
+					if (x < 0)
+						x = ds_flatwidth - ((UINT32)(ds_flatwidth - x) % ds_flatwidth);
+					if (y < 0)
+						y = ds_flatheight - ((UINT32)(ds_flatheight - y) % ds_flatheight);
+
+					x %= ds_flatwidth;
+					y %= ds_flatheight;
+
+					val = source[((y * ds_flatwidth) + x)];
+				}
+				else
+					val = source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)];
+				if (val != V_GetTrueColor(TRANSPARENTPIXEL))
+					*dest = val;
 				dest++;
 				u += stepu;
 				v += stepv;
@@ -1451,16 +1455,18 @@ void R_DrawTiltedSplat_32(void)
 #ifndef NOWATER
 void R_DrawTranslucentWaterSpan_32(void)
 {
-	UINT32 xposition;
-	UINT32 yposition;
-	UINT32 xstep, ystep;
+	fixed_t xposition;
+	fixed_t yposition;
+	fixed_t xstep, ystep;
 
-	UINT8 *source;
+	UINT32 *source;
 	UINT32 *dest;
 	UINT32 *dsrc;
 
-	size_t count;
+	size_t count = (ds_x2 - ds_x1 + 1);
 
+	xposition = ds_xfrac; yposition = (ds_yfrac + ds_wateroffset);
+	xstep = ds_xstep; ystep = ds_ystep;
 	// SoM: we only need 6 bits for the integer part (0 thru 63) so the rest
 	// can be used for the fraction part. This allows calculation of the memory address in the
 	// texture with two shifts, an OR and one AND. (see below)
@@ -1468,49 +1474,69 @@ void R_DrawTranslucentWaterSpan_32(void)
 	// bit per power of two (obviously)
 	// Ok, because I was able to eliminate the variable spot below, this function is now FASTER
 	// than the original span renderer. Whodathunkit?
-	xposition = ds_xfrac << nflatshiftup; yposition = (ds_yfrac + ds_wateroffset) << nflatshiftup;
-	xstep = ds_xstep << nflatshiftup; ystep = ds_ystep << nflatshiftup;
+	if (ds_powersoftwo)
+	{
+		xposition <<= nflatshiftup; yposition <<= nflatshiftup;
+		xstep <<= nflatshiftup; ystep <<= nflatshiftup;
+	}
 
 	source = ds_source;
 	dest = &topleft[ds_y*vid.width + ds_x1];
 	dsrc = screen_altblit + (ds_y+ds_bgoffset)*vid.width + ds_x1;
-	count = ds_x2 - ds_x1 + 1;
 
-	while (count >= 8)
+	if (!ds_powersoftwo)
 	{
-		// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
-		// have the uber complicated math to calculate it now, so that was a memory write we didn't
-		// need!
-		#define MAINSPANLOOP(i) \
-		if (ds_truecolormap) \
-			dest[i] = (V_BlendTrueColor(*dsrc++, (ds_truecolormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap)); \
-		else \
-			dest[i] = (V_BlendTrueColor(*dsrc++, V_GetTrueColor(ds_colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap)); \
-		xposition += xstep; \
-		yposition += ystep;
+		while (count--)
+		{
+			fixed_t x = (xposition >> FRACBITS);
+			fixed_t y = (yposition >> FRACBITS);
 
-		MAINSPANLOOP(0)
-		MAINSPANLOOP(1)
-		MAINSPANLOOP(2)
-		MAINSPANLOOP(3)
-		MAINSPANLOOP(4)
-		MAINSPANLOOP(5)
-		MAINSPANLOOP(6)
-		MAINSPANLOOP(7)
+			// Carefully align all of my Friends.
+			if (x < 0)
+				x = ds_flatwidth - ((UINT32)(ds_flatwidth - x) % ds_flatwidth);
+			if (y < 0)
+				y = ds_flatheight - ((UINT32)(ds_flatheight - y) % ds_flatheight);
 
-		#undef MAINSPANLOOP
+			x %= ds_flatwidth;
+			y %= ds_flatheight;
 
-		dest += 8;
-		count -= 8;
+			*dest++ = V_BlendTrueColor(*dsrc++, source[((y * ds_flatwidth) + x)], ds_transmap);
+			xposition += xstep;
+			yposition += ystep;
+		}
 	}
-	while (count--)
+	else
 	{
-		if (ds_truecolormap)
-			*dest++ = (V_BlendTrueColor(*dsrc++, (ds_truecolormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap));
-		else
-			*dest++ = (V_BlendTrueColor(*dsrc++, V_GetTrueColor(ds_colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap));
-		xposition += xstep;
-		yposition += ystep;
+		while (count >= 8)
+		{
+			// SoM: Why didn't I see this earlier? the spot variable is a waste now because we don't
+			// have the uber complicated math to calculate it now, so that was a memory write we didn't
+			// need!
+			#define MAINSPANLOOP(i) \
+			dest[i] = (V_BlendTrueColor(*dsrc++, (source[(((UINT32)yposition >> nflatyshift) & nflatmask) | ((UINT32)xposition >> nflatxshift)]), ds_transmap)); \
+			xposition += xstep; \
+			yposition += ystep;
+
+			MAINSPANLOOP(0)
+			MAINSPANLOOP(1)
+			MAINSPANLOOP(2)
+			MAINSPANLOOP(3)
+			MAINSPANLOOP(4)
+			MAINSPANLOOP(5)
+			MAINSPANLOOP(6)
+			MAINSPANLOOP(7)
+
+			#undef MAINSPANLOOP
+
+			dest += 8;
+			count -= 8;
+		}
+		while (count--)
+		{
+			*dest++ = V_BlendTrueColor(*dsrc++, source[(((UINT32)yposition >> nflatyshift) & nflatmask) | ((UINT32)xposition >> nflatxshift)], ds_transmap);
+			xposition += xstep;
+			yposition += ystep;
+		}
 	}
 }
 #endif

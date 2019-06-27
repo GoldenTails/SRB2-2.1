@@ -30,17 +30,21 @@ extern UINT32 *topleft;
 // -------------------------
 
 extern INT32 dc_x, dc_yl, dc_yh;
-extern lighttable_t *dc_colormap;
 extern fixed_t dc_iscale, dc_texturemid;
 extern UINT8 dc_hires;
 extern INT32 dc_texheight;
 
-extern UINT8 *dc_source; // first pixel in a column
-
+extern UINT8 *dc_source;
+extern INT32 dc_texturenum;
+extern UINT8 dc_lighting;
+extern INT32 dc_levelcolormap;
 extern UINT8 dc_transmap;
+
+extern lighttable_t *dc_colormap;
+extern lighttable32_t *dc_truecolormap;
+
 extern UINT32 dc_foglight;
 extern UINT32 dc_blendcolor;
-extern lighttable32_t *dc_truecolormap;
 
 // translucency stuff here
 #define NUMTRANSTABLES 9 // how many translucency tables are used
@@ -56,15 +60,21 @@ extern INT32 dc_numlights, dc_maxlights;
 // -----------------------
 
 extern INT32 ds_y, ds_x1, ds_x2;
-extern lighttable_t *ds_colormap;
 extern fixed_t ds_xfrac, ds_yfrac, ds_xstep, ds_ystep;
+extern UINT16 ds_flatwidth, ds_flatheight;
+extern boolean ds_powersoftwo;
 
-extern UINT8 *ds_source; // first pixel in a span
-
+extern UINT32 *ds_source;
+extern INT32 ds_flatnum;
+extern UINT8 ds_lighting;
+extern INT32 ds_levelcolormap;
 extern UINT8 ds_transmap;
+
+extern lighttable_t *ds_colormap;
+extern UINT32 *ds_truecolormap;
+
 extern UINT32 ds_foglight;
 extern UINT32 ds_blendcolor;
-extern UINT32 *ds_truecolormap;
 
 #ifdef ESLOPE
 typedef struct {
@@ -105,8 +115,6 @@ void R_DrawFogColumn_32(void);
 void R_DrawBlendColumn_32(void);
 void R_DrawTranslatedColumn_32(void);
 void R_DrawTranslatedTranslucentColumn_32(void);
-void R_Draw2sMultiPatchColumn_32(void);
-void R_Draw2sMultiPatchTranslucentColumn_32(void);
 
 // Spans
 void R_DrawSpan_32(void);
@@ -132,6 +140,9 @@ void R_DrawTiltedSplat_32(void);
 void R_DrawTiltedTranslucentSpan_32(void);
 void R_CalcTiltedLighting(fixed_t start, fixed_t end);
 #endif
+
+void R_DrawColumn_Ex32(void);
+void R_DrawTranslucentColumn_Ex32(void);
 
 // (Unused)
 #ifdef USEASM

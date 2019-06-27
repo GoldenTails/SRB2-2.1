@@ -237,10 +237,7 @@ static void D_Display(void)
 	if (nodrawers)
 		return; // for comparative timing/profiling
 
-	vfx_translucency = cv_translucency.value;
-	vfx_colormaps = cv_truecolormaps.value;
-	vfx_water = true;
-	vfx_quincunx = false;
+	translucency = cv_translucency.value;
 
 	// check for change of screen size (video mode)
 	if (setmodeneeded && !wipe)

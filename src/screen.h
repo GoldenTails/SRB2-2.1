@@ -137,6 +137,9 @@ extern void (*transtransfunc)(void);
 extern void (*twosmultipatchfunc)(void);
 extern void (*twosmultipatchtransfunc)(void);
 
+extern void (*basecolfunc_ex)(void);
+extern void (*fuzzcolfunc_ex)(void);
+
 // ================================
 // span rendering function pointers
 // ================================
@@ -161,10 +164,7 @@ extern void (*tiltedsplatfunc)(void); // tilted splat
 extern void (*tiltedtransspanfunc)(void); // tilted translucent span
 #endif
 
-extern boolean vfx_translucency;
-extern boolean vfx_colormaps;
-extern boolean vfx_water;
-extern boolean vfx_quincunx;
+extern boolean translucency;
 
 // -----
 // CPUID

@@ -172,14 +172,7 @@ boolean W_IsLumpCached(lumpnum_t lump, void *ptr);
 
 void *W_CacheLumpName(const char *name, INT32 tag);
 void *W_CachePatchName(const char *name, INT32 tag);
-
-#ifdef HWRENDER
-//void *W_CachePatchNumPwad(UINT16 wad, UINT16 lump, INT32 tag); // return a patch_t
 void *W_CachePatchNum(lumpnum_t lumpnum, INT32 tag); // return a patch_t
-#else
-//#define W_CachePatchNumPwad(wad, lump, tag) W_CacheLumpNumPwad(wad, lump, tag)
-#define W_CachePatchNum(lumpnum, tag) W_CacheLumpNum(lumpnum, tag)
-#endif
 
 void W_UnlockCachedPatch(void *patch);
 

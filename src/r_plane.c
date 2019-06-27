@@ -19,6 +19,7 @@
 #include "p_setup.h" // levelflats
 #include "p_slopes.h"
 #include "r_data.h"
+#include "r_patch.h"
 #include "r_local.h"
 #include "r_state.h"
 #include "r_splats.h" // faB(21jan):testing
@@ -81,9 +82,8 @@ static INT32 spanstart[MAXVIDHEIGHT];
 //
 // texture mapping
 //
-lighttable_t **planezlight;
+lighttable32_t **planezlight;
 static fixed_t planeheight;
-lighttable32_t **planezlight_tc;
 
 //added : 10-02-98: yslopetab is what yslope used to be,
 //                yslope points somewhere into yslopetab,
@@ -242,32 +242,21 @@ void R_MapPlane(INT32 y, INT32 x1, INT32 x2)
 
 #ifdef ESLOPE
 	if (currentplane->slope)
-		ds_colormap = colormaps;
+		ds_truecolormap = truecolormaps;
 	else
 #endif
-		ds_colormap = planezlight[pindex];
+		ds_truecolormap = planezlight[pindex];
+	if ((colormap = currentplane->extra_colormap))
+		ds_truecolormap = (currentplane->extra_colormap->truecolormap + (ds_truecolormap - truecolormaps));
 
-	ds_truecolormap = NULL;
-	if (vfx_colormaps)
-	{
-		ds_foglight = ds_colormap-colormaps;
+	ds_foglight = (ds_truecolormap - truecolormaps);
 
-		if (currentplane->slope)
-			R_SetTrueColormapDS(truecolormaps);
-		else
-			R_SetTrueColormapDS(planezlight_tc[pindex]);
-		if ((colormap = currentplane->extra_colormap))
-			R_SetTrueColormapDS(currentplane->extra_colormap->truecolormap + (ds_truecolormap - truecolormaps));
-	}
-	else if ((colormap = currentplane->extra_colormap))
-		ds_colormap = currentplane->extra_colormap->colormap + (ds_colormap - colormaps);
-
-	if (vfx_translucency)
+	if (translucency)
 	{
 		if (colormap && spanfunc == fogspanfunc)
 		{
 			ds_transmap = 128;
-			ds_blendcolor = colormap->tc_rgba;
+			ds_blendcolor = colormap->rgba;
 			spanfunc = transspanfunc;
 		}
 	}
@@ -622,8 +611,7 @@ void R_DrawPlanes(void)
 				//  i.e. colormaps[0] is used.
 				// Because of this hack, sky is not affected
 				//  by INVUL inverse mapping.
-				dc_colormap = colormaps;
-				dc_truecolormap = NULL;
+				dc_truecolormap = truecolormaps;
 				dc_texturemid = skytexturemid;
 				dc_texheight = textureheight[skytexture]
 					>>FRACBITS;
@@ -636,9 +624,8 @@ void R_DrawPlanes(void)
 					{
 						dc_x = x;
 						angle = (pl->viewangle + xtoviewangle[x])>>ANGLETOSKYSHIFT;
-						//dc_iscale = FixedMul(skyscale, FINECOSINE(xtoviewangle[x]>>ANGLETOFINESHIFT));
 						dc_source = R_GetColumn(skytexture, angle);
-						basecolfunc();
+						basecolfunc_ex();
 					}
 				}
 				continue;
@@ -660,6 +647,149 @@ void R_DrawPlanes(void)
 #endif
 }
 
+boolean R_CheckPowersOfTwo(void)
+{
+	return (ds_powersoftwo = ((!((ds_flatwidth & (ds_flatwidth - 1)) || (ds_flatheight & (ds_flatheight - 1)))) && (ds_flatwidth == ds_flatheight)));
+}
+
+void R_CheckFlatLength(size_t size)
+{
+	switch (size)
+	{
+		case 4194304: // 2048x2048 lump
+			nflatmask = 0x3FF800;
+			nflatxshift = 21;
+			nflatyshift = 10;
+			nflatshiftup = 5;
+			ds_flatwidth = ds_flatheight = 2048;
+			break;
+		case 1048576: // 1024x1024 lump
+			nflatmask = 0xFFC00;
+			nflatxshift = 22;
+			nflatyshift = 12;
+			nflatshiftup = 6;
+			ds_flatwidth = ds_flatheight = 1024;
+			break;
+		case 262144:// 512x512 lump
+			nflatmask = 0x3FE00;
+			nflatxshift = 23;
+			nflatyshift = 14;
+			nflatshiftup = 7;
+			ds_flatwidth = ds_flatheight = 512;
+			break;
+		case 65536: // 256x256 lump
+			nflatmask = 0xFF00;
+			nflatxshift = 24;
+			nflatyshift = 16;
+			nflatshiftup = 8;
+			ds_flatwidth = ds_flatheight = 256;
+			break;
+		case 16384: // 128x128 lump
+			nflatmask = 0x3F80;
+			nflatxshift = 25;
+			nflatyshift = 18;
+			nflatshiftup = 9;
+			ds_flatwidth = ds_flatheight = 128;
+			break;
+		case 1024: // 32x32 lump
+			nflatmask = 0x3E0;
+			nflatxshift = 27;
+			nflatyshift = 22;
+			nflatshiftup = 11;
+			ds_flatwidth = ds_flatheight = 32;
+			break;
+		default: // 64x64 lump
+			nflatmask = 0xFC0;
+			nflatxshift = 26;
+			nflatyshift = 20;
+			nflatshiftup = 10;
+			ds_flatwidth = ds_flatheight = 64;
+			break;
+	}
+}
+
+static void R_GetPatchFlat(levelflat_t *levelflat, boolean leveltexture, boolean ispng)
+{
+	textureflat_t *texflat = &texflats[levelflat->texturenum];
+	patch_t *patch = NULL;
+	boolean texturechanged = (leveltexture ? (levelflat->texturenum != levelflat->lasttexturenum) : false);
+
+	// Check if the texture changed.
+	if (leveltexture && (!texturechanged))
+	{
+		if (texflat != NULL && texflat->flat)
+		{
+			ds_source = texflat->flat;
+			ds_flatwidth = texflat->width;
+			ds_flatheight = texflat->height;
+			texturechanged = false;
+		}
+		else
+			texturechanged = true;
+	}
+
+	// If the texture changed, or the patch doesn't exist, convert either of them to a flat.
+	if (levelflat->flat == NULL || texturechanged)
+	{
+		if (leveltexture)
+		{
+			texture_t *texture = textures[levelflat->texturenum];
+			texflat->width = ds_flatwidth = texture->width;
+			texflat->height = ds_flatheight = texture->height;
+
+			texflat->flat = Z_Calloc((ds_flatwidth * ds_flatheight) * sizeof(texflat->flat), PU_LEVEL, NULL);
+			R_TextureToFlat(levelflat->texturenum, texflat->flat);
+
+			ds_source = texflat->flat;
+		}
+		else
+		{
+			patch = (patch_t *)ds_source;
+#ifndef NO_PNG_LUMPS
+#ifdef HAVE_PNG
+			if (ispng)
+			{
+				levelflat->flat = R_PNGToFlat(levelflat, (UINT8 *)ds_source, W_LumpLength(levelflat->lumpnum));
+				levelflat->topoffset = levelflat->leftoffset = 0;
+				if (levelflat->flat == NULL)
+				{
+					// uuuuuhhhhhhh.......
+				}
+				else
+				{
+					ds_flatwidth = levelflat->width;
+					ds_flatheight = levelflat->height;
+				}
+			}
+			else
+#endif
+#endif
+			{
+				levelflat->width = ds_flatwidth = SHORT(patch->width);
+				levelflat->height = ds_flatheight = SHORT(patch->height);
+
+				levelflat->topoffset = patch->topoffset * FRACUNIT;
+				levelflat->leftoffset = patch->leftoffset * FRACUNIT;
+
+				levelflat->flat = Z_Calloc((ds_flatwidth * ds_flatheight) * sizeof(texflat->flat), PU_LEVEL, NULL);
+				R_PatchToFlat(patch, levelflat->flat);
+			}
+			ds_source = levelflat->flat;
+		}
+	}
+	else
+	{
+		ds_source = levelflat->flat;
+		ds_flatwidth = levelflat->width;
+		ds_flatheight = levelflat->height;
+
+		xoffs += levelflat->leftoffset;
+		yoffs += levelflat->topoffset;
+	}
+
+	levelflat->lasttexturenum = levelflat->texturenum;
+}
+
 void R_DrawSinglePlane(visplane_t *pl)
 {
 	INT32 light = 0;
@@ -667,6 +797,7 @@ void R_DrawSinglePlane(visplane_t *pl)
 	INT32 stop, angle;
 	size_t size;
 	ffloor_t *rover;
+	levelflat_t *levelflat;
 
 	if (!(pl->minx <= pl->maxx))
 		return;
@@ -682,7 +813,7 @@ void R_DrawSinglePlane(visplane_t *pl)
 	{
 		// Hacked up support for alpha value in software mode Tails 09-24-2002
 		// (sidenote: ported to polys 10-15-2014, there was no time travel involved -Red)
-		if (vfx_translucency)
+		if (translucency)
 		{
 			spanfunc = transspanfunc;
 			if (pl->polyobj->translucency >= 10)
@@ -724,7 +855,7 @@ void R_DrawSinglePlane(visplane_t *pl)
 		if (pl->ffloor->flags & FF_TRANSLUCENT)
 		{
 			// Hacked up support for alpha value in software mode Tails 09-24-2002
-			if (vfx_translucency)
+			if (translucency)
 			{
 				spanfunc = transspanfunc;
 				if (pl->ffloor->alpha < 1)
@@ -749,7 +880,7 @@ void R_DrawSinglePlane(visplane_t *pl)
 		}
 		else light = (pl->lightlevel >> LIGHTSEGSHIFT);
 
-		if (vfx_water)
+		//if (vfx_water)
 		{
 #ifndef NOWATER
 			if (pl->ffloor->flags & FF_RIPPLE
@@ -799,63 +930,39 @@ void R_DrawSinglePlane(visplane_t *pl)
 		viewangle = pl->viewangle+pl->plangle;
 	}
 
-	currentplane = pl;
-
-	ds_source = (UINT8 *)
-		W_CacheLumpNum(levelflats[pl->picnum].lumpnum,
-			PU_STATIC); // Stay here until Z_ChangeTag
-
-	size = W_LumpLength(levelflats[pl->picnum].lumpnum);
-
-	switch (size)
-	{
-		case 4194304: // 2048x2048 lump
-			nflatmask = 0x3FF800;
-			nflatxshift = 21;
-			nflatyshift = 10;
-			nflatshiftup = 5;
-			break;
-		case 1048576: // 1024x1024 lump
-			nflatmask = 0xFFC00;
-			nflatxshift = 22;
-			nflatyshift = 12;
-			nflatshiftup = 6;
-			break;
-		case 262144:// 512x512 lump'
-			nflatmask = 0x3FE00;
-			nflatxshift = 23;
-			nflatyshift = 14;
-			nflatshiftup = 7;
-			break;
-		case 65536: // 256x256 lump
-			nflatmask = 0xFF00;
-			nflatxshift = 24;
-			nflatyshift = 16;
-			nflatshiftup = 8;
-			break;
-		case 16384: // 128x128 lump
-			nflatmask = 0x3F80;
-			nflatxshift = 25;
-			nflatyshift = 18;
-			nflatshiftup = 9;
-			break;
-		case 1024: // 32x32 lump
-			nflatmask = 0x3E0;
-			nflatxshift = 27;
-			nflatyshift = 22;
-			nflatshiftup = 11;
-			break;
-		default: // 64x64 lump
-			nflatmask = 0xFC0;
-			nflatxshift = 26;
-			nflatyshift = 20;
-			nflatshiftup = 10;
-			break;
-	}
-
 	xoffs = pl->xoffs;
 	yoffs = pl->yoffs;
 	planeheight = abs(pl->height - pl->viewz);
+
+	currentplane = pl;
+	levelflat = &levelflats[pl->picnum];
+	size = W_LumpLength(levelflat->lumpnum);
+	ds_source = (UINT32 *)W_CacheLumpNum(levelflat->lumpnum, PU_STATIC); // Stay here until Z_ChangeTag
+
+	// Check if the flat is actually a wall texture.
+	if (levelflat->texturenum != 0 && levelflat->texturenum != -1)
+		R_GetPatchFlat(levelflat, true, false);
+	// Maybe it's just a patch, then?
+	else if (R_CheckIfPatch(levelflat->lumpnum))
+		R_GetPatchFlat(levelflat, false, false);
+	// Maybe it's a PNG?!
+	else if (R_IsLumpPNG((UINT8 *)ds_source, size))
+		R_GetPatchFlat(levelflat, false, true);
+	// It's a raw flat.
+	else
+	{
+		if (levelflat->flat == NULL)
+			levelflat->flat = R_TruecolorMakeFlat(levelflat->lumpnum);
+		ds_source = levelflat->flat;
+		R_CheckFlatLength(size);
+	}
+
+	if (ds_source == NULL)
+		return;
+
+	// Check if the flat has dimensions that are powers-of-two numbers.
+	if (R_CheckPowersOfTwo())
+		R_CheckFlatLength(ds_flatwidth * ds_flatheight);
 
 	if (light >= LIGHTLEVELS)
 		light = LIGHTLEVELS-1;
@@ -870,22 +977,34 @@ void R_DrawSinglePlane(visplane_t *pl)
 		floatv3_t p, m, n;
 		float ang;
 		float vx, vy, vz;
-		float fudge;
+		float fudge = 0;
 		// compiler complains when P_GetZAt is used in FLOAT_TO_FIXED directly
 		// use this as a temp var to store P_GetZAt's return value each time
 		fixed_t temp;
 
-		xoffs &= ((1 << (32-nflatshiftup))-1);
-		yoffs &= ((1 << (32-nflatshiftup))-1);
+		if (ds_powersoftwo)
+		{
+			// But xoffs and yoffs are zero..... ???!?!?!???!?!?!
+			// (Except when flat alignment is involved)
+			xoffs &= ((1 << (32-nflatshiftup))-1);
+			yoffs &= ((1 << (32-nflatshiftup))-1);
 
-		xoffs -= (pl->slope->o.x + (1 << (31-nflatshiftup))) & ~((1 << (32-nflatshiftup))-1);
-		yoffs += (pl->slope->o.y + (1 << (31-nflatshiftup))) & ~((1 << (32-nflatshiftup))-1);
+			xoffs -= (pl->slope->o.x + (1 << (31-nflatshiftup))) & ~((1 << (32-nflatshiftup))-1);
+			yoffs += (pl->slope->o.y + (1 << (31-nflatshiftup))) & ~((1 << (32-nflatshiftup))-1);
 
-		// Okay, look, don't ask me why this works, but without this setup there's a disgusting-looking misalignment with the textures. -Red
-		fudge = ((1<<nflatshiftup)+1.0f)/(1<<nflatshiftup);
+			// Okay, look, don't ask me why this works, but without this setup there's a disgusting-looking misalignment with the textures. -Red
+			fudge = ((1<<nflatshiftup)+1.0f)/(1<<nflatshiftup);
 
-		xoffs = (fixed_t)(xoffs*fudge);
-		yoffs = (fixed_t)(yoffs/fudge);
+			xoffs = (fixed_t)(xoffs*fudge);
+			yoffs = (fixed_t)(yoffs/fudge);
+		}
+		else
+		{
+			// Whoops, this is actually incorrect behaviour.
+			// Keep xoffs and yoffs as they are if this flat has offsets
+			//xoffs = -pl->slope->o.x;
+			//yoffs = pl->slope->o.y;
+		}
 
 		vx = FIXED_TO_FLOAT(pl->viewx+xoffs);
 		vy = FIXED_TO_FLOAT(pl->viewy-yoffs);
@@ -920,13 +1039,16 @@ void R_DrawSinglePlane(visplane_t *pl)
 		temp = P_GetZAt(pl->slope, pl->viewx + FLOAT_TO_FIXED(cos(ang)), pl->viewy - FLOAT_TO_FIXED(sin(ang)));
 		n.y = FIXED_TO_FLOAT(temp) - zeroheight;
 
-		m.x /= fudge;
-		m.y /= fudge;
-		m.z /= fudge;
+		if (ds_powersoftwo)
+		{
+			m.x /= fudge;
+			m.y /= fudge;
+			m.z /= fudge;
 
-		n.x *= fudge;
-		n.y *= fudge;
-		n.z *= fudge;
+			n.x *= fudge;
+			n.y *= fudge;
+			n.z *= fudge;
+		}
 
 		// Eh. I tried making this stuff fixed-point and it exploded on me. Here's a macro for the only floating-point vector function I recall using.
 #define CROSS(d, v1, v2) \
@@ -943,14 +1065,26 @@ void R_DrawSinglePlane(visplane_t *pl)
 		ds_sz.z *= focallengthf;
 
 		// Premultiply the texture vectors with the scale factors
+		if (ds_powersoftwo)
+		{
 #define SFMULT 65536.f*(1<<nflatshiftup)
-		ds_su.x *= SFMULT;
-		ds_su.y *= SFMULT;
-		ds_su.z *= SFMULT;
-		ds_sv.x *= SFMULT;
-		ds_sv.y *= SFMULT;
-		ds_sv.z *= SFMULT;
+			ds_su.x *= SFMULT;
+			ds_su.y *= SFMULT;
+			ds_su.z *= SFMULT;
+			ds_sv.x *= SFMULT;
+			ds_sv.y *= SFMULT;
+			ds_sv.z *= SFMULT;
 #undef SFMULT
+		}
+		else
+		{
+			ds_su.x *= 65536.f;
+			ds_su.y *= 65536.f;
+			ds_su.z *= 65536.f;
+			ds_sv.x *= 65536.f;
+			ds_sv.y *= 65536.f;
+			ds_sv.z *= 65536.f;
+		}
 
 		if (spanfunc == transspanfunc)
 			spanfunc = tiltedtransspanfunc;
@@ -960,13 +1094,9 @@ void R_DrawSinglePlane(visplane_t *pl)
 			spanfunc = tiltedspanfunc;
 
 		planezlight = scalelight[light];
-		planezlight_tc = scalelight_tc[light];
 	} else
 #endif // ESLOPE
-	{
 		planezlight = zlight[light];
-		planezlight_tc = zlight_tc[light];
-	}
 
 	// set the maximum value for unsigned
 	pl->top[pl->maxx+1] = 0xffff;
@@ -1007,7 +1137,7 @@ a 'smoothing' of the texture while
 using the palette colors.
 */
 #ifdef QUINCUNX
-	if (vfx_quincunx && spanfunc == basespanfunc)
+	if (spanfunc == basespanfunc)
 	{
 		INT32 i;
 		ds_transmap = V_AlphaTrans(tr_trans50);
@@ -1044,8 +1174,7 @@ using the palette colors.
 			if (light < 0)
 				light = 0;
 
-			planezlight    = zlight   [light];
-			planezlight_tc = zlight_tc[light];
+			planezlight = zlight[light];
 
 			// set the maximum value for unsigned
 			pl->top[pl->maxx+1] = 0xffff;

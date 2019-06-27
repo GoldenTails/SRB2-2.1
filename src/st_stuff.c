@@ -227,7 +227,6 @@ void ST_doPaletteStuff(void)
 			if (!splitscreen)
 				V_SetPalette(palette);
 
-			// jim 01012019
 			if (rendermode == render_soft)
 			{
 				size_t i, colormapn = num_extra_colormaps;
@@ -240,7 +239,7 @@ void ST_doPaletteStuff(void)
 					strcpy(hex3, extra_colormaps[i].hex3);
 					R_CreateColormap(hex1, hex2, hex3);
 				}
-				R_InitColormapsTC(colormaps[(31*256)+31]);
+				R_InitColormapsTrueColor(colormaps[(31*256)+31]);
 			}
 		}
 	}

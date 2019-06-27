@@ -20,6 +20,7 @@
 #include "p_local.h"
 #include "m_misc.h"
 #include "r_data.h"
+#include "r_patch.h"
 #include "w_wad.h"
 #include "z_zone.h"
 #include "p_setup.h" // levelflats
@@ -99,20 +100,19 @@ INT32 numtextures = 0; // total number of textures found,
 // size of following tables
 
 texture_t **textures = NULL;
+texmapped_t *texmapped = NULL;
+textureflat_t *texflats = NULL;
 static UINT32 **texturecolumnofs; // column offset lookup table for each texture
 static UINT8 **texturecache; // graphics data for each generated full-size texture
 
-// texture width is a power of 2, so it can easily repeat along sidedefs using a simple mask
-INT32 *texturewidthmask;
-
+INT32 *texturewidth;
 fixed_t *textureheight; // needed for texture pegging
-
 INT32 *texturetranslation;
 
 // needed for pre rendering
 sprcache_t *spritecachedinfo;
 
-lighttable_t   *colormaps;
+lighttable_t *colormaps;
 lighttable32_t *truecolormaps;
 size_t colormap_size;
 
@@ -140,7 +140,7 @@ static INT32 tidcachelen = 0;
 // R_DrawColumnInCache
 // Clip and draw a column from a patch into a cached post.
 //
-static inline void R_DrawColumnInCache(column_t *patch, UINT8 *cache, INT32 originy, INT32 cacheheight)
+static inline void R_DrawColumnInCache(column_t *patch, lighttable32_t *colormap, UINT32 blendcolor, UINT32 fadecolor, UINT32 *cache, INT32 originy, INT32 cacheheight, boolean truecolor)
 {
 	INT32 count, position;
 	UINT8 *source;
@@ -166,9 +166,63 @@ static inline void R_DrawColumnInCache(column_t *patch, UINT8 *cache, INT32 orig
 			count = cacheheight - position;
 
 		if (count > 0)
-			M_Memcpy(cache + position, source, count);
+		{
+			UINT32 *dest = (cache + position);
+			while (count)
+			{
+				if (truecolor)
+				{
+					UINT32 *s = (UINT32 *)source;
+					UINT32 pixel = *s;
+					UINT32 origpixel = pixel;
+					if (colormap != NULL)
+					{
+						RGBA_t rgba;
+						double r, g, b;
+						double cbrightness;
+						UINT8 tint;
 
-		patch = (column_t *)((UINT8 *)patch + patch->length + 4);
+						rgba.rgba = pixel;
+						r = (rgba.s.red/256.0f);
+						g = (rgba.s.green/256.0f);
+						b = (rgba.s.blue/256.0f);
+
+						cbrightness = (0.299*r + 0.587*g + 0.114*b);
+						tint = (blendcolor & 0xFF000000)>>24;
+
+						pixel = V_BlendTrueColor(pixel, blendcolor, llrint(cbrightness*256.0f));
+						pixel = V_BlendTrueColor(origpixel, pixel, tint);
+						pixel = V_BlendTrueColor(pixel, fadecolor, dc_lighting);
+						*dest = pixel;
+					}
+					else
+						*dest = pixel;
+					source += 4;
+				}
+				else
+				{
+					UINT8 pixel = *source;
+					if (pixel != TRANSPARENTPIXEL)
+					{
+						if (colormap != NULL)
+							*dest = colormap[pixel];
+						else
+							*dest = V_GetTrueColor(pixel);
+					}
+					source++;
+				}
+				dest++;
+				count--;
+			}
+			//M_Memcpy(cache + position, source, count);
+		}
+
+		{
+			size_t len = patch->length;
+			if (truecolor)
+				len *= 4;
+			patch = (column_t *)((UINT8 *)patch + len + 4);
+		}
 	}
 }
 
@@ -195,6 +249,10 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 	column_t *patchcol;
 	UINT32 *colofs;
 
+	UINT16 wadnum;
+	lumpnum_t lumpnum;
+	size_t lumplength;
+
 	I_Assert(texnum <= (size_t)numtextures);
 	texture = textures[texnum];
 	I_Assert(texture != NULL);
@@ -205,11 +263,17 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 	// 2sided lines so they need to be kept in 'packed' format
 	// BUT this is wrong for skies and walls with over 255 pixels,
 	// so check if there's holes and if not strip the posts.
-	if (texture->patchcount == 1)
+	/*if (texture->patchcount == 1)
 	{
 		boolean holey = false;
 		patch = texture->patches;
-		realpatch = W_CacheLumpNumPwad(patch->wad, patch->lump, PU_CACHE);
+
+		wadnum = patch->wad;
+		lumpnum = patch->lump;
+		lumplength = W_LumpLengthPwad(wadnum, lumpnum);
+		realpatch = W_CacheLumpNumPwad(wadnum, lumpnum, PU_CACHE);
+		if (R_IsLumpPNG((UINT8 *)realpatch, lumplength))
+			realpatch = R_PNGToPatch((UINT8 *)realpatch, lumplength);
 
 		// Check the patch for holes.
 		if (texture->width > SHORT(realpatch->width) || texture->height > SHORT(realpatch->height))
@@ -238,7 +302,7 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 		if (holey)
 		{
 			texture->holes = true;
-			blocksize = W_LumpLengthPwad(patch->wad, patch->lump);
+			blocksize = lumplength;
 			block = Z_Calloc(blocksize, PU_STATIC, // will change tag at end of this function
 				&texturecache[texnum]);
 			M_Memcpy(block, realpatch, blocksize);
@@ -254,15 +318,17 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 		}
 
 		// Otherwise, do multipatch format.
-	}
+	}*/
 
 	// multi-patch textures (or 'composite')
 	texture->holes = false;
 	blocksize = (texture->width * 4) + (texture->width * texture->height);
 	texturememory += blocksize;
-	block = Z_Malloc(blocksize+1, PU_STATIC, &texturecache[texnum]);
+	block = Z_Malloc((blocksize+1) * sizeof(block), PU_STATIC, &texturecache[texnum]);
 
-	memset(block, 0xF7, blocksize+1); // Transparency hack
+	// Transparency hack
+	// (changed from TRANSPARENTPIXEL to 0x00)
+	memset(block, 0x00, (blocksize+1) * sizeof(block));
 
 	// columns lookup table
 	colofs = (UINT32 *)(void *)block;
@@ -274,7 +340,15 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 	// Composite the columns together.
 	for (i = 0, patch = texture->patches; i < texture->patchcount; i++, patch++)
 	{
-		realpatch = W_CacheLumpNumPwad(patch->wad, patch->lump, PU_CACHE);
+		boolean ispng;
+		wadnum = patch->wad;
+		lumpnum = patch->lump;
+		lumplength = W_LumpLengthPwad(wadnum, lumpnum);
+		realpatch = W_CacheLumpNumPwad(wadnum, lumpnum, PU_CACHE);
+		ispng = R_IsLumpPNG((UINT8 *)realpatch, lumplength);
+		if (ispng)
+			realpatch = R_PNGToPatch((UINT8 *)realpatch, lumplength);
+
 		x1 = patch->originx;
 		x2 = x1 + SHORT(realpatch->width);
 
@@ -290,16 +364,89 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 		{
 			patchcol = (column_t *)((UINT8 *)realpatch + LONG(realpatch->columnofs[x-x1]));
 
-			// generate column ofset lookup
-			colofs[x] = LONG((x * texture->height) + (texture->width*4));
-			R_DrawColumnInCache(patchcol, block + LONG(colofs[x]), patch->originy, texture->height);
+			// generate column offset lookup
+			colofs[x] = LONG((x * texture->height) + (texture->width*4)) * sizeof(UINT32);
+			R_DrawColumnInCache(patchcol, NULL, 0, 0, (UINT32 *)(block + LONG(colofs[x])), patch->originy, texture->height, ispng);
 		}
 	}
 
-done:
+//done:
 	// Now that the texture has been built in column cache, it is purgable from zone memory.
 	Z_ChangeTag(block, PU_CACHE);
 	return blocktex;
+}
+
+// copypasta from R_GenerateTexture
+static void R_GenerateColormappedTexture(size_t texnum, size_t lightnum, size_t colormapnum)
+{
+	UINT8 *block;
+	texture_t *texture;
+	texmapped_t *mapped;
+	texpatch_t *patch;
+	patch_t *realpatch;
+	int x, x1, x2, i;
+	size_t blocksize;
+	column_t *patchcol;
+
+	UINT16 wadnum;
+	lumpnum_t lumpnum;
+	size_t lumplength;
+
+	I_Assert(texnum <= (size_t)numtextures);
+	texture = textures[texnum];
+	mapped = &texmapped[texnum];
+	I_Assert(texture != NULL);
+	I_Assert(mapped != NULL);
+
+	blocksize = (texture->width * texture->height);
+	texturememory += blocksize;
+
+	block = Z_Malloc((blocksize+1) * sizeof(block), PU_LEVEL, &mapped->colormapped[colormapnum].lightmapped[lightnum]);
+
+	// Transparency hack
+	// (changed from TRANSPARENTPIXEL to 0x00)
+	memset(block, 0x00, (blocksize+1) * sizeof(block));
+
+	// Composite the columns together.
+	for (i = 0, patch = texture->patches; i < texture->patchcount; i++, patch++)
+	{
+		boolean ispng;
+		wadnum = patch->wad;
+		lumpnum = patch->lump;
+		lumplength = W_LumpLengthPwad(wadnum, lumpnum);
+		realpatch = W_CacheLumpNumPwad(wadnum, lumpnum, PU_CACHE);
+		ispng = R_IsLumpPNG((UINT8 *)realpatch, lumplength);
+		if (ispng)
+			realpatch = R_PNGToPatch((UINT8 *)realpatch, lumplength);
+
+		x1 = patch->originx;
+		x2 = x1 + SHORT(realpatch->width);
+
+		if (x1 < 0)
+			x = 0;
+		else
+			x = x1;
+
+		if (x2 > texture->width)
+			x2 = texture->width;
+
+		for (; x < x2; x++)
+		{
+			UINT32 colofs = LONG(x * texture->height) * sizeof(UINT32);
+			UINT32 *colormap = truecolormaps;
+			if (!ispng)
+			{
+				if (colormapnum > 0)
+					colormap = extra_colormaps[colormapnum-1].truecolormap;
+				colormap += (lightnum*256);
+			}
+
+			// draw the column in the cache with the respective colormap
+			patchcol = (column_t *)((UINT8 *)realpatch + LONG(realpatch->columnofs[x-x1]));
+			dc_lighting = (lightnum*8);
+			R_DrawColumnInCache(patchcol, colormap, extra_colormaps[colormapnum-1].rgba, extra_colormaps[colormapnum-1].fadergba, (UINT32 *)(block + LONG(colofs)), patch->originy, texture->height, ispng);
+		}
+	}
 }
 
 //
@@ -334,18 +481,58 @@ void R_CheckTextureCache(INT32 tex)
 UINT8 *R_GetColumn(fixed_t tex, INT32 col)
 {
 	UINT8 *data;
+	INT32 width = texturewidth[tex];
 
-	col &= texturewidthmask[tex];
+	if (width & (width - 1))
+		col = (UINT32)col % width;
+	else
+		col &= (width - 1);
+
 	data = texturecache[tex];
-
 	if (!data)
 		data = R_GenerateTexture(tex);
 
 	return data + LONG(texturecolumnofs[tex][col]);
 }
 
-// convert flats to hicolor as they are requested
-//
+// same, but colormapped.
+UINT8 *R_GetColumn2(fixed_t tex, INT32 col)
+{
+	UINT8 *data;
+	INT32 width = texturewidth[tex];
+	size_t colormapnum, lightnum;
+
+	if (width & (width - 1))
+		col = (UINT32)col % width;
+	else
+		col &= (width - 1);
+
+	data = texturecache[tex];
+	if (!data)
+		data = R_GenerateTexture(tex);
+
+	colormapnum = dc_levelcolormap;
+	if (colormapnum < 0)
+		colormapnum = 0;
+	if (colormapnum > num_extra_colormaps+1)
+		colormapnum = num_extra_colormaps;
+
+	lightnum = dc_lighting;
+	if (lightnum < 0)
+		lightnum = 0;
+	if (lightnum > NUMCOLORMAPS)
+		lightnum = NUMCOLORMAPS-1;
+
+	data = texmapped[tex].colormapped[colormapnum].lightmapped[lightnum];
+	if (!data)
+	{
+		R_GenerateColormappedTexture(tex, lightnum, colormapnum);
+		data = texmapped[tex].colormapped[colormapnum].lightmapped[lightnum];
+	}
+
+	return (UINT8 *)(data + ((col * (textureheight[tex]>>FRACBITS)) * sizeof(UINT32)));
+}
+
 UINT8 *R_GetFlat(lumpnum_t flatlumpnum)
 {
 	return W_CacheLumpNum(flatlumpnum, PU_CACHE);
@@ -375,7 +562,7 @@ void R_ParseTEXTURESLump(UINT16 wadNum, UINT16 lumpNum, INT32 *index);
 #define TX_END "TX_END"
 void R_LoadTextures(void)
 {
-	INT32 i, k, w;
+	INT32 i, w;
 	UINT16 j;
 	UINT16 texstart, texend, texturesLumpPos;
 	patch_t *patchlump;
@@ -392,6 +579,8 @@ void R_LoadTextures(void)
 		}
 		Z_Free(texturetranslation);
 		Z_Free(textures);
+		Z_Free(texmapped);
+		Z_Free(texflats);
 	}
 
 	// Load patches and textures.
@@ -437,14 +626,16 @@ void R_LoadTextures(void)
 	// Allocate memory and initialize to 0 for all the textures we are initialising.
 	// There are actually 5 buffers allocated in one for convenience.
 	textures = Z_Calloc((numtextures * sizeof(void *)) * 5, PU_STATIC, NULL);
+	texflats = Z_Calloc((numtextures * sizeof(*texflats)), PU_STATIC, NULL);
+	texmapped = Z_Calloc((numtextures * sizeof(*texmapped)), PU_STATIC, NULL);
 
 	// Allocate texture column offset table.
 	texturecolumnofs = (void *)((UINT8 *)textures + (numtextures * sizeof(void *)));
 	// Allocate texture referencing cache.
 	texturecache     = (void *)((UINT8 *)textures + ((numtextures * sizeof(void *)) * 2));
-	// Allocate texture width mask table.
-	texturewidthmask = (void *)((UINT8 *)textures + ((numtextures * sizeof(void *)) * 3));
-	// Allocate texture height mask table.
+	// Allocate texture width table.
+	texturewidth     = (void *)((UINT8 *)textures + ((numtextures * sizeof(void *)) * 3));
+	// Allocate texture height table.
 	textureheight    = (void *)((UINT8 *)textures + ((numtextures * sizeof(void *)) * 4));
 	// Create translation table for global animation.
 	texturetranslation = Z_Malloc((numtextures + 1) * sizeof(*texturetranslation), PU_STATIC, NULL);
@@ -481,7 +672,10 @@ void R_LoadTextures(void)
 		// Work through each lump between the markers in the WAD.
 		for (j = 0; j < (texend - texstart); i++, j++)
 		{
-			patchlump = W_CacheLumpNumPwad((UINT16)w, texstart + j, PU_CACHE);
+			UINT16 wadnum = (UINT16)w;
+			lumpnum_t lumpnum = texstart + j;
+			size_t lumplength = W_LumpLengthPwad(wadnum, lumpnum);
+			patchlump = W_CacheLumpNumPwad(wadnum, lumpnum, PU_CACHE);
 
 			// Then, check the lump directly to see if it's a texture SOC,
 			// and if it is, load it using dehacked instead.
@@ -497,9 +691,19 @@ void R_LoadTextures(void)
 				texture = textures[i] = Z_Calloc(sizeof(texture_t) + sizeof(texpatch_t), PU_STATIC, NULL);
 
 				// Set texture properties.
-				M_Memcpy(texture->name, W_CheckNameForNumPwad((UINT16)w, texstart + j), sizeof(texture->name));
-				texture->width = SHORT(patchlump->width);
-				texture->height = SHORT(patchlump->height);
+				M_Memcpy(texture->name, W_CheckNameForNumPwad(wadnum, lumpnum), sizeof(texture->name));
+				if (R_IsLumpPNG((UINT8 *)patchlump, lumplength))
+				{
+					INT16 width, height;
+					R_PNGDimensions((UINT8 *)patchlump, &width, &height, lumplength);
+					texture->width = width;
+					texture->height = height;
+				}
+				else
+				{
+					texture->width = SHORT(patchlump->width);
+					texture->height = SHORT(patchlump->height);
+				}
 				texture->patchcount = 1;
 				texture->holes = false;
 
@@ -512,11 +716,7 @@ void R_LoadTextures(void)
 
 				Z_Unlock(patchlump);
 
-				k = 1;
-				while (k << 1 <= texture->width)
-					k <<= 1;
-
-				texturewidthmask[i] = k - 1;
+				texturewidth[i] = texture->width;
 				textureheight[i] = texture->height << FRACBITS;
 			}
 		}
@@ -848,7 +1048,7 @@ int R_CountTexturesInTEXTURESLump(UINT16 wadNum, UINT16 lumpNum)
 	texturesToken = M_GetToken(texturesText);
 	while (texturesToken != NULL)
 	{
-		if (stricmp(texturesToken, "WALLTEXTURE")==0)
+		if (stricmp(texturesToken, "WALLTEXTURE") == 0 || stricmp(texturesToken, "TEXTURE") == 0)
 		{
 			numTexturesInLump++;
 			Z_Free(texturesToken);
@@ -856,7 +1056,7 @@ int R_CountTexturesInTEXTURESLump(UINT16 wadNum, UINT16 lumpNum)
 		}
 		else
 		{
-			I_Error("Error parsing TEXTURES lump: Expected \"WALLTEXTURE\", got \"%s\"",texturesToken);
+			I_Error("Error parsing TEXTURES lump: Expected \"WALLTEXTURE\" or \"TEXTURE\", got \"%s\"",texturesToken);
 		}
 		texturesToken = M_GetToken(NULL);
 	}
@@ -897,21 +1097,21 @@ void R_ParseTEXTURESLump(UINT16 wadNum, UINT16 lumpNum, INT32 *texindex)
 	texturesToken = M_GetToken(texturesText);
 	while (texturesToken != NULL)
 	{
-		if (stricmp(texturesToken, "WALLTEXTURE")==0)
+		if (stricmp(texturesToken, "WALLTEXTURE") == 0 || stricmp(texturesToken, "TEXTURE") == 0)
 		{
 			Z_Free(texturesToken);
 			// Get the new texture
 			newTexture = R_ParseTexture(true);
 			// Store the new texture
 			textures[*texindex] = newTexture;
-			texturewidthmask[*texindex] = newTexture->width - 1;
+			texturewidth[*texindex] = newTexture->width;
 			textureheight[*texindex] = newTexture->height << FRACBITS;
 			// Increment i back in R_LoadTextures()
 			(*texindex)++;
 		}
 		else
 		{
-			I_Error("Error parsing TEXTURES lump: Expected \"WALLTEXTURE\", got \"%s\"",texturesToken);
+			I_Error("Error parsing TEXTURES lump: Expected \"WALLTEXTURE\" or \"TEXTURE\", got \"%s\"",texturesToken);
 		}
 		texturesToken = M_GetToken(NULL);
 	}
@@ -1043,12 +1243,13 @@ static void R_InitSpriteLumps(void)
 	Z_Malloc(max_spritelumps*sizeof(*spritecachedinfo), PU_STATIC, &spritecachedinfo);
 }
 
-void R_InitColormapsTC(UINT8 palindex)
+void R_InitColormapsTrueColor(UINT8 palindex)
 {
 	int color, row, alpha = 255;
 	UINT32 fadecolor = V_GetTrueColor(palindex);
 
-	if (truecolormaps) Z_Free(truecolormaps);
+	if (truecolormaps)
+		Z_Free(truecolormaps);
 	truecolormaps = Z_MallocAlign(colormap_size*4, PU_STATIC, NULL, 32);
 
 	for (row = 0; row < 34; row++)
@@ -1075,7 +1276,7 @@ static void R_InitColormaps(void)
 	// Init Boom colormaps.
 	R_ClearColormaps();
 	R_InitExtraColormaps();
-	R_InitColormapsTC(colormaps[(31*256)+31]);
+	R_InitColormapsTrueColor(colormaps[(31*256)+31]);
 }
 
 void R_ReInitColormaps(UINT16 num)
@@ -1094,7 +1295,7 @@ void R_ReInitColormaps(UINT16 num)
 
 	// Init Boom colormaps.
 	R_ClearColormaps();
-	R_InitColormapsTC(colormaps[(31*256)+31]);
+	R_InitColormapsTrueColor(colormaps[(31*256)+31]);
 }
 
 static lumpnum_t foundcolormaps[MAXCOLORMAPS];
@@ -1148,20 +1349,6 @@ INT32 R_ColormapNumForName(char *name)
 
 	num_extra_colormaps++;
 	return (INT32)num_extra_colormaps - 1;
-}
-
-void R_SetTrueColormap(UINT32 *colormap)
-{
-	dc_truecolormap = colormap;
-	if (!vfx_colormaps)
-		dc_truecolormap = NULL;
-}
-
-void R_SetTrueColormapDS(UINT32 *colormap)
-{
-	ds_truecolormap = colormap;
-	if (!vfx_colormaps)
-		ds_truecolormap = NULL;
 }
 
 //
@@ -1275,16 +1462,12 @@ INT32 R_CreateColormap(char *p1, char *p2, char *p3)
 	extra_colormaps[mapnum].fadestart = (UINT16)fadestart;
 	extra_colormaps[mapnum].fadeend = (UINT16)fadeend;
 	extra_colormaps[mapnum].fog = fog;
-	extra_colormaps[mapnum].tc_rgba = rgb_color|((cb<<16)|(cg<<8)|cr);
-	extra_colormaps[mapnum].tc_fadergba = rgb_color|((llrint(cdestb)<<16)|(llrint(cdestg)<<8)|llrint(cdestr));
+	extra_colormaps[mapnum].rgba = rgb_color|((cb<<16)|(cg<<8)|cr);
+	extra_colormaps[mapnum].fadergba = rgb_color|((llrint(cdestb)<<16)|(llrint(cdestg)<<8)|llrint(cdestr));
 
-	memset(extra_colormaps[mapnum].hex1, 0, 8);
-	memset(extra_colormaps[mapnum].hex2, 0, 8);
-	memset(extra_colormaps[mapnum].hex3, 0, 8);
-
-	if (p1[0] == '#') strcpy(extra_colormaps[mapnum].hex1, p1);
-	if (p2[0] == '#') strcpy(extra_colormaps[mapnum].hex2, p2);
-	if (p3[0] == '#') strcpy(extra_colormaps[mapnum].hex3, p3);
+	strcpy(extra_colormaps[mapnum].hex1, p1);
+	strcpy(extra_colormaps[mapnum].hex2, p2);
+	strcpy(extra_colormaps[mapnum].hex3, p3);
 
 	// This code creates the colormap array used by software renderer
 	if (rendermode == render_soft)

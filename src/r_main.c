@@ -104,11 +104,11 @@ INT32 viewangletox[FINEANGLES/2];
 // from clipangle to -clipangle.
 angle_t xtoviewangle[MAXVIDWIDTH+1];
 
-lighttable_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
-lighttable_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
+lighttable32_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
+lighttable32_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
 
-lighttable32_t *scalelight_tc[LIGHTLEVELS][MAXLIGHTSCALE];
-lighttable32_t *zlight_tc[LIGHTLEVELS][MAXLIGHTZ];
+UINT8 scalelight_uint8[LIGHTLEVELS][MAXLIGHTSCALE];
+UINT8 zlight_uint8[LIGHTLEVELS][MAXLIGHTZ];
 
 // Hack to support extra boom colormaps.
 size_t num_extra_colormaps;
@@ -145,7 +145,6 @@ consvar_t cv_allowmlook = {"allowmlook", "Yes", CV_NETVAR, CV_YesNo, NULL, 0, NU
 consvar_t cv_showhud = {"showhud", "Yes", CV_CALL,  CV_YesNo, R_SetViewSize, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_translucenthud = {"translucenthud", "10", CV_SAVE, translucenthud_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 
-consvar_t cv_truecolormaps = {"truecolormaps", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_translucency = {"translucency", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 consvar_t cv_drawdist = {"drawdist", "Infinite", CV_SAVE, drawdist_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -519,7 +518,7 @@ static void R_InitTextureMapping(void)
 static inline void R_InitLightTables(void)
 {
 	INT32 i, j;
-	INT32 level, scale ,startmapl;
+	INT32 level, scale, startmapl;
 
 	// Calculate the light levels to use
 	// for each level / distance combination.
@@ -538,8 +537,8 @@ static inline void R_InitLightTables(void)
 			if (level >= NUMCOLORMAPS)
 				level = NUMCOLORMAPS-1;
 
-			zlight[i][j] = colormaps + level*256;
-			zlight_tc[i][j] = truecolormaps + level*256;
+			zlight[i][j] = truecolormaps + level*256;
+			zlight_uint8[i][j] = level;
 		}
 	}
 }
@@ -620,8 +619,7 @@ void R_ExecuteSetViewSize(void)
 		}
 	}
 
-	memset(scalelight, 0xFF, sizeof(scalelight));
-	M_Memset32(scalelight_tc, 0xFF, sizeof(scalelight_tc));
+	M_Memset32(scalelight, 0xFF, sizeof(scalelight));
 
 	// Calculate the light levels to use for each level/scale combination.
 	for (i = 0; i < LIGHTLEVELS; i++)
@@ -637,8 +635,8 @@ void R_ExecuteSetViewSize(void)
 			if (level >= NUMCOLORMAPS)
 				level = NUMCOLORMAPS - 1;
 
-			scalelight   [i][j] = colormaps     + level*256;
-			scalelight_tc[i][j] = truecolormaps + level*256;
+			scalelight[i][j] = truecolormaps + level*256;
+			scalelight_uint8[i][j] = level;
 		}
 	}
 
@@ -1327,7 +1325,6 @@ void R_RegisterEngineStuff(void)
 	if (dedicated)
 		return;
 
-	CV_RegisterVar(&cv_truecolormaps);
 	CV_RegisterVar(&cv_translucency);
 
 	CV_RegisterVar(&cv_drawdist);

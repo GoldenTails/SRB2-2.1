@@ -45,11 +45,11 @@ extern size_t validcount, linecount, loopcount, framecount;
 #define MAXLIGHTZ 128
 #define LIGHTZSHIFT 20
 
-extern lighttable_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
-extern lighttable_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
+extern lighttable32_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
+extern lighttable32_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
 
-extern lighttable32_t *scalelight_tc[LIGHTLEVELS][MAXLIGHTSCALE];
-extern lighttable32_t *zlight_tc[LIGHTLEVELS][MAXLIGHTZ];
+extern UINT8 scalelight_uint8[LIGHTLEVELS][MAXLIGHTSCALE];
+extern UINT8 zlight_uint8[LIGHTLEVELS][MAXLIGHTZ];
 
 // Number of diminishing brightness levels.
 // There a 0-31, i.e. 32 LUT in the COLORMAP lump.
@@ -83,7 +83,6 @@ extern consvar_t cv_drawdist, cv_drawdist_nights, cv_drawdist_precip, cv_precipd
 extern consvar_t cv_skybox;
 extern consvar_t cv_tailspickup;
 
-extern consvar_t cv_truecolormaps;
 extern consvar_t cv_translucency;
 
 //

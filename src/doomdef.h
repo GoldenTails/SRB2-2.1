@@ -538,9 +538,7 @@ extern const char *compdate, *comptime, *comprevision, *compbranch;
 ///      	SRB2CB itself ported this from PrBoom+
 #define NEWCLIP
 
-#ifdef HAVE_PNG
-#define JIMITA_PNG
-#endif
+//#define NO_PNG_LUMPS
 #define TRANSPARENTPIXEL 247
 
 #endif // __DOOMDEF__

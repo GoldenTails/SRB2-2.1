@@ -68,11 +68,8 @@ extern fixed_t cachedxstep[MAXVIDHEIGHT];
 extern fixed_t cachedystep[MAXVIDHEIGHT];
 extern fixed_t basexscale, baseyscale;
 
-extern lighttable_t **planezlight;
-extern lighttable32_t **planezlight_tc;
-
 extern fixed_t *yslope;
-extern lighttable_t **planezlight;
+extern lighttable32_t **planezlight;
 
 void R_InitPlanes(void);
 void R_PortalStoreClipValues(INT32 start, INT32 end, INT16 *ceil, INT16 *floor, fixed_t *scale);
@@ -97,6 +94,8 @@ void R_PlaneBounds(visplane_t *plane);
 
 // Draws a single visplane.
 void R_DrawSinglePlane(visplane_t *pl);
+void R_CheckFlatLength(size_t size);
+boolean R_CheckPowersOfTwo(void);
 
 typedef struct planemgr_s
 {

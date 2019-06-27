@@ -59,6 +59,11 @@ void (*transsplatfunc)(void); // translucent splat (unused)
 void (*fogspanfunc)(void); // fog span
 void (*blendspanfunc)(void); // color blending
 
+// Those are wall column renderers
+// that ignore colormaps and use 32bpp patches.
+void (*basecolfunc_ex)(void);
+void (*fuzzcolfunc_ex)(void);
+
 #ifndef NOWATER
 void (*waterspanfunc)(void); // water
 #endif
@@ -70,10 +75,7 @@ void (*tiltedsplatfunc)(void); // tilted splat
 void (*tiltedtransspanfunc)(void); // tilted translucent span
 #endif
 
-boolean vfx_translucency;
-boolean vfx_colormaps;
-boolean vfx_water;
-boolean vfx_quincunx;
+boolean translucency;
 
 // ------------------
 // global video state
@@ -126,13 +128,18 @@ void SCR_SetMode(void)
 	//  setup the right draw routines
 	//
 
+	// This is used by anything that isn't a wall column.
 	colfunc = basecolfunc = R_DrawColumn_32;
 	fuzzcolfunc = R_DrawTranslucentColumn_32;
-	shadowcolfunc = R_DrawColumnShadowed_32;
 	transcolfunc = R_DrawTranslatedColumn_32;
 	transtransfunc = R_DrawTranslatedTranslucentColumn_32;
-	twosmultipatchfunc = R_Draw2sMultiPatchColumn_32;
-	twosmultipatchtransfunc = R_Draw2sMultiPatchTranslucentColumn_32;
+
+	// This is, though.
+	basecolfunc_ex = R_DrawColumn_Ex32;
+	fuzzcolfunc_ex = R_DrawTranslucentColumn_Ex32;
+	shadowcolfunc = R_DrawColumnShadowed_32;
+	twosmultipatchfunc = basecolfunc_ex;
+	twosmultipatchtransfunc = fuzzcolfunc_ex;
 
 	spanfunc = basespanfunc = R_DrawSpan_32;
 	splatfunc = R_DrawSplat_32;

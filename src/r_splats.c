@@ -463,7 +463,7 @@ static void R_RenderFloorSplat(floorsplat_t *pSplat, vertex_t *verts, UINT8 *pTe
 	planezlight = zlight[light];
 
 	ds_transmap = 255;
-	if (vfx_translucency)
+	if (translucency)
 		ds_transmap = V_AlphaTrans(tr_trans50);
 
 	for (y = miny; y <= maxy; y++)

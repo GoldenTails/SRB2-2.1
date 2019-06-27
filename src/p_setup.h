@@ -36,12 +36,20 @@ typedef struct
 {
 	char name[9]; // resource name from wad
 	lumpnum_t lumpnum; // lump number of the flat
+	INT32 texturenum, lasttexturenum; // texture number of the flat
 
 	// for flat animation
 	lumpnum_t baselumpnum;
+	INT32 basetexturenum;
 	INT32 animseq; // start pos. in the anim sequence
 	INT32 numpics;
 	INT32 speed;
+
+	// Truecolor caching system
+	// Also supports non-powers-of-two dimensions.
+	UINT32 *flat;
+	UINT16 width, height;
+	fixed_t topoffset, leftoffset;
 } levelflat_t;
 
 extern size_t numlevelflats;

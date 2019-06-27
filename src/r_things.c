@@ -58,7 +58,7 @@ typedef struct
 //  which increases counter clockwise (protractor).
 // There was a lot of stuff grabbed wrong, so I changed it...
 //
-static lighttable_t **spritelights;
+static lighttable32_t **spritelights;
 
 // constant arrays used for psprite clipping and initializing clipping
 INT16 negonearray[MAXVIDWIDTH];
@@ -755,7 +755,7 @@ static void R_DrawVisSprite(vissprite_t *vis)
 	if ((UINT64)overflow_test&0xFFFFFFFF80000000ULL) return; // fixed point mult would overflow
 
 	colfunc = basecolfunc; // hack: this isn't resetting properly somewhere.
-	dc_colormap = vis->colormap;
+	dc_truecolormap = vis->colormap;
 	if ((vis->mobj->flags & MF_BOSS) && (vis->mobj->flags2 & MF2_FRET) && (leveltime & 1)) // Bosses "flash"
 	{
 		// translate green skin to another color
@@ -805,23 +805,16 @@ static void R_DrawVisSprite(vissprite_t *vis)
 	}
 
 	if (dc_colormap != NULL)
-		R_SetTrueColormap(truecolormaps + (dc_colormap - colormaps));
+		dc_truecolormap = truecolormaps + (dc_truecolormap - truecolormaps);
 	if (vis->extra_colormap)
 	{
 		if (!dc_colormap)
-		{
-			dc_colormap = vis->extra_colormap->colormap;
-			R_SetTrueColormap(vis->extra_colormap->truecolormap);
-		}
+			dc_truecolormap = vis->extra_colormap->truecolormap;
 		else
-		{
-			UINT8 *oldcolormap = dc_colormap;
-			dc_colormap = &vis->extra_colormap->colormap[oldcolormap - colormaps];
-			R_SetTrueColormap(&vis->extra_colormap->truecolormap[oldcolormap - colormaps]);
-		}
+			dc_truecolormap = &vis->extra_colormap->truecolormap[dc_truecolormap - truecolormaps];
 	}
-	if (!dc_colormap)
-		dc_colormap = colormaps;
+	if (!dc_truecolormap)
+		dc_truecolormap = truecolormaps;
 
 	dc_iscale = FixedDiv(FRACUNIT, vis->scale);
 	dc_texturemid = vis->texturemid;
@@ -878,7 +871,7 @@ static void R_DrawVisSprite(vissprite_t *vis)
 
 	colfunc = basecolfunc;
 	dc_hires = 0;
-	dc_truecolormap = NULL;
+	dc_truecolormap = truecolormaps;
 	dc_transmap = 255;
 
 	vis->x1 = x1;
@@ -912,8 +905,7 @@ static void R_DrawPrecipitationVisSprite(vissprite_t *vis)
 		dc_transmap = vis->transmap;
 	}
 
-	dc_colormap = colormaps;
-	dc_truecolormap = NULL;
+	dc_truecolormap = truecolormaps;
 
 	dc_iscale = FixedDiv(FRACUNIT, vis->scale);
 	dc_texturemid = vis->texturemid;
@@ -1317,7 +1309,7 @@ static void R_ProjectSprite(mobj_t *thing)
 
 	// determine the transmap (lightlevel & special effects)
 	vis->transmap = 0;
-	if (vfx_translucency)
+	if (translucency)
 	{
 		if (thing->flags2 & MF2_SHADOW)
 			vis->transmap = V_AlphaTrans(tr_trans50);
@@ -1329,7 +1321,7 @@ static void R_ProjectSprite(mobj_t *thing)
 		&& (!vis->extra_colormap || !(vis->extra_colormap->fog & 1)))
 	{
 		// full-bright
-		vis->colormap = colormaps;
+		vis->colormap = truecolormaps;
 	}
 	else
 	{
@@ -1518,7 +1510,7 @@ static void R_ProjectPrecipitationSprite(precipmobj_t *thing)
 
 	// specific translucency
 	vis->transmap = 0;
-	if (vfx_translucency && thing->frame & FF_TRANSMASK)
+	if (translucency && thing->frame & FF_TRANSMASK)
 		vis->transmap = V_AlphaTrans((thing->frame & FF_TRANSMASK)>>FF_TRANSSHIFT);
 
 	vis->mobjflags = 0;
@@ -1527,7 +1519,7 @@ static void R_ProjectPrecipitationSprite(precipmobj_t *thing)
 	vis->heightsec = thing->subsector->sector->heightsec;
 
 	// Fullbright
-	vis->colormap = colormaps;
+	vis->colormap = truecolormaps;
 	vis->precip = true;
 	vis->vflip = false;
 	vis->isScaled = false;

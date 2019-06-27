@@ -137,7 +137,7 @@ typedef struct vissprite_s
 	fixed_t texturemid;
 	lumpnum_t patch;
 
-	lighttable_t *colormap; // for color translation and shadow draw
+	lighttable32_t *colormap; // for color translation and shadow draw
 	                        // maxbright frames as well
 
 	UINT8 transmap;

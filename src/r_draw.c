@@ -66,14 +66,18 @@ UINT8 *transtables; // translucency tables
 // =========================================================================
 
 INT32 dc_x = 0, dc_yl = 0, dc_yh = 0;
-lighttable_t *dc_colormap;
 fixed_t dc_iscale, dc_texturemid;
 UINT8 dc_hires;
 
 UINT8 *dc_source;
+INT32 dc_texturenum;
+UINT8 dc_lighting;
+INT32 dc_levelcolormap;
 UINT8 dc_transmap;
 
+lighttable_t *dc_colormap;
 lighttable32_t *dc_truecolormap;
+
 UINT32 dc_foglight;
 UINT32 dc_blendcolor;
 
@@ -90,13 +94,19 @@ INT32 dc_numlights = 0, dc_maxlights, dc_texheight;
 // =========================================================================
 
 INT32 ds_y, ds_x1, ds_x2;
-lighttable_t *ds_colormap;
 fixed_t ds_xfrac, ds_yfrac, ds_xstep, ds_ystep;
+UINT16 ds_flatwidth, ds_flatheight;
+boolean ds_powersoftwo;
 
-UINT8 *ds_source;
+UINT32 *ds_source;
+INT32 ds_flatnum;
+UINT8 ds_lighting;
+INT32 ds_levelcolormap;
 UINT8 ds_transmap;
 
+lighttable_t *ds_colormap;
 UINT32 *ds_truecolormap;
+
 UINT32 ds_foglight;
 UINT32 ds_blendcolor;
 

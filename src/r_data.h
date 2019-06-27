@@ -14,6 +14,9 @@
 #ifndef __R_DATA__
 #define __R_DATA__
 
+// Had to put a limit on colormaps :(
+#define MAXCOLORMAPS 60
+
 #include "r_defs.h"
 #include "r_state.h"
 
@@ -50,14 +53,30 @@ typedef struct
 	texpatch_t patches[0];
 } texture_t;
 
+typedef struct
+{
+	UINT32 *flat;
+	INT16 width, height;
+} textureflat_t;
+
 // all loaded and prepared textures from the start of the game
 extern texture_t **textures;
+extern textureflat_t *texflats;
 
-// texture width is a power of 2, so it can easily repeat along sidedefs using a simple mask
-extern INT32 *texturewidthmask;
+extern INT32 *texturewidth;
 extern fixed_t *textureheight; // needed for texture pegging
 
-extern CV_PossibleValue_t Color_cons_t[];
+// Truecolor bullshit
+// This kind of memory gets allocated and freed between level changes.
+typedef struct
+{
+	UINT8 *lightmapped[32];		// NUMCOLORMAPS
+} texmappedentry_t;
+typedef struct
+{
+	texmappedentry_t colormapped[MAXCOLORMAPS+1];
+} texmapped_t;
+extern texmapped_t *texmapped;
 
 // Load TEXTURE1/TEXTURE2/PNAMES definitions, create lookup tables
 void R_LoadTextures(void);
@@ -68,12 +87,14 @@ void R_CheckTextureCache(INT32 tex);
 
 // Retrieve column data for span blitting.
 UINT8 *R_GetColumn(fixed_t tex, INT32 col);
-
+UINT8 *R_GetColumn2(fixed_t tex, INT32 col);
 UINT8 *R_GetFlat(lumpnum_t flatnum);
 
 // I/O, setting up the stuff.
 void R_InitData(void);
 void R_PrecacheLevel(void);
+
+extern CV_PossibleValue_t Color_cons_t[];
 
 // Retrieval.
 // Floor/ceiling opaque texture tiles,
@@ -86,9 +107,9 @@ lumpnum_t R_GetFlatNumForName(const char *name);
 void R_ClearTextureNumCache(boolean btell);
 INT32 R_TextureNumForName(const char *name);
 INT32 R_CheckTextureNumForName(const char *name);
-void R_InitColormapsTC(UINT8 palindex);
-void R_SetTrueColormap(UINT32 *colormap);
-void R_SetTrueColormapDS(UINT32 *colormap);
+
+void R_InitColormapsTrueColor(UINT8 palindex);
+#define R_SetFlatTrueColormap(colormap) ds_truecolormap = colormap
 
 void R_ReInitColormaps(UINT16 num);
 void R_ClearColormaps(void);

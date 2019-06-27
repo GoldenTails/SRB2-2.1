@@ -1245,6 +1245,7 @@ void R_Prep3DFloors(sector_t *sector)
 	sector->lightlist[0].lightlevel = &sector->lightlevel;
 	sector->lightlist[0].caster = NULL;
 	sector->lightlist[0].extra_colormap = sector->extra_colormap;
+	sector->lightlist[0].extra_colormap_num = sector->midmap;
 	sector->lightlist[0].flags = 0;
 
 	maxheight = INT32_MAX;
@@ -1320,16 +1321,19 @@ void R_Prep3DFloors(sector_t *sector)
 		{
 			sector->lightlist[i].lightlevel = sector->lightlist[i-1].lightlevel;
 			sector->lightlist[i].extra_colormap = sector->lightlist[i-1].extra_colormap;
+			sector->lightlist[i].extra_colormap_num = sector->lightlist[i-1].extra_colormap_num;
 		}
 		else if (best->flags & FF_COLORMAPONLY)
 		{
 			sector->lightlist[i].lightlevel = sector->lightlist[i-1].lightlevel;
 			sector->lightlist[i].extra_colormap = sec->extra_colormap;
+			sector->lightlist[i].extra_colormap_num = mapnum;
 		}
 		else
 		{
 			sector->lightlist[i].lightlevel = best->toplightlevel;
 			sector->lightlist[i].extra_colormap = sec->extra_colormap;
+			sector->lightlist[i].extra_colormap_num = mapnum;
 		}
 
 		if (best->flags & FF_DOUBLESHADOW)

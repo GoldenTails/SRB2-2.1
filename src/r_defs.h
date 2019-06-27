@@ -55,15 +55,12 @@ typedef struct
 	UINT16 fadestart, fadeend;
 	INT32 fog;
 
-	// rgba is used in hw mode for colored sector lighting
-	INT32 rgba; // similar to maskcolor in sw mode
-	INT32 fadergba; // The colour the colourmaps fade to
+	// used in both software and hardware modes
+	INT32 rgba;
+	INT32 fadergba;
 
 	lighttable_t *colormap;
-
 	lighttable32_t *truecolormap;
-	INT32 tc_rgba;
-	INT32 tc_fadergba;
 
 	char hex1[8];
 	char hex2[8];
@@ -194,6 +191,7 @@ typedef struct lightlist_s
 	fixed_t height;
 	INT16 *lightlevel;
 	extracolormap_t *extra_colormap;
+	INT32 extra_colormap_num;
 	INT32 flags;
 	ffloor_t *caster;
 #ifdef ESLOPE
@@ -212,8 +210,9 @@ typedef struct r_lightlist_s
 	fixed_t startheight; // for repeating midtextures
 	INT16 lightlevel;
 	extracolormap_t *extra_colormap;
-	lighttable_t   *rcolormap;
-	lighttable32_t *tc_rcolormap;
+	INT32 extra_colormap_num;
+	UINT8 rlighting;
+	INT32 rcolormap;
 	ffloortype_e flags;
 	INT32 lightnum;
 } r_lightlist_t;
