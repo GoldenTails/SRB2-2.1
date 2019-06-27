@@ -1251,8 +1251,6 @@ INT32 R_CreateColormap(char *p1, char *p2, char *p3)
 
 		maskamt = (double)(mask/24.0l);
 		rgb_color = llrint(maskamt*256.0f);
-		if (rgb_color < 0)
-			rgb_color = 0;
 		if (rgb_color > 256)
 			rgb_color = 255;
 		rgb_color <<= 24;

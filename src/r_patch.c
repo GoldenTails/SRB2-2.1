@@ -13,6 +13,7 @@
 /// \brief patch handling for truecolor
 
 #include "doomdef.h"
+#include "r_patch.h"
 #include "r_data.h"
 #include "w_wad.h"
 #include "z_zone.h"
