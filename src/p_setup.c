@@ -573,6 +573,7 @@ INT32 P_AddLevelFlat(const char *flatname, levelflat_t *levelflat)
 		levelflat->lumpnum = R_GetFlatNumForName(flatname);
 		levelflat->texturenum = R_CheckTextureNumForName(flatname);
 		levelflat->lasttexturenum = levelflat->texturenum;
+		levelflat->reload_flat = false;
 
 		levelflat->baselumpnum = LUMPERROR;
 		levelflat->basetexturenum = -1;
@@ -622,6 +623,7 @@ INT32 P_AddLevelFlatRuntime(const char *flatname)
 		levelflat->lumpnum = R_GetFlatNumForName(flatname);
 		levelflat->texturenum = R_CheckTextureNumForName(flatname);
 		levelflat->lasttexturenum = levelflat->texturenum;
+		levelflat->reload_flat = false;
 
 		levelflat->baselumpnum = LUMPERROR;
 		levelflat->basetexturenum = -1;

@@ -709,7 +709,12 @@ static void R_GetPatchFlat(levelflat_t *levelflat, boolean leveltexture, boolean
 	boolean texturechanged = (leveltexture ? (levelflat->texturenum != levelflat->lasttexturenum) : false);
 
 	// Check if the texture changed.
-	if (leveltexture && (!texturechanged))
+	if (levelflat->reload_flat)
+	{
+		texturechanged = true;
+		levelflat->reload_flat = false;
+	}
+	else if (leveltexture && (!texturechanged))
 	{
 		if (texflat != NULL && texflat->flat)
 		{
@@ -731,9 +736,14 @@ static void R_GetPatchFlat(levelflat_t *levelflat, boolean leveltexture, boolean
 			texflat->width = ds_flatwidth = texture->width;
 			texflat->height = ds_flatheight = texture->height;
 
-			texflat->flat = Z_Calloc((ds_flatwidth * ds_flatheight) * sizeof(texflat->flat), PU_LEVEL, NULL);
+			texflat->flat = Z_Calloc((ds_flatwidth * ds_flatheight) * sizeof(UINT32), PU_LEVEL, NULL);
 			R_TextureToFlat(levelflat->texturenum, texflat->flat);
 
+			if (ds_source != NULL)
+			{
+				Z_Free(ds_source);
+				ds_source = NULL;
+			}
 			ds_source = texflat->flat;
 		}
 		else
@@ -765,8 +775,13 @@ static void R_GetPatchFlat(levelflat_t *levelflat, boolean leveltexture, boolean
 				levelflat->topoffset = patch->topoffset * FRACUNIT;
 				levelflat->leftoffset = patch->leftoffset * FRACUNIT;
 
-				levelflat->flat = Z_Calloc((ds_flatwidth * ds_flatheight) * sizeof(texflat->flat), PU_LEVEL, NULL);
+				levelflat->flat = Z_Calloc((ds_flatwidth * ds_flatheight) * sizeof(UINT32), PU_LEVEL, NULL);
 				R_PatchToFlat(patch, levelflat->flat);
+			}
+			if (ds_source != NULL)
+			{
+				Z_Free(ds_source);
+				ds_source = NULL;
 			}
 			ds_source = levelflat->flat;
 		}
@@ -933,6 +948,13 @@ void R_DrawSinglePlane(visplane_t *pl)
 	size = W_LumpLength(levelflat->lumpnum);
 	ds_source = (UINT32 *)W_CacheLumpNum(levelflat->lumpnum, PU_STATIC); // Stay here until Z_ChangeTag
 
+	if (levelflat->reload_flat)
+	{
+		if (levelflat->flat != NULL)
+			Z_Free(levelflat->flat);
+		levelflat->flat = NULL;
+	}
+
 	// Check if the flat is actually a wall texture.
 	if (levelflat->texturenum != 0 && levelflat->texturenum != -1)
 		R_GetPatchFlat(levelflat, true, false);
@@ -945,11 +967,18 @@ void R_DrawSinglePlane(visplane_t *pl)
 	// It's a raw flat.
 	else
 	{
+		if (ds_source != NULL)
+		{
+			Z_Free(ds_source);
+			ds_source = NULL;
+		}
 		if (levelflat->flat == NULL)
 			levelflat->flat = R_TruecolorMakeFlat(levelflat->lumpnum);
 		ds_source = levelflat->flat;
 		R_CheckFlatLength(size);
 	}
+
+	levelflat->reload_flat = false;
 
 	if (ds_source == NULL)
 		return;
@@ -1184,8 +1213,6 @@ using the palette colors.
 		}
 	}
 #endif
-
-	Z_ChangeTag(ds_source, PU_CACHE);
 }
 
 void R_PlaneBounds(visplane_t *plane)

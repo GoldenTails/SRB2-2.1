@@ -46,10 +46,10 @@ typedef struct
 	INT32 speed;
 
 	// Truecolor caching system
-	// Also supports non-powers-of-two dimensions.
 	UINT32 *flat;
 	UINT16 width, height;
 	fixed_t topoffset, leftoffset;
+	boolean reload_flat;
 } levelflat_t;
 
 extern size_t numlevelflats;

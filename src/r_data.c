@@ -544,6 +544,55 @@ void R_LoadTextures(void)
 	}
 }
 
+// copypasted from R_PrecacheLevel
+void R_ReloadTexturesAndFlatsInLevel(void)
+{
+	char *texturepresent;
+	size_t j;
+
+	//
+	// Precache textures.
+	//
+	// no need to precache all software textures in 3D mode
+	// (note they are still used with the reference software view)
+	texturepresent = calloc(numtextures, sizeof (*texturepresent));
+	if (texturepresent == NULL) I_Error("%s: Out of memory looking up textures", "R_PrecacheLevel");
+
+	for (j = 0; j < numsides; j++)
+	{
+		// huh, a potential bug here????
+		if (sides[j].toptexture >= 0 && sides[j].toptexture < numtextures)
+			texturepresent[sides[j].toptexture] = 1;
+		if (sides[j].midtexture >= 0 && sides[j].midtexture < numtextures)
+			texturepresent[sides[j].midtexture] = 1;
+		if (sides[j].bottomtexture >= 0 && sides[j].bottomtexture < numtextures)
+			texturepresent[sides[j].bottomtexture] = 1;
+	}
+
+	// Sky texture is always present.
+	// Note that F_SKY1 is the name used to indicate a sky floor/ceiling as a flat,
+	// while the sky texture is stored like a wall texture, with a skynum dependent name.
+	texturepresent[skytexture] = 1;
+
+	for (j = 0; j < (unsigned)numtextures; j++)
+	{
+		if (!texturepresent[j])
+			continue;
+
+		if (texturecache[j])
+		{
+			Z_Free(texturecache[j]);
+			R_GenerateTexture(j);
+		}
+		// pre-caching individual patches that compose textures became obsolete,
+		// since we cache entire composite textures
+	}
+	free(texturepresent);
+
+	for (j = 0; j < numlevelflats; j++)
+		levelflats[j].reload_flat = true;
+}
+
 static texpatch_t *R_ParsePatch(boolean actuallyLoadPatch)
 {
 	char *texturesToken;

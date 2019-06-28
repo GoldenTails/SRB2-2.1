@@ -83,6 +83,7 @@ extern fixed_t *textureheight; // needed for texture pegging
 
 // Load TEXTURE1/TEXTURE2/PNAMES definitions, create lookup tables
 void R_LoadTextures(void);
+void R_ReloadTexturesAndFlatsInLevel(void);
 void R_FlushTextureCache(void);
 
 INT32 R_GetTextureNum(INT32 texnum);

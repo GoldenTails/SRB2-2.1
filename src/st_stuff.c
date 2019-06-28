@@ -240,6 +240,7 @@ void ST_doPaletteStuff(void)
 					R_CreateColormap(hex1, hex2, hex3);
 				}
 				R_InitColormapsTrueColor(colormaps[(31*256)+31]);
+				R_ReloadTexturesAndFlatsInLevel();
 			}
 		}
 	}

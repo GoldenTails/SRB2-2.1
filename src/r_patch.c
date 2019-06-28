@@ -267,7 +267,7 @@ static UINT32 *PNG_RawConvert(UINT8 *png, UINT16 *w, UINT16 *h, size_t size)
 		return NULL;
 
 	// Convert the image to 32bpp
-	flat = Z_Calloc((width * height) * sizeof(UINT32), PU_STATIC, NULL);
+	flat = Z_Calloc((width * height) * sizeof(UINT32), PU_LEVEL, NULL);
 	for (y = 0; y < height; y++)
 	{
 		png_bytep row = row_pointers[y];
