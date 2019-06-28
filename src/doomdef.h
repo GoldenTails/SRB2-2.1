@@ -384,12 +384,14 @@ void M_StartupLocale(void);
 #endif
 extern void *(*M_Memcpy)(void* dest, const void* src, size_t n) FUNCNONNULL;
 char *va(const char *format, ...) FUNCPRINTF;
-char *M_GetToken(const char *inputString);
 char *sizeu1(size_t num);
 char *sizeu2(size_t num);
 char *sizeu3(size_t num);
 char *sizeu4(size_t num);
 char *sizeu5(size_t num);
+
+char *M_GetToken(const char *inputString);
+void M_UndoGetToken(void);
 
 // d_main.c
 extern boolean devparm; // development mode (-debug)

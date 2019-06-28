@@ -588,7 +588,7 @@ INT32 GIF_open(const char *filename)
 	if (!gif_out)
 		return 0;
 
-	gif_optimize = (!!cv_gif_optimize.value);
+	//gif_optimize = (!!cv_gif_optimize.value);
 	gif_downscale = (!!cv_gif_downscale.value);
 	GIF_headwrite();
 	gif_frames = 0;

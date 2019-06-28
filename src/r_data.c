@@ -42,40 +42,9 @@
 #include <errno.h>
 #endif
 
-//
-// Texture definition.
-// Each texture is composed of one or more patches,
-// with patches being lumps stored in the WAD.
-// The lumps are referenced by number, and patched
-// into the rectangular texture space using origin
-// and possibly other attributes.
-//
-typedef struct
-{
-	INT16 originx, originy;
-	INT16 patch, stepdir, colormap;
-} ATTRPACK mappatch_t;
-
-//
-// Texture definition.
-// An SRB2 wall texture is a list of patches
-// which are to be combined in a predefined order.
-//
-typedef struct
-{
-	char name[8];
-	INT32 masked;
-	INT16 width;
-	INT16 height;
-	INT32 columndirectory; // FIXTHIS: OBSOLETE
-	INT16 patchcount;
-	mappatch_t patches[1];
-} ATTRPACK maptexture_t;
-
 #if defined(_MSC_VER)
 #pragma pack()
 #endif
-
 
 // Store lists of lumps for F_START/F_END etc.
 typedef struct
@@ -126,7 +95,7 @@ static struct {
 static INT32 tidcachelen = 0;
 
 //
-// MAPTEXTURE_T CACHING
+// TEXTURE_T CACHING
 // When a texture is first needed, it counts the number of composite columns
 //  required in the texture and allocates space for a column directory and
 //  any new columns.
@@ -139,7 +108,7 @@ static INT32 tidcachelen = 0;
 // R_DrawColumnInCache
 // Clip and draw a column from a patch into a cached post.
 //
-static inline void R_DrawColumnInCache(column_t *patch, UINT32 *cache, INT32 originy, INT32 cacheheight, boolean truecolor)
+static inline void R_DrawColumnInCache(column_t *patch, UINT32 *cache, texpatchoptions_t *options, INT32 originy, INT32 cacheheight, boolean truecolor)
 {
 	INT32 count, position;
 	UINT8 *source;
@@ -167,22 +136,69 @@ static inline void R_DrawColumnInCache(column_t *patch, UINT32 *cache, INT32 ori
 		if (count > 0)
 		{
 			UINT32 *dest = (cache + position);
+			if (options->flipy)
+				dest += count;
 			while (count)
 			{
 				if (truecolor)
 				{
 					UINT32 *s = (UINT32 *)source;
-					*dest = *s;
+					UINT32 px = *s, bg = *dest;
+					if (!bg)
+					{
+						int pxa = (px&0xFF000000)>>24;
+						pxa = (((float)pxa/255.0f)*((float)options->alpha/255.0f))*255.0f;
+						if (pxa < 0)
+							pxa = 0;
+						if (pxa > 255)
+							pxa = 255;
+						px = (((UINT8)pxa)<<24)|(px&0x00FFFFFF);
+					}
+					else
+						px = V_BlendTrueColor(bg, px, options->alpha);
+					if (options->hasblend)
+					{
+						if (options->tint)
+						{
+							RGBA_t rgba;
+							rgba.rgba = px;
+							px = V_TintTrueColor(rgba, options->blend.rgba, 255);
+						}
+						else
+							px = V_BlendTrueColor(px, options->blend.rgba, options->blend.s.alpha);
+					}
+					*dest = px;
 					source += 4;
 				}
 				else
 				{
 					UINT8 pixel = *source;
 					if (pixel != TRANSPARENTPIXEL)
-						*dest = V_GetTrueColor(pixel);
+					{
+						UINT32 px = V_GetTrueColor(pixel), bg = *dest;
+						if (!bg)
+							px = (options->alpha<<24)|(px&0x00FFFFFF);
+						else
+							px = V_BlendTrueColor(bg, px, options->alpha);
+						if (options->hasblend)
+						{
+							if (options->tint)
+							{
+								RGBA_t rgba;
+								rgba.rgba = px;
+								px = V_TintTrueColor(rgba, options->blend.rgba, 255);
+							}
+							else
+								px = V_BlendTrueColor(px, options->blend.rgba, options->blend.s.alpha);
+						}
+						*dest = px;
+					}
 					source++;
 				}
-				dest++;
+				if (options->flipy)
+					dest--;
+				else
+					dest++;
 				count--;
 			}
 			//M_Memcpy(cache + position, source, count);
@@ -232,7 +248,7 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 	texture->holes = false;
 	blocksize = (texture->width * 4) + (texture->width * texture->height);
 	texturememory += blocksize;
-	block = Z_Malloc((blocksize+1) * sizeof(block), PU_STATIC, &texturecache[texnum]);
+	block = Z_Calloc((blocksize+1) * sizeof(block), PU_STATIC, &texturecache[texnum]);
 
 	// Transparency hack
 	// (changed from TRANSPARENTPIXEL to 0x00)
@@ -270,11 +286,14 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 
 		for (; x < x2; x++)
 		{
+			int px = x;
 			patchcol = (column_t *)((UINT8 *)realpatch + LONG(realpatch->columnofs[x-x1]));
 
 			// generate column offset lookup
-			colofs[x] = LONG((x * texture->height) + (texture->width*4)) * sizeof(UINT32);
-			R_DrawColumnInCache(patchcol, (UINT32 *)(block + LONG(colofs[x])), patch->originy, texture->height, ispng);
+			if (patch->options.flipx)
+				px = (x2-px)-1;
+			colofs[px] = LONG((x * texture->height) + (texture->width*4)) * sizeof(UINT32);
+			R_DrawColumnInCache(patchcol, (UINT32 *)(block + LONG(colofs[px])), &patch->options, patch->originy, texture->height, ispng);
 		}
 	}
 
@@ -506,6 +525,8 @@ void R_LoadTextures(void)
 				patch = &texture->patches[0];
 
 				patch->originx = patch->originy = 0;
+				patch->options.alpha = 255;
+				patch->options.hasblend = false;
 				patch->wad = (UINT16)w;
 				patch->lump = texstart + j;
 
@@ -555,27 +576,20 @@ static texpatch_t *R_ParsePatch(boolean actuallyLoadPatch)
 	Z_Free(texturesToken);
 	texturesToken = M_GetToken(NULL);
 	if (texturesToken == NULL)
-	{
 		I_Error("Error parsing TEXTURES lump: Unexpected end of file where comma after \"%s\"'s patch name should be",patchName);
-	}
 	if (strcmp(texturesToken,",")!=0)
-	{
 		I_Error("Error parsing TEXTURES lump: Expected \",\" after %s's patch name, got \"%s\"",patchName,texturesToken);
-	}
 
 	// XPos
 	Z_Free(texturesToken);
 	texturesToken = M_GetToken(NULL);
 	if (texturesToken == NULL)
-	{
 		I_Error("Error parsing TEXTURES lump: Unexpected end of file where patch \"%s\"'s x coordinate should be",patchName);
-	}
 	endPos = NULL;
 #ifndef AVOID_ERRNO
 	errno = 0;
 #endif
 	patchXPos = strtol(texturesToken,&endPos,10);
-	(void)patchXPos; //unused for now
 	if (endPos == texturesToken // Empty string
 		|| *endPos != '\0' // Not end of string
 #ifndef AVOID_ERRNO
@@ -590,27 +604,20 @@ static texpatch_t *R_ParsePatch(boolean actuallyLoadPatch)
 	Z_Free(texturesToken);
 	texturesToken = M_GetToken(NULL);
 	if (texturesToken == NULL)
-	{
 		I_Error("Error parsing TEXTURES lump: Unexpected end of file where comma after patch \"%s\"'s x coordinate should be",patchName);
-	}
 	if (strcmp(texturesToken,",")!=0)
-	{
 		I_Error("Error parsing TEXTURES lump: Expected \",\" after patch \"%s\"'s x coordinate, got \"%s\"",patchName,texturesToken);
-	}
 
 	// YPos
 	Z_Free(texturesToken);
 	texturesToken = M_GetToken(NULL);
 	if (texturesToken == NULL)
-	{
 		I_Error("Error parsing TEXTURES lump: Unexpected end of file where patch \"%s\"'s y coordinate should be",patchName);
-	}
 	endPos = NULL;
 #ifndef AVOID_ERRNO
 	errno = 0;
 #endif
 	patchYPos = strtol(texturesToken,&endPos,10);
-	(void)patchYPos; //unused for now
 	if (endPos == texturesToken // Empty string
 		|| *endPos != '\0' // Not end of string
 #ifndef AVOID_ERRNO
@@ -622,7 +629,7 @@ static texpatch_t *R_ParsePatch(boolean actuallyLoadPatch)
 	}
 	Z_Free(texturesToken);
 
-	if (actuallyLoadPatch == true)
+	if (actuallyLoadPatch)
 	{
 		// Check lump exists
 		patchLumpNum = W_GetNumForName(patchName);
@@ -630,18 +637,165 @@ static texpatch_t *R_ParsePatch(boolean actuallyLoadPatch)
 		resultPatch = (texpatch_t *)Z_Malloc(sizeof(texpatch_t),PU_STATIC,NULL);
 		resultPatch->originx = patchXPos;
 		resultPatch->originy = patchYPos;
+		resultPatch->options.alpha = 255;
+		resultPatch->options.hasblend = false;
 		resultPatch->lump = patchLumpNum & 65535;
 		resultPatch->wad = patchLumpNum>>16;
-		// Clean up a little after ourselves
-		Z_Free(patchName);
-		// Then return it
-		return resultPatch;
+	}
+
+	// https://zdoom.org/wiki/TEXTURES
+	texturesToken = M_GetToken(NULL);
+	if (texturesToken == NULL)
+		I_Error("Error parsing TEXTURES lump: Unexpected end of file where open curly brace for patch \"%s\" could be",patchName);
+	if (strcmp(texturesToken,"{")==0)
+	{
+		Z_Free(texturesToken);
+		texturesToken = M_GetToken(NULL);
+		if (texturesToken == NULL)
+			I_Error("Error parsing TEXTURES lump: Unexpected end of file where patch options for patch \"%s\" should be",patchName);
+		while (strcmp(texturesToken,"}")!=0)
+		{
+			if (stricmp(texturesToken, "Alpha")==0)
+			{
+				Z_Free(texturesToken);
+				texturesToken = M_GetToken(NULL);
+				if (texturesToken == NULL)
+					I_Error("Error parsing TEXTURES lump: Unexpected end of file where patch \"%s\"'s translucency value should be",patchName);
+				endPos = NULL;
+#ifndef AVOID_ERRNO
+				errno = 0;
+#endif
+				if (actuallyLoadPatch)
+				{
+					resultPatch->options.alpha = (UINT8)(llrintf(strtof(texturesToken,&endPos)*255.0f));
+					if (endPos == texturesToken // Empty string
+						|| *endPos != '\0' // Not end of string
+#ifndef AVOID_ERRNO
+						|| errno == ERANGE // Number out-of-range
+#endif
+						)
+					{
+						I_Error("Error parsing TEXTURES lump: Expected a float for patch \"%s\"'s translucency value, got \"%s\"",patchName,texturesToken);
+					}
+				}
+				Z_Free(texturesToken);
+			}
+			else if (stricmp(texturesToken, "Blend")==0)
+			{
+				// Only supports
+				// Blend <string color>[,<float alpha>]
+				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+				// this because I'm lazy.
+				char *blendString = NULL;
+				UINT8 blendAmount = 255;
+				texturesToken = M_GetToken(NULL);
+				if (texturesToken == NULL)
+					I_Error("Error parsing TEXTURES lump: Unexpected end of file where blend string should be in patch \"%s\"",patchName);
+				texturesTokenLength = strlen(texturesToken);
+				if (texturesTokenLength != 7)
+					I_Error("Error parsing TEXTURES lump: Blend string \"%s\" is not exactly 7 characters",texturesToken);
+				else
+				{
+					blendString = (char *)Z_Malloc((texturesTokenLength+1)*sizeof(char),PU_STATIC,NULL);
+					M_Memcpy(blendString,texturesToken,texturesTokenLength*sizeof(char));
+					blendString[texturesTokenLength] = '\0';
+				}
+
+				// Comma 1
+				Z_Free(texturesToken);
+				texturesToken = M_GetToken(NULL);
+				if (texturesToken == NULL)
+					I_Error("Error parsing TEXTURES lump: Unexpected end of file where comma after \"%s\"'s blend string should be",patchName);
+
+				// Blend amount
+				if (strcmp(texturesToken,",")==0)
+				{
+					Z_Free(texturesToken);
+					texturesToken = M_GetToken(NULL);
+					if (texturesToken == NULL)
+						I_Error("Error parsing TEXTURES lump: Unexpected end of file where patch \"%s\"'s blend amount should be",patchName);
+					endPos = NULL;
+#ifndef AVOID_ERRNO
+					errno = 0;
+#endif
+					blendAmount = (UINT8)(llrintf(strtof(texturesToken,&endPos)*255.0f));
+					if (actuallyLoadPatch)
+					{
+						resultPatch->options.tint = false;
+						if (endPos == texturesToken // Empty string
+							|| *endPos != '\0' // Not end of string
+#ifndef AVOID_ERRNO
+							|| errno == ERANGE // Number out-of-range
+#endif
+							)
+						{
+							I_Error("Error parsing TEXTURES lump: Expected a float for patch \"%s\"'s blend amount, got \"%s\"",patchName,texturesToken);
+						}
+					}
+					Z_Free(texturesToken);
+				}
+				else
+				{
+					// Apparently omitting the alpha value
+					// makes the patch have some kind of tint.
+					M_UndoGetToken();
+					if (actuallyLoadPatch)
+						resultPatch->options.tint = true;
+				}
+
+#define HEX2INT(x) (UINT32)(x >= '0' && x <= '9' ? x - '0' : x >= 'a' && x <= 'f' ? x - 'a' + 10 : x >= 'A' && x <= 'F' ? x - 'A' + 10 : 0)
+				if (actuallyLoadPatch)
+				{
+					if (blendString[0] == '#')
+					{
+						resultPatch->options.blend.s.red = ((HEX2INT(blendString[1]) * 16) + HEX2INT(blendString[2]));
+						resultPatch->options.blend.s.green = ((HEX2INT(blendString[3]) * 16) + HEX2INT(blendString[4]));
+						resultPatch->options.blend.s.blue = ((HEX2INT(blendString[5]) * 16) + HEX2INT(blendString[6]));
+						resultPatch->options.blend.s.alpha = blendAmount;
+						resultPatch->options.hasblend = true;
+					}
+					else
+						I_Error("Error parsing TEXTURES lump: Expected # on the beginning of patch \"%s\"'s blend string, got \"%c\"",patchName,blendString[0]);
+				}
+#undef HEX2INT
+			}
+			else if (stricmp(texturesToken, "Style")==0)
+			{
+				// SRB2 shouldn't really care about this but we have to parse it anyway...
+				Z_Free(texturesToken);
+				texturesToken = M_GetToken(NULL);
+				if (texturesToken == NULL)
+					I_Error("Error parsing TEXTURES lump: Unexpected end of file (patch \"%s\")",patchName);
+				Z_Free(texturesToken);
+			}
+			else if (stricmp(texturesToken, "FlipX")==0)
+			{
+				if (actuallyLoadPatch)
+					resultPatch->options.flipx = true;
+				Z_Free(texturesToken);
+			}
+			else if (stricmp(texturesToken, "FlipY")==0)
+			{
+				if (actuallyLoadPatch)
+					resultPatch->options.flipy = true;
+				Z_Free(texturesToken);
+			}
+			else
+				I_Error("Error parsing TEXTURES lump: Unexpected token in \"%s\" patch \"%s\"",texturesToken,patchName);
+
+			texturesToken = M_GetToken(NULL);
+			if (texturesToken == NULL)
+				I_Error("Error parsing TEXTURES lump: Unexpected end of file where patch options or right curly brace for patch \"%s\" should be",patchName);
+		}
 	}
 	else
-	{
-		Z_Free(patchName);
-		return NULL;
-	}
+		M_UndoGetToken();
+
+	// Clean up a little after ourselves
+	Z_Free(patchName);
+	Z_Free(texturesToken);
+
+	return resultPatch;
 }
 
 static texture_t *R_ParseTexture(boolean actuallyLoadTexture)

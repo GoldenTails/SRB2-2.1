@@ -1624,15 +1624,25 @@ INT32 axtoi(const char *hexStg)
   * The pointer to the last string supplied is stored as a static variable, so be careful not to free it while this function is still using it!
   * \return A pointer to a string, containing the fetched token. This is in freshly allocated memory, so be sure to Z_Free() it as appropriate.
 */
-char *M_GetToken(const char *inputString)
+static char *M_GetTokenInternal(const char *inputString, boolean undo)
 {
 	static const char *stringToUse = NULL; // Populated if inputString != NULL; used otherwise
-	static UINT32 startPos = 0;
-	static UINT32 endPos = 0;
+	static UINT32 startPos = 0, oldStartPos = 0;
+	static UINT32 endPos = 0, oldEndPos = 0;
 	static UINT32 stringLength = 0;
 	static UINT8 inComment = 0; // 0 = not in comment, 1 = // Single-line, 2 = /* Multi-line */
 	char *texturesToken = NULL;
 	UINT32 texturesTokenLength = 0;
+
+	// fuck you
+	if (undo)
+	{
+		startPos = oldStartPos;
+		endPos = oldEndPos;
+		return NULL;
+	}
+	oldStartPos = startPos;
+	oldEndPos = endPos;
 
 	if (inputString != NULL)
 	{
@@ -1772,6 +1782,16 @@ char *M_GetToken(const char *inputString)
 	// Make the final character NUL.
 	texturesToken[texturesTokenLength] = '\0';
 	return texturesToken;
+}
+
+char *M_GetToken(const char *inputString)
+{
+	return M_GetTokenInternal(inputString, false);
+}
+
+void M_UndoGetToken(void)
+{
+	M_GetTokenInternal(NULL, true);
 }
 
 /** Count bits in a number.

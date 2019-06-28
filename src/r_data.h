@@ -26,21 +26,36 @@
 
 UINT8 NearestColor(UINT8 r, UINT8 g, UINT8 b);
 
-// moved here for r_sky.c (texpatch_t is used)
+//
+// Texture definition.
+// Each texture is composed of one or more patches,
+// with patches being lumps stored in the WAD.
+// The lumps are referenced by number, and patched
+// into the rectangular texture space using origin
+// and possibly other attributes.
+//
+typedef struct
+{
+	boolean flipx, flipy;
+	boolean hasblend;
+	boolean tint;
+	RGBA_t blend;
+	UINT8 alpha;
+} texpatchoptions_t;
 
-// A single patch from a texture definition,
-//  basically a rectangular area within
-//  the texture rectangle.
 typedef struct
 {
 	// Block origin (always UL), which has already accounted for the internal origin of the patch.
 	INT16 originx, originy;
+	texpatchoptions_t options;
 	UINT16 wad, lump;
 } texpatch_t;
 
-// A maptexturedef_t describes a rectangular texture,
-//  which is composed of one or more mappatch_t structures
-//  that arrange graphic patches.
+//
+// Texture definition.
+// An SRB2 wall texture is a list of patches
+// which are to be combined in a predefined order.
+//
 typedef struct
 {
 	// Keep name for switch changing, etc.
