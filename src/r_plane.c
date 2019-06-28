@@ -943,7 +943,7 @@ void R_DrawSinglePlane(visplane_t *pl)
 	// It's a raw flat.
 	else
 	{
-		ds_source = (UINT8 *)W_CacheLumpNum(levelflat->lumpnum, PU_STATIC); // Stay here until Z_ChangeTag
+		ds_source = (UINT8 *)W_CacheLumpNum(levelflat->lumpnum, PU_CACHE);
 		R_CheckFlatLength(size);
 	}
 
@@ -1178,8 +1178,6 @@ using the palette colors.
 		}
 	}
 #endif
-
-	Z_ChangeTag(ds_source, PU_CACHE);
 }
 
 void R_PlaneBounds(visplane_t *plane)
