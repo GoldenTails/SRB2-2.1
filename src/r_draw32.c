@@ -922,7 +922,7 @@ void R_DrawTiltedSpan_32(void)
 
 		for (i = SPANSIZE-1; i >= 0; i--)
 		{
-			lighting = tiltlighting[ds_x1++];
+			lighting = planezlight[tiltlighting[ds_x1++]];
 			if (!ds_powersoftwo)
 			{
 				fixed_t x = ((u-viewx) >> FRACBITS);
@@ -953,7 +953,7 @@ void R_DrawTiltedSpan_32(void)
 	{
 		if (width == 1)
 		{
-			lighting = tiltlighting[ds_x1++];
+			lighting = planezlight[tiltlighting[ds_x1++]];
 			u = (INT64)(startu);
 			v = (INT64)(startv);
 			if (!ds_powersoftwo)
@@ -993,7 +993,7 @@ void R_DrawTiltedSpan_32(void)
 
 			for (; width != 0; width--)
 			{
-				lighting = tiltlighting[ds_x1++];
+				lighting = planezlight[tiltlighting[ds_x1++]];
 				if (!ds_powersoftwo)
 				{
 					fixed_t x = ((u-viewx) >> FRACBITS);
@@ -1100,7 +1100,7 @@ void R_DrawTiltedTranslucentSpan_32(void)
 
 		for (i = SPANSIZE-1; i >= 0; i--)
 		{
-			lighting = tiltlighting[ds_x1++];
+			lighting = planezlight[tiltlighting[ds_x1++]];
 			if (!ds_powersoftwo)
 			{
 				fixed_t x = ((u-viewx) >> FRACBITS);
@@ -1132,7 +1132,7 @@ void R_DrawTiltedTranslucentSpan_32(void)
 	{
 		if (width == 1)
 		{
-			lighting = tiltlighting[ds_x1++];
+			lighting = planezlight[tiltlighting[ds_x1++]];
 			u = (INT64)(startu);
 			v = (INT64)(startv);
 			if (!ds_powersoftwo)
@@ -1172,7 +1172,7 @@ void R_DrawTiltedTranslucentSpan_32(void)
 
 			for (; width != 0; width--)
 			{
-				lighting = tiltlighting[ds_x1++];
+				lighting = planezlight[tiltlighting[ds_x1++]];
 				if (!ds_powersoftwo)
 				{
 					fixed_t x = ((u-viewx) >> FRACBITS);
