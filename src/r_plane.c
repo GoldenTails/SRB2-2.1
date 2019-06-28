@@ -747,7 +747,9 @@ static void R_GetPatchFlat(levelflat_t *levelflat, boolean leveltexture)
 			memset(texflat->flat, TRANSPARENTPIXEL, ds_flatwidth * ds_flatheight);
 			R_FlatTexture(levelflat->texturenum, texflat->flat);
 
-			ds_source = texflat->flat;
+			levelflat->flatpatch = ds_source = texflat->flat;
+			levelflat->width = ds_flatwidth;
+			levelflat->height = ds_flatheight;
 		}
 		else
 		{
