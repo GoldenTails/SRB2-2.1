@@ -460,7 +460,7 @@ static void R_RenderFloorSplat(floorsplat_t *pSplat, vertex_t *verts, UINT8 *pTe
 		light = LIGHTLEVELS - 1;
 	if (light < 0)
 		light = 0;
-	planezlight = zlight_uint8[light];
+	planezlight = zlightnum[light];
 
 	ds_transmap = 255;
 	if (translucency)

@@ -1090,7 +1090,7 @@ void R_DrawSinglePlane(visplane_t *pl)
 		planezlight = scalelightnum[light];
 	} else
 #endif // ESLOPE
-		planezlight = zlight_uint8[light];
+		planezlight = zlightnum[light];
 
 	// set the maximum value for unsigned
 	pl->top[pl->maxx+1] = 0xffff;
@@ -1168,7 +1168,7 @@ using the palette colors.
 			if (light < 0)
 				light = 0;
 
-			planezlight = zlight_uint8[light];
+			planezlight = zlightnum[light];
 
 			// set the maximum value for unsigned
 			pl->top[pl->maxx+1] = 0xffff;

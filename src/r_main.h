@@ -49,7 +49,7 @@ extern lighttable32_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
 extern lighttable32_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
 
 extern UINT8 scalelightnum[LIGHTLEVELS][MAXLIGHTSCALE];
-extern UINT8 zlight_uint8[LIGHTLEVELS][MAXLIGHTZ];
+extern UINT8 zlightnum[LIGHTLEVELS][MAXLIGHTZ];
 
 // Number of diminishing brightness levels.
 // There a 0-31, i.e. 32 LUT in the COLORMAP lump.
