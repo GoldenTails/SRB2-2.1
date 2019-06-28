@@ -71,7 +71,7 @@ UINT8 dc_hires;
 
 UINT8 *dc_source;
 INT32 dc_texturenum;
-UINT8 dc_lighting;
+UINT8 dc_lighting;					// 0: full brightness, 31: completely dark
 INT32 dc_levelcolormap;
 UINT8 dc_transmap;
 

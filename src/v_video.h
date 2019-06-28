@@ -22,11 +22,25 @@
 //
 // VIDEO
 //
-#define V_GetTrueColor(c) ((st_palette > 0) ? V_GetColorPal(c,st_palette) : V_GetColor(c)).rgba
-#define V_TrueColormapRGBA(c) dc_truecolormap[c]
+#define TRUECOLOR_USETINT
+//#define TRUECOLOR_TINTFLOATS
 
-UINT32 V_BlendTrueColor(UINT32 bg, UINT32 fg, UINT8 alpha);
-UINT32 V_TintTrueColor(RGBA_t rgba, UINT32 blendcolor, UINT8 tintamt);
+#define V_GetTrueColor(c) ((st_palette > 0) ? V_GetColorPal(c,st_palette) : V_GetColor(c)).rgba
+
+#define ABGR_RED(c) ((c) & 0xff)
+#define ABGR_GREEN(c) (((c)>>8) & 0xff)
+#define ABGR_BLUE(c) (((c)>>16) & 0xff)
+#define MIX_ALPHA(a) (0xff-(a))
+#define V_BlendTrueColor(bg, fg, alpha) \
+	(!(alpha)) ? (bg) : ( ((alpha)==0xFF) ? (fg) \
+	: 0xFF000000 \
+	|( ( (ABGR_RED  (bg) * MIX_ALPHA(alpha)) + (ABGR_RED  (fg) * (alpha)) ) >> 8) \
+	|( ( (ABGR_GREEN(bg) * MIX_ALPHA(alpha)) + (ABGR_GREEN(fg) * (alpha)) ) >> 8) << 8 \
+	|( ( (ABGR_BLUE (bg) * MIX_ALPHA(alpha)) + (ABGR_BLUE (fg) * (alpha)) ) >> 8) << 16)
+
+#ifdef TRUECOLOR_USETINT
+FUNCMATH UINT32 V_TintTrueColor(RGBA_t rgba, UINT32 blendcolor, UINT8 tintamt);
+#endif
 UINT8 V_AlphaTrans(INT32 num);
 
 extern UINT32 *screen_main;

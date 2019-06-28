@@ -606,7 +606,7 @@ void R_DrawPlanes(void)
 				// Because of this hack, sky is not affected
 				//  by INVUL inverse mapping.
 				dc_levelcolormap = 0;
-				dc_lighting = 32;
+				dc_lighting = 0;
 				dc_texturemid = skytexturemid;
 				dc_texheight = textureheight[skytexture]>>FRACBITS;
 				for (x = pl->minx; x <= pl->maxx; x++)

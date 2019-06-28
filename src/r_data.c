@@ -158,6 +158,7 @@ static inline void R_DrawColumnInCache(column_t *patch, UINT32 *cache, texpatcho
 						px = V_BlendTrueColor(bg, px, options->alpha);
 					if (options->hasblend)
 					{
+#ifdef TRUECOLOR_USETINT
 						if (options->tint)
 						{
 							RGBA_t rgba;
@@ -165,6 +166,7 @@ static inline void R_DrawColumnInCache(column_t *patch, UINT32 *cache, texpatcho
 							px = V_TintTrueColor(rgba, options->blend.rgba, 255);
 						}
 						else
+#endif
 							px = V_BlendTrueColor(px, options->blend.rgba, options->blend.s.alpha);
 					}
 					*dest = px;
@@ -182,6 +184,7 @@ static inline void R_DrawColumnInCache(column_t *patch, UINT32 *cache, texpatcho
 							px = V_BlendTrueColor(bg, px, options->alpha);
 						if (options->hasblend)
 						{
+#ifdef TRUECOLOR_USETINT
 							if (options->tint)
 							{
 								RGBA_t rgba;
@@ -189,6 +192,7 @@ static inline void R_DrawColumnInCache(column_t *patch, UINT32 *cache, texpatcho
 								px = V_TintTrueColor(rgba, options->blend.rgba, 255);
 							}
 							else
+#endif
 								px = V_BlendTrueColor(px, options->blend.rgba, options->blend.s.alpha);
 						}
 						*dest = px;
@@ -297,7 +301,6 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 		}
 	}
 
-//done:
 	// Now that the texture has been built in column cache, it is purgable from zone memory.
 	Z_ChangeTag(block, PU_CACHE);
 	return blocktex;
@@ -525,8 +528,10 @@ void R_LoadTextures(void)
 				patch = &texture->patches[0];
 
 				patch->originx = patch->originy = 0;
-				patch->options.alpha = 255;
+				patch->options.flipx = false;
+				patch->options.flipy = false;
 				patch->options.hasblend = false;
+				patch->options.alpha = 255;
 				patch->wad = (UINT16)w;
 				patch->lump = texstart + j;
 
@@ -637,8 +642,10 @@ static texpatch_t *R_ParsePatch(boolean actuallyLoadPatch)
 		resultPatch = (texpatch_t *)Z_Malloc(sizeof(texpatch_t),PU_STATIC,NULL);
 		resultPatch->originx = patchXPos;
 		resultPatch->originy = patchYPos;
-		resultPatch->options.alpha = 255;
+		resultPatch->options.flipx = false;
+		resultPatch->options.flipy = false;
 		resultPatch->options.hasblend = false;
+		resultPatch->options.alpha = 255;
 		resultPatch->lump = patchLumpNum & 65535;
 		resultPatch->wad = patchLumpNum>>16;
 	}

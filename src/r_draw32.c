@@ -66,7 +66,7 @@ void R_DrawColumn_32(void)
 				// Re-map color indices from wall texture column
 				//  using a lighting/special effects LUT.
 				// heightmask is the Tutti-Frutti fix
-				*dest = V_TrueColormapRGBA(source[frac>>FRACBITS]);
+				*dest = dc_truecolormap[source[frac>>FRACBITS]];
 				dest += vid.width;
 
 				// Avoid overflow.
@@ -83,15 +83,15 @@ void R_DrawColumn_32(void)
 		{
 			while ((count -= 2) >= 0) // texture height is a power of 2
 			{
-				*dest = V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]);
+				*dest = dc_truecolormap[source[(frac>>FRACBITS) & heightmask]];
 				dest += vid.width;
 				frac += fracstep;
-				*dest = V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]);
+				*dest = dc_truecolormap[source[(frac>>FRACBITS) & heightmask]];
 				dest += vid.width;
 				frac += fracstep;
 			}
 			if (count & 1)
-				*dest = V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]);
+				*dest = dc_truecolormap[source[(frac>>FRACBITS) & heightmask]];
 		}
 	}
 }
@@ -111,14 +111,18 @@ static UINT32 alphamix(UINT32 fg, UINT32 bg)
 	// bg is the background pixel
 	// dc_blendcolor is the colormap
 	// dc_fadecolor is the fade color
-	origpixel = pixel = rgba.rgba = fg;
+	pixel = origpixel = rgba.rgba = fg;
 	tint = (blendcolor & 0xFF000000)>>24;
 
 	// mix pixel with blend color
 	if (tint > 0)
+#ifdef TRUECOLOR_USETINT
 		pixel = V_TintTrueColor(rgba, blendcolor, tint);
+#else
+		pixel = V_BlendTrueColor(pixel, blendcolor, tint);
+#endif
 	// mix pixel with fade color
-	fg = V_BlendTrueColor(pixel, fadecolor, lighting*8);
+	fg = V_BlendTrueColor(pixel, fadecolor, min(max(lighting*8, 0x00), 0xFF));
 	// mix background with the pixel's alpha value
 	fg = V_BlendTrueColor(bg, fg, (origpixel & 0xFF000000)>>24);
 	return 0xFF000000|fg;
@@ -268,7 +272,7 @@ void R_DrawTranslucentColumn_32(void)
 				// Re-map color indices from wall texture column
 				// using a lighting/special effects LUT.
 				// heightmask is the Tutti-Frutti fix
-				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[frac>>FRACBITS]), dc_transmap));
+				*dest = V_BlendTrueColor(*dest, dc_truecolormap[source[frac>>FRACBITS]], dc_transmap);
 				dest += vid.width;
 				if ((frac += fracstep) >= heightmask)
 					frac -= heightmask;
@@ -279,15 +283,15 @@ void R_DrawTranslucentColumn_32(void)
 		{
 			while ((count -= 2) >= 0) // texture height is a power of 2
 			{
-				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
+				*dest = V_BlendTrueColor(*dest, dc_truecolormap[source[(frac>>FRACBITS)&heightmask]], dc_transmap);
 				dest += vid.width;
 				frac += fracstep;
-				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
+				*dest = V_BlendTrueColor(*dest, dc_truecolormap[source[(frac>>FRACBITS)&heightmask]], dc_transmap);
 				dest += vid.width;
 				frac += fracstep;
 			}
 			if (count & 1)
-				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
+				*dest = V_BlendTrueColor(*dest, dc_truecolormap[source[(frac>>FRACBITS)&heightmask]], dc_transmap);
 		}
 	}
 }
@@ -417,7 +421,7 @@ void R_DrawTranslatedTranslucentColumn_32(void)
 				// Re-map color indices from wall texture column
 				//  using a lighting/special effects LUT.
 				// heightmask is the Tutti-Frutti fix
-				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[frac>>FRACBITS]]), dc_transmap));
+				*dest = V_BlendTrueColor(*dest, dc_truecolormap[dc_translation[dc_source[frac>>FRACBITS]]], dc_transmap);
 				dest += vid.width;
 				if ((frac += fracstep) >= heightmask)
 					frac -= heightmask;
@@ -428,16 +432,16 @@ void R_DrawTranslatedTranslucentColumn_32(void)
 		{
 			while ((count -= 2) >= 0) // texture height is a power of 2
 			{
-				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
+				*dest = V_BlendTrueColor(*dest, dc_truecolormap[dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]], dc_transmap);
 				dest += vid.width;
 				frac += fracstep;
 
-				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
+				*dest = V_BlendTrueColor(*dest, dc_truecolormap[dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]], dc_transmap);
 				dest += vid.width;
 				frac += fracstep;
 			}
 			if (count & 1)
-				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
+				*dest = V_BlendTrueColor(*dest, dc_truecolormap[dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]], dc_transmap);
 		}
 	}
 }
@@ -474,7 +478,7 @@ void R_DrawTranslatedColumn_32(void)
 		//  used with PLAY sprites.
 		// Thus the "green" ramp of the player 0 sprite
 		//  is mapped to gray, red, black/indigo.
-		*dest = (V_TrueColormapRGBA(dc_translation[dc_source[frac>>FRACBITS]]));
+		*dest = dc_truecolormap[dc_translation[dc_source[frac>>FRACBITS]]];
 		dest += vid.width;
 		frac += fracstep;
 	} while (count--);

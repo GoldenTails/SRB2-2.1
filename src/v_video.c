@@ -288,13 +288,35 @@ void VID_BlitLinearScreen(UINT32 *srcptr, UINT32 *destptr, INT32 width, INT32 he
 }
 
 // Truecolor bullshit
-UINT32 V_BlendTrueColor(UINT32 bg, UINT32 fg, UINT8 alpha)
+#ifdef TRUECOLOR_USETINT
+FUNCMATH UINT32 V_TintTrueColor(RGBA_t rgba, UINT32 blendcolor, UINT8 tintamt)
 {
-	return (!alpha)?bg:((alpha==255)?fg:0xFF000000|(((((bg>>16)&0xff)*(0xff-alpha))+(((fg>>16)&0xff)*alpha))>>8)<<16|(((((bg>>8)&0xff)*(0xff-alpha))+(((fg>>8)&0xff)*alpha))>>8)<<8|((((bg&0xff)*(0xff-alpha))+((fg&0xff)*alpha))>>8));
-}
+#ifndef TRUECOLOR_TINTFLOATS
+	fixed_t r, g, b;
+	fixed_t cmaskr, cmaskg, cmaskb;
+	fixed_t cbrightness;
+	fixed_t maskamt, othermask;
+	UINT32 origpixel = rgba.rgba;
 
-UINT32 V_TintTrueColor(RGBA_t rgba, UINT32 blendcolor, UINT8 tintamt)
-{
+	r = cmaskr = (rgba.s.red<<FRACBITS);
+	g = cmaskg = (rgba.s.green<<FRACBITS);
+	b = cmaskb = (rgba.s.blue<<FRACBITS);
+
+	cbrightness = (FixedMul(r, 19595) + FixedMul(g, 38469) + FixedMul(b, 7471));
+	maskamt = FixedDiv((tintamt<<FRACBITS), 0xFF<<FRACBITS);
+	othermask = FixedDiv((0xFF-tintamt)<<FRACBITS, 0xFF<<FRACBITS);
+
+	maskamt = FixedDiv(maskamt, (0xFF<<FRACBITS));
+	cmaskr = FixedMul(cmaskr, maskamt);
+	cmaskg = FixedMul(cmaskg, maskamt);
+	cmaskb = FixedMul(cmaskb, maskamt);
+
+	rgba.s.red = (FixedMul(cbrightness, cmaskr)>>FRACBITS) + (FixedMul(r, othermask)>>FRACBITS);
+	rgba.s.green = (FixedMul(cbrightness, cmaskg)>>FRACBITS) + (FixedMul(g, othermask)>>FRACBITS);
+	rgba.s.blue = (FixedMul(cbrightness, cmaskb)>>FRACBITS) + (FixedMul(b, othermask)>>FRACBITS);
+
+	return V_BlendTrueColor(origpixel, V_BlendTrueColor(rgba.rgba, blendcolor, (cbrightness>>FRACBITS)), tintamt);
+#else
 	double r, g, b;
 	double cmaskr, cmaskg, cmaskb;
 	double cbrightness;
@@ -313,7 +335,7 @@ UINT32 V_TintTrueColor(RGBA_t rgba, UINT32 blendcolor, UINT8 tintamt)
 	maskamt = (tintamt/256.0f);
 	othermask = 1 - maskamt;
 
-	maskamt /= 0xff;
+	maskamt /= 0xFF;
 	cmaskr *= maskamt;
 	cmaskg *= maskamt;
 	cmaskb *= maskamt;
@@ -323,7 +345,9 @@ UINT32 V_TintTrueColor(RGBA_t rgba, UINT32 blendcolor, UINT8 tintamt)
 	rgba.s.blue = (cbrightness * cmaskb) + (b * othermask);
 
 	return V_BlendTrueColor(origpixel, V_BlendTrueColor(rgba.rgba, blendcolor, llrint(cbrightness*256.0f)), tintamt);
+#endif
 }
+#endif
 
 UINT8 V_AlphaTrans(INT32 num)
 {

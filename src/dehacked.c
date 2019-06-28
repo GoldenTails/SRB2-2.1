@@ -2788,6 +2788,10 @@ static void readtexture(MYFILE *f, const char *name)
 		texture->patches[i].originy = 0;
 		texture->patches[i].wad = UINT16_MAX;
 		texture->patches[i].lump = UINT16_MAX;
+		texture->patches[i].options.flipx = false;
+		texture->patches[i].options.flipy = false;
+		texture->patches[i].options.hasblend = false;
+		texture->patches[i].options.alpha = 255;
 	}
 
 	// Jump to the next empty texture entry.
