@@ -1087,7 +1087,7 @@ void R_DrawSinglePlane(visplane_t *pl)
 		else
 			spanfunc = tiltedspanfunc;
 
-		planezlight = scalelight_uint8[light];
+		planezlight = scalelightnum[light];
 	} else
 #endif // ESLOPE
 		planezlight = zlight_uint8[light];

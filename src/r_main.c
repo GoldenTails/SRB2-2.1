@@ -107,8 +107,8 @@ angle_t xtoviewangle[MAXVIDWIDTH+1];
 lighttable32_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
 lighttable32_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
 
-UINT8 scalelight_uint8[LIGHTLEVELS][MAXLIGHTSCALE];
-UINT8 zlight_uint8[LIGHTLEVELS][MAXLIGHTZ];
+UINT8 scalelightnum[LIGHTLEVELS][MAXLIGHTSCALE];
+UINT8 zlightnum[LIGHTLEVELS][MAXLIGHTZ];
 
 // Hack to support extra boom colormaps.
 size_t num_extra_colormaps;
@@ -538,7 +538,7 @@ static inline void R_InitLightTables(void)
 				level = NUMCOLORMAPS-1;
 
 			zlight[i][j] = truecolormaps + level*256;
-			zlight_uint8[i][j] = level;
+			zlightnum[i][j] = level;
 		}
 	}
 }
@@ -636,7 +636,7 @@ void R_ExecuteSetViewSize(void)
 				level = NUMCOLORMAPS - 1;
 
 			scalelight[i][j] = truecolormaps + level*256;
-			scalelight_uint8[i][j] = level;
+			scalelightnum[i][j] = level;
 		}
 	}
 
@@ -667,9 +667,6 @@ void R_Init(void)
 
 	CONS_Printf("R_InitLightTables()...\n");
 	R_InitLightTables();
-
-	CONS_Printf("R_InitTranslationTables()...\n");
-	R_InitTranslationTables();
 
 	CONS_Printf("R_InitDrawNodes()...\n");
 	R_InitDrawNodes();

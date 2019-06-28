@@ -442,11 +442,11 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 			lightnum++;
 
 		if (lightnum < 0)
-			walllights = scalelight_uint8[0];
+			walllights = scalelightnum[0];
 		else if (lightnum >= LIGHTLEVELS)
-			walllights = scalelight_uint8[LIGHTLEVELS - 1];
+			walllights = scalelightnum[LIGHTLEVELS - 1];
 		else
-			walllights = scalelight_uint8[lightnum];
+			walllights = scalelightnum[lightnum];
 	}
 
 	maskedtexturecol = ds->maskedtexturecol;
@@ -579,11 +579,11 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 							continue;
 
 						if (rlight->lightnum < 0)
-							xwalllights = scalelight_uint8[0];
+							xwalllights = scalelightnum[0];
 						else if (rlight->lightnum >= LIGHTLEVELS)
-							xwalllights = scalelight_uint8[LIGHTLEVELS-1];
+							xwalllights = scalelightnum[LIGHTLEVELS-1];
 						else
-							xwalllights = scalelight_uint8[rlight->lightnum];
+							xwalllights = scalelightnum[rlight->lightnum];
 
 						pindex = FixedMul(spryscale, FixedDiv(640, vid.width))>>LIGHTSCALESHIFT;
 						if (pindex >= MAXLIGHTSCALE)
@@ -945,11 +945,11 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 			lightnum++;
 
 		if (lightnum < 0)
-			walllights = scalelight_uint8[0];
+			walllights = scalelightnum[0];
 		else if (lightnum >= LIGHTLEVELS)
-			walllights = scalelight_uint8[LIGHTLEVELS-1];
+			walllights = scalelightnum[LIGHTLEVELS-1];
 		else
-			walllights = scalelight_uint8[lightnum];
+			walllights = scalelightnum[lightnum];
 	}
 
 	maskedtexturecol = ds->thicksidecol;
@@ -1140,11 +1140,11 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 						lightnum = rlight->lightnum;
 
 						if (lightnum < 0)
-							xwalllights = scalelight_uint8[0];
+							xwalllights = scalelightnum[0];
 						else if (lightnum >= LIGHTLEVELS)
-							xwalllights = scalelight_uint8[LIGHTLEVELS-1];
+							xwalllights = scalelightnum[LIGHTLEVELS-1];
 						else
-							xwalllights = scalelight_uint8[lightnum];
+							xwalllights = scalelightnum[lightnum];
 
 						pindex = FixedMul(spryscale, FixedDiv(640, vid.width))>>LIGHTSCALESHIFT;
 						if (pindex >= MAXLIGHTSCALE)
@@ -1479,11 +1479,11 @@ static void R_RenderSegLoop (void)
 					lightnum++;
 
 				if (lightnum < 0)
-					xwalllights = scalelight_uint8[0];
+					xwalllights = scalelightnum[0];
 				else if (lightnum >= LIGHTLEVELS)
-					xwalllights = scalelight_uint8[LIGHTLEVELS-1];
+					xwalllights = scalelightnum[LIGHTLEVELS-1];
 				else
-					xwalllights = scalelight_uint8[lightnum];
+					xwalllights = scalelightnum[lightnum];
 
 				pindex = FixedMul(rw_scale, FixedDiv(640, vid.width))>>LIGHTSCALESHIFT;
 				if (pindex >= MAXLIGHTSCALE)
@@ -2609,11 +2609,11 @@ void R_StoreWallRange(INT32 start, INT32 stop)
 			lightnum++;
 
 		if (lightnum < 0)
-			walllights = scalelight_uint8[0];
+			walllights = scalelightnum[0];
 		else if (lightnum >= LIGHTLEVELS)
-			walllights = scalelight_uint8[LIGHTLEVELS - 1];
+			walllights = scalelightnum[LIGHTLEVELS - 1];
 		else
-			walllights = scalelight_uint8[lightnum];
+			walllights = scalelightnum[lightnum];
 	}
 
 	// if a floor / ceiling plane is on the wrong side

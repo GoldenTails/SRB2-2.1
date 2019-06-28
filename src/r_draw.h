@@ -47,10 +47,6 @@ extern UINT32 dc_foglight;
 extern UINT32 dc_blendcolor;
 extern UINT32 dc_fadecolor;
 
-// translucency stuff here
-#define NUMTRANSTABLES 9 // how many translucency tables are used
-extern UINT8 *transtables;
-
 // translation stuff here
 extern UINT8 *dc_translation;
 extern struct r_lightlist_s *dc_lightlist;

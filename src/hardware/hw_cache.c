@@ -139,11 +139,7 @@ static void HWR_DrawPatchInCache(GLMipmap_t *mipmap,
 				count--;
 
 				texel = source[yfrac>>FRACBITS];
-
-				if (firetranslucent && (transtables[(texel<<8)+0x40000]!=texel))
-					alpha = 0x80;
-				else
-					alpha = 0xff;
+				alpha = 0xff;
 
 				//Hurdler: not perfect, but better than holes
 				if (texel == HWR_PATCHES_CHROMAKEY_COLORINDEX && (mipmap->flags & TF_CHROMAKEYED))

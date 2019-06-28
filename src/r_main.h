@@ -48,7 +48,7 @@ extern size_t validcount, linecount, loopcount, framecount;
 extern lighttable32_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
 extern lighttable32_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
 
-extern UINT8 scalelight_uint8[LIGHTLEVELS][MAXLIGHTSCALE];
+extern UINT8 scalelightnum[LIGHTLEVELS][MAXLIGHTSCALE];
 extern UINT8 zlight_uint8[LIGHTLEVELS][MAXLIGHTZ];
 
 // Number of diminishing brightness levels.

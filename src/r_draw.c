@@ -59,8 +59,6 @@ INT32 columnofs[MAXVIDWIDTH*4];
 
 UINT32 *topleft;
 
-UINT8 *transtables; // translucency tables
-
 // =========================================================================
 //                      COLUMN DRAWING CODE STUFF
 // =========================================================================
@@ -210,25 +208,6 @@ const UINT8 Color_Opposite[MAXSKINCOLORS*2] =
 };
 
 CV_PossibleValue_t Color_cons_t[MAXSKINCOLORS+1];
-
-/**	\brief The R_InitTranslationTables
-
-  load in color translation tables
-*/
-void R_InitTranslationTables(void)
-{
-	transtables = Z_MallocAlign(NUMTRANSTABLES*0x10000, PU_STATIC, NULL, 16);
-
-	W_ReadLump(W_GetNumForName("TRANS10"), transtables);
-	W_ReadLump(W_GetNumForName("TRANS20"), transtables+0x10000);
-	W_ReadLump(W_GetNumForName("TRANS30"), transtables+0x20000);
-	W_ReadLump(W_GetNumForName("TRANS40"), transtables+0x30000);
-	W_ReadLump(W_GetNumForName("TRANS50"), transtables+0x40000);
-	W_ReadLump(W_GetNumForName("TRANS60"), transtables+0x50000);
-	W_ReadLump(W_GetNumForName("TRANS70"), transtables+0x60000);
-	W_ReadLump(W_GetNumForName("TRANS80"), transtables+0x70000);
-	W_ReadLump(W_GetNumForName("TRANS90"), transtables+0x80000);
-}
 
 /**	\brief	Generates a translation colormap.
 
