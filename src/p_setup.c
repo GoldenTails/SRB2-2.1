@@ -26,6 +26,7 @@
 #include "r_sky.h"
 #include "i_system.h"
 
+#include "r_bsp.h"
 #include "r_data.h"
 #include "r_things.h"
 #include "r_sky.h"
@@ -78,6 +79,8 @@
 #include "p_slopes.h"
 #endif
 
+static boolean rebuild_nodes = false;
+
 //
 // Map MD5, calculated on level load.
 // Sent to clients in PT_SERVERINFO.
@@ -100,6 +103,38 @@ side_t *sides;
 mapthing_t *mapthings;
 INT32 numstarposts;
 boolean levelloading;
+
+//
+// Nodesbuilder
+//
+
+mapvertex_t *rawvertexes;
+maplinedef_t *rawlines;
+mapsector_t *rawsectors;
+mapsidedef_t *rawsides;
+mapsubsector_t *rawsubsectors;
+mapnode_t *rawnodes;
+mapseg_t *rawsegs;
+
+size_t rawvertexes_size, rawlines_size, rawsectors_size, rawsides_size;
+size_t rawsubsectors_size, rawnodes_size, rawsegs_size;
+
+mapvertex_t *builtvertexes;
+maplinedef_t *builtlines;
+mapsector_t *builtsectors;
+mapsidedef_t *builtsides;
+
+mapsubsector_t *builtsubsectors;
+mapnode_t *builtnodes;
+mapseg_t *builtsegs;
+
+size_t numbuiltvertexes;
+size_t numbuiltsectors;
+size_t numbuiltsides;
+size_t numbuiltlines;
+size_t numbuiltsegs;
+size_t numbuiltsubsectors;
+size_t numbuiltnodes;
 
 // BLOCKMAP
 // Created from axis aligned bounding box
@@ -359,10 +394,20 @@ UINT32 P_GetScoreForGrade(INT16 map, UINT8 mare, UINT8 grade)
   * \sa ML_VERTEXES
   */
 
-static inline void P_LoadRawVertexes(UINT8 *data, size_t i)
+#define P_RawMapLumpCopy(dest, size, i) \
+	size = i; \
+	if (size > 0) \
+	{ \
+		dest = Z_Calloc(size, PU_STATIC, NULL); \
+		M_Memcpy(dest, data, size); \
+	}
+
+void P_LoadRawVertexes(UINT8 *data, size_t i)
 {
 	mapvertex_t *ml;
 	vertex_t *li;
+
+	P_RawMapLumpCopy(rawvertexes, rawvertexes_size, i);
 
 	numvertexes = i / sizeof (mapvertex_t);
 
@@ -426,16 +471,28 @@ static inline float P_SegLengthFloat(seg_t *seg)
   * \param lump Lump number of the SEGS resource.
   * \sa ::ML_SEGS
   */
-static void P_LoadRawSegs(UINT8 *data, size_t i)
+void P_LoadRawSegs(UINT8 *data, size_t i)
 {
 	INT32 linedef, side;
 	mapseg_t *ml;
 	seg_t *li;
 	line_t *ldef;
 
+	if (rebuild_nodes)
+		return;
+	P_RawMapLumpCopy(rawsegs, rawsegs_size, i);
+
 	numsegs = i / sizeof (mapseg_t);
 	if (numsegs <= 0)
-		I_Error("Level has no segs"); // instead of crashing
+	{
+#ifndef NODESBUILDER
+		I_Error("Level has no segs");
+#else
+		CONS_Debug(DBG_SETUP, "Level has no segs, rebuilding BSP tree\n");
+		rebuild_nodes = true;
+		return;
+#endif // NODESBUILDER
+	}
 	segs = Z_Calloc(numsegs * sizeof (*segs), PU_LEVEL, NULL);
 
 	ml = (mapseg_t *)data;
@@ -487,14 +544,26 @@ static void P_LoadSegs(lumpnum_t lumpnum)
   * \param lump Lump number of the SSECTORS resource.
   * \sa ::ML_SSECTORS
   */
-static inline void P_LoadRawSubsectors(void *data, size_t i)
+void P_LoadRawSubsectors(void *data, size_t i)
 {
 	mapsubsector_t *ms;
 	subsector_t *ss;
 
+	if (rebuild_nodes)
+		return;
+	P_RawMapLumpCopy(rawsubsectors, rawsubsectors_size, i);
+
 	numsubsectors = i / sizeof (mapsubsector_t);
 	if (numsubsectors <= 0)
+	{
+#ifndef NODESBUILDER
 		I_Error("Level has no subsectors (did you forget to run it through a nodesbuilder?)");
+#else
+		CONS_Debug(DBG_SETUP, "Level has no subsectors, rebuilding BSP tree\n");
+		rebuild_nodes = true;
+		return;
+#endif
+	}
 	ss = subsectors = Z_Calloc(numsubsectors * sizeof (*subsectors), PU_LEVEL, NULL);
 
 	ms = (mapsubsector_t *)data;
@@ -650,11 +719,13 @@ INT32 P_CheckLevelFlat(const char *flatname)
 
 // Sets up the ingame sectors structures.
 // Lumpnum is the lumpnum of a SECTORS lump.
-static void P_LoadRawSectors(UINT8 *data, size_t i)
+void P_LoadRawSectors(UINT8 *data, size_t i)
 {
 	mapsector_t *ms;
 	sector_t *ss;
 	levelflat_t *foundflats;
+
+	P_RawMapLumpCopy(rawsectors, rawsectors_size, i);
 
 	// We count how many sectors we got.
 	numsectors = i / sizeof (mapsector_t);
@@ -765,15 +836,27 @@ static void P_LoadSectors(lumpnum_t lumpnum)
 //
 // P_LoadNodes
 //
-static void P_LoadRawNodes(UINT8 *data, size_t i)
+void P_LoadRawNodes(UINT8 *data, size_t i)
 {
 	UINT8 j, k;
 	mapnode_t *mn;
 	node_t *no;
 
+	if (rebuild_nodes)
+		return;
+	P_RawMapLumpCopy(rawnodes, rawnodes_size, i);
+
 	numnodes = i / sizeof (mapnode_t);
 	if (numnodes <= 0)
+	{
+#ifndef NODESBUILDER
 		I_Error("Level has no nodes");
+#else
+		CONS_Debug(DBG_SETUP, "Level has no nodes, rebuilding BSP tree\n");
+		rebuild_nodes = true;
+		return;
+#endif
+	}
 	nodes = Z_Calloc(numnodes * sizeof (*nodes), PU_LEVEL, NULL);
 
 	mn = (mapnode_t *)data;
@@ -1159,11 +1242,13 @@ void P_WriteThings(lumpnum_t lumpnum)
 	CONS_Printf(M_GetText("newthings%d.lmp saved.\n"), gamemap);
 }
 
-static void P_LoadRawLineDefs(UINT8 *data, size_t i)
+void P_LoadRawLineDefs(UINT8 *data, size_t i)
 {
 	maplinedef_t *mld;
 	line_t *ld;
 	vertex_t *v1, *v2;
+
+	P_RawMapLumpCopy(rawlines, rawlines_size, i);
 
 	numlines = i / sizeof (maplinedef_t);
 	if (numlines <= 0)
@@ -1273,7 +1358,7 @@ static void P_LoadLineDefs(lumpnum_t lumpnum)
 	Z_Free(data);
 }
 
-static void P_LoadLineDefs2(void)
+void P_LoadLineDefs2(void)
 {
 	size_t i = numlines;
 	register line_t *ld = lines;
@@ -1373,8 +1458,9 @@ static void P_LoadLineDefs2(void)
 
 
 
-static inline void P_LoadRawSideDefs(size_t i)
+void P_LoadRawSideDefs(size_t i)
 {
+	rawsides_size = i;
 	numsides = i / sizeof (mapsidedef_t);
 	if (numsides <= 0)
 		I_Error("Level has no sidedefs");
@@ -1387,10 +1473,13 @@ static inline void P_LoadSideDefs(lumpnum_t lumpnum)
 }
 
 
-static void P_LoadRawSideDefs2(void *data)
+void P_LoadRawSideDefs2(void *data)
 {
 	UINT16 i;
 	INT32 num;
+
+	rawsides = Z_Calloc(rawsides_size, PU_STATIC, NULL);
+	M_Memcpy(rawsides, data, rawsides_size);
 
 	for (i = 0; i < numsides; i++)
 	{
@@ -1414,7 +1503,6 @@ static void P_LoadRawSideDefs2(void *data)
 
 		// refined to allow colormaps to work as wall textures if invalid as colormaps
 		// but valid as textures.
-
 		sd->sector = sec = &sectors[SHORT(msd->sector)];
 
 		// Colormaps!
@@ -2858,6 +2946,8 @@ boolean P_SetupLevel(boolean skipprecip)
 
 	P_MakeMapMD5(lastloadedmaplumpnum, &mapmd5);
 
+	rebuild_nodes = false;
+
 	// HACK ALERT: Cache the WAD, get the map data into the tables, free memory.
 	// As it is implemented right now, we're assuming an uncompressed WAD.
 	// (As in, a normal PWAD, not ZWAD or anything. The lump itself can be compressed.)
@@ -2898,6 +2988,14 @@ boolean P_SetupLevel(boolean skipprecip)
 					(fileinfo + ML_REJECT)->name);
 		}
 
+		if (rebuild_nodes)
+		{
+			rebuild_nodes = false;
+			R_NodesBuild();
+			// The blockmap may have been freed in R_NodesBuild, because it has a PU_LEVEL tag
+			loadedbm = P_LoadBlockMap(lastloadedmaplumpnum + ML_BLOCKMAP);
+		}
+
 		// Important: take care of the ordering of the next functions.
 		if (!loadedbm)
 			P_CreateBlockMap(); // Graue 02-29-2004
@@ -2929,6 +3027,14 @@ boolean P_SetupLevel(boolean skipprecip)
 		P_LoadSegs(lastloadedmaplumpnum + ML_SEGS);
 		P_LoadReject(lastloadedmaplumpnum + ML_REJECT);
 
+		if (rebuild_nodes)
+		{
+			rebuild_nodes = false;
+			R_NodesBuild();
+			// The blockmap may have been freed in R_NodesBuild, because it has a PU_LEVEL tag
+			loadedbm = P_LoadBlockMap(lastloadedmaplumpnum + ML_BLOCKMAP);
+		}
+
 		// Important: take care of the ordering of the next functions.
 		if (!loadedbm)
 			P_CreateBlockMap(); // Graue 02-29-2004
@@ -2945,6 +3051,15 @@ boolean P_SetupLevel(boolean skipprecip)
 		P_MapStart();
 		P_PrepareThings(lastloadedmaplumpnum + ML_THINGS);
 	}
+
+	// Free raw level data
+	Z_Free(rawvertexes);
+	Z_Free(rawsectors);
+	Z_Free(rawsides);
+	Z_Free(rawlines);
+	Z_Free(rawsubsectors);
+	Z_Free(rawnodes);
+	Z_Free(rawsegs);
 
 #ifdef ESLOPE
 	P_ResetDynamicSlopes();

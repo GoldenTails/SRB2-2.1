@@ -270,6 +270,14 @@ ifdef NO_IPV6
 endif
 endif
 
+ifdef NOBSP
+	OPTS+=-DNOBSP
+else
+	OPTS+=-DNODESBUILDER
+	OBJS+=$(OBJDIR)/bsp_analyze.o $(OBJDIR)/bsp_blockmap.o $(OBJDIR)/bsp_main.o \
+		 $(OBJDIR)/bsp_level.o $(OBJDIR)/bsp_node.o $(OBJDIR)/bsp_seg.o $(OBJDIR)/bsp_util.o
+endif
+
 ifdef NOHW
 	OPTS+=-DNOHW
 else
@@ -761,6 +769,9 @@ $(OBJDIR)/depend.dep:
 	-$(MKDIR) $(OBJDIR)
 	$(CC) $(CFLAGS) -MM *.c > $(OBJDIR)/depend.ped
 	$(CC) $(CFLAGS) -MM $(INTERFACE)/*.c >> $(OBJDIR)/depend.ped
+ifndef NOBSP
+	$(CC) $(CFLAGS) -MM bsp/*.c >> $(OBJDIR)/depend.ped
+endif
 ifndef NOHW
 	$(CC) $(CFLAGS) -MM hardware/*.c >> $(OBJDIR)/depend.ped
 endif
@@ -803,6 +814,9 @@ ifdef MACOSX
 $(OBJDIR)/%.o: sdl/macosx/%.c
 	$(CC) $(CFLAGS) $(WFLAGS) -c $< -o $@
 endif
+
+$(OBJDIR)/%.o: bsp/%.c
+	$(CC) $(CFLAGS) $(WFLAGS) -c $< -o $@
 
 $(OBJDIR)/%.o: hardware/%.c
 	$(CC) $(CFLAGS) $(WFLAGS) -c $< -o $@

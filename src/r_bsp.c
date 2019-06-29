@@ -16,10 +16,23 @@
 #include "r_local.h"
 #include "r_state.h"
 
+#include "i_system.h"
+
 #include "r_splats.h"
 #include "p_local.h" // camera
+#include "p_setup.h"
 #include "p_slopes.h"
 #include "z_zone.h" // Check R_Prep3DFloors
+#include "w_wad.h"
+
+#ifdef HAVE_BLUA
+#include "lua_script.h"
+#include "lua_hook.h"
+#endif
+
+#ifdef NODESBUILDER
+#include "bsp/bsp_main.h"
+#endif
 
 seg_t *curline;
 side_t *sidedef;
@@ -1409,4 +1422,35 @@ void R_RenderBSPNode(INT32 bspnum)
 	}
 
 	R_Subsector(bspnum == -1 ? 0 : bspnum & ~NF_SUBSECTOR);
+}
+
+//
+// Nodesbuilding
+//
+
+void R_NodesBuild(void)
+{
+#ifndef NODESBUILDER
+	I_Error("R_NodesBuild: this build lacks nodesbuilding support");
+#else
+	tic_t rebuild_tic = I_GetTime();
+
+	// Free level memory
+	Z_FreeTags(PU_LEVEL, PU_PURGELEVEL - 1);
+	R_ClearColormaps();
+
+	// Invoke GLBSP
+	GLBSP_HandleLevel();
+	CONS_Debug(DBG_SETUP, "GLBSP_HandleLevel(): took %02i.%02i seconds\n", G_TicsToSeconds(I_GetTime()-rebuild_tic), G_TicsToCentiseconds(I_GetTime()-rebuild_tic));
+
+	// Load the new level!
+	P_LoadRawVertexes((UINT8 *)builtvertexes, numbuiltvertexes * sizeof(mapvertex_t));
+	P_LoadRawSectors((UINT8 *)builtsectors, numbuiltsectors * sizeof(mapsector_t));
+	P_LoadRawSideDefs(numbuiltsides * sizeof(mapsidedef_t));
+	P_LoadRawLineDefs((UINT8 *)builtlines, numbuiltlines * sizeof(maplinedef_t));
+	P_LoadRawSideDefs2((UINT8 *)builtsides);
+	P_LoadRawSubsectors((UINT8 *)builtsubsectors, numbuiltsubsectors * sizeof(mapsubsector_t));
+	P_LoadRawNodes((UINT8 *)builtnodes, numbuiltnodes * sizeof(mapnode_t));
+	P_LoadRawSegs((UINT8 *)builtsegs, numbuiltsegs * sizeof(mapseg_t));
+#endif // NODESBUILDER
 }

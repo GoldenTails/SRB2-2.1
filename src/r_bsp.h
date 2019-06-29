@@ -34,6 +34,7 @@ extern drawseg_t *ds_p;
 extern INT32 doorclosed;
 
 // BSP?
+void R_NodesBuild(void);
 void R_ClearClipSegs(void);
 void R_PortalClearClipSegs(INT32 start, INT32 end);
 void R_ClearDrawSegs(void);

@@ -76,4 +76,42 @@ UINT8 P_GetGrade(UINT32 pscore, INT16 map, UINT8 mare);
 UINT8 P_HasGrades(INT16 map, UINT8 mare);
 UINT32 P_GetScoreForGrade(INT16 map, UINT8 mare, UINT8 grade);
 
+// Nodesbuilding
+void P_LoadRawVertexes(UINT8 *data, size_t i);
+void P_LoadRawSectors(UINT8 *data, size_t i);
+void P_LoadRawSideDefs(size_t i);
+void P_LoadRawLineDefs(UINT8 *data, size_t i);
+void P_LoadLineDefs2(void);
+void P_LoadRawSideDefs2(void *data);
+void P_LoadRawSubsectors(void *data, size_t i);
+void P_LoadRawNodes(UINT8 *data, size_t i);
+void P_LoadRawSegs(UINT8 *data, size_t i);
+
+extern mapvertex_t *rawvertexes;
+extern maplinedef_t *rawlines;
+extern mapsector_t *rawsectors;
+extern mapsidedef_t *rawsides;
+extern mapsubsector_t *rawsubsectors;
+extern mapnode_t *rawnodes;
+extern mapseg_t *rawsegs;
+
+extern size_t rawvertexes_size, rawlines_size, rawsectors_size, rawsides_size;
+extern size_t rawsubsectors_size, rawnodes_size, rawsegs_size;
+
+extern mapvertex_t *builtvertexes;
+extern maplinedef_t *builtlines;
+extern mapsector_t *builtsectors;
+extern mapsidedef_t *builtsides;
+extern mapsubsector_t *builtsubsectors;
+extern mapnode_t *builtnodes;
+extern mapseg_t *builtsegs;
+
+extern size_t numbuiltvertexes;
+extern size_t numbuiltsectors;
+extern size_t numbuiltsides;
+extern size_t numbuiltlines;
+extern size_t numbuiltsegs;
+extern size_t numbuiltsubsectors;
+extern size_t numbuiltnodes;
+
 #endif
