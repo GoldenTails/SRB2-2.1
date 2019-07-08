@@ -140,7 +140,7 @@ typedef struct vissprite_s
 	lighttable_t *colormap; // for color translation and shadow draw
 	                        // maxbright frames as well
 
-	UINT8 transmap;	// Jimita: True-color
+	UINT8 transmap;
 
 	INT32 mobjflags;
 
@@ -180,7 +180,7 @@ typedef struct drawnode_s
 } drawnode_t;
 
 extern INT32 numskins;
-extern skin_t skins[MAXSKINS + 1];
+extern skin_t skins[MAXSKINS];
 
 void SetPlayerSkin(INT32 playernum,const char *skinname);
 void SetPlayerSkinByNum(INT32 playernum,INT32 skinnum); // Tails 03-16-2002

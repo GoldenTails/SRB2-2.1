@@ -70,7 +70,6 @@ void (*tiltedsplatfunc)(void); // tilted splat
 void (*tiltedtransspanfunc)(void); // tilted translucent span
 #endif
 
-// Jimita (27-12-2018)
 boolean vfx_translucency;
 boolean vfx_colormaps;
 boolean vfx_water;
@@ -148,7 +147,6 @@ void SCR_SetMode(void)
 	tiltedtransspanfunc = R_DrawTiltedTranslucentSpan_32;
 #endif
 
-	// Jimita (27-12-2018)
 	fogcolfunc = R_DrawFogColumn_32;
 	blendcolfunc = R_DrawBlendColumn_32;
 

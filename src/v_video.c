@@ -25,13 +25,12 @@
 #include "m_misc.h"
 #include "m_random.h"
 #include "doomstat.h"
-#include "st_stuff.h"	// Jimita: st_palette
+#include "st_stuff.h"
 
 #ifdef HWRENDER
 #include "hardware/hw_glob.h"
 #endif
 
-// Jimita
 // screen_main = main display window
 // screen_altblit = back screen, alternative blitting
 // screen_sshotbuffer = screenshot buffer, gif movie buffer
@@ -288,38 +287,17 @@ void VID_BlitLinearScreen(UINT32 *srcptr, UINT32 *destptr, INT32 width, INT32 he
 	M_Memcpy(destptr, srcptr, (width*4) * height);
 }
 
-// Jimita: True-color
-UINT32 V_GetTrueColor(INT32 c)
+/*UINT32 V_GetTrueColor(INT32 c)
 {
 	RGBA_t rgba = (st_palette > 0) ? V_GetColorPal(c,st_palette) : V_GetColor(c);
 	return rgba.rgba;
-}
+}*/
 
-// Jimita: True-color
 UINT32 V_BlendTrueColor(UINT32 bg, UINT32 fg, UINT8 alpha)
 {
 	return (!alpha)?bg:((alpha==255)?fg:0xFF000000|(((((bg>>16)&0xff)*(0xff-alpha))+(((fg>>16)&0xff)*alpha))>>8)<<16|(((((bg>>8)&0xff)*(0xff-alpha))+(((fg>>8)&0xff)*alpha))>>8)<<8|((((bg&0xff)*(0xff-alpha))+((fg&0xff)*alpha))>>8));
 }
 
-// Jimita: True-color
-void V_DrawPixelTrueColor(UINT32 *dest, UINT32 rgb_color)
-{
-	*dest = rgb_color;
-}
-
-// Jimita: True-color
-UINT32 V_TrueColormapRGBA(INT32 c)
-{
-	return dc_truecolormap[c];
-}
-
-// Jimita: True-color
-UINT32 V_TrueColormapRGBA_DS(INT32 c)
-{
-	return ds_truecolormap[c];
-}
-
-// Jimita: True-color
 UINT8 V_AlphaTrans(INT32 num)
 {
 	switch (num)
@@ -437,7 +415,6 @@ void V_DrawFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, INT32 scrn, patch_t 
 	if (scrn & V_SPLITSCREEN)
 		y>>=1;
 
-	// Jimita
 	screen = screen_main;
 	if ((scrn&V_PARAMMASK) == 1)
 		screen = screen_altblit;
@@ -540,12 +517,11 @@ void V_DrawFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, INT32 scrn, patch_t 
 			{
 				if (dest >= screen) // don't draw off the top of the screen (CRASH PREVENTION)
 				{
-					// Jimita: True-color
 					UINT32 pixel = source[ofs>>FRACBITS];
 					if (colormap) pixel = colormap[pixel];									// apply colormap
 					pixel = V_GetTrueColor(pixel);											// convert to truecolor
 					if (alphalevel) pixel = V_BlendTrueColor(*dest, pixel, alphalevel);		// apply alpha compositing
-					V_DrawPixelTrueColor(dest, pixel);
+					*dest = pixel;
 				}
 				dest += vid.width;
 			}
@@ -585,7 +561,6 @@ void V_DrawCroppedPatch(fixed_t x, fixed_t y, fixed_t pscale, INT32 scrn, patch_
 	y -= FixedMul(SHORT(patch->topoffset)<<FRACBITS, pscale);
 	x -= FixedMul(SHORT(patch->leftoffset)<<FRACBITS, pscale);
 
-	// Jimita
 	screen = screen_main;
 	if ((scrn&V_PARAMMASK) == 1)
 		screen = screen_altblit;
@@ -660,8 +635,7 @@ void V_DrawCroppedPatch(fixed_t x, fixed_t y, fixed_t pscale, INT32 scrn, patch_
 			for (ofs = sy<<FRACBITS; dest < deststop && (ofs>>FRACBITS) < column->length && (ofs>>FRACBITS) < h; ofs += rowfrac)
 			{
 				if (dest >= screen) // don't draw off the top of the screen (CRASH PREVENTION)
-					// Jimita: True-color
-					V_DrawPixelTrueColor(dest, V_GetTrueColor(source[ofs>>FRACBITS]));
+					*dest = V_GetTrueColor(source[ofs>>FRACBITS]);
 				dest += vid.width;
 			}
 			column = (const column_t *)((const UINT8 *)column + column->length + 4);
@@ -723,8 +697,6 @@ void V_DrawFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 {
 	UINT32 *dest;
 	const UINT32 *deststop;
-
-	// Jimita: True-color
 	int count = w, line = 0;
 	UINT32 rgb_color = V_GetTrueColor(c);
 
@@ -804,7 +776,7 @@ void V_DrawFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 		line = 0;
 		while (count > 0)
 		{
-			V_DrawPixelTrueColor((dest+line), rgb_color);
+			*(dest+line) = rgb_color;
 			count--; line++;
 		}
 	}
@@ -877,8 +849,6 @@ void V_DrawFillConsoleMap(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 {
 	UINT32 *dest;
 	const UINT32 *deststop;
-
-	// Jimita: True-color
 	int count = w, line = 0;
 	UINT8 palindex = V_GetSWConsBackColor();
 
@@ -965,7 +935,7 @@ void V_DrawFillConsoleMap(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 		line = 0;
 		while (count > 0)
 		{
-			V_DrawPixelTrueColor((dest+line), V_BlendTrueColor(*(dest+line),V_GetTrueColor(palindex),128));
+			*(dest+line) = V_BlendTrueColor(*(dest+line),V_GetTrueColor(palindex),128);
 			count--; line++;
 		}
 	}
@@ -1103,7 +1073,7 @@ void V_DrawFadeScreen(void)
 	// heavily simplified -- we don't need to know x or y
 	// position when we're doing a full screen fade
 	for (; buf < deststop; ++buf)
-		V_DrawPixelTrueColor(buf, V_BlendTrueColor(*buf,0,128));
+		*buf = V_BlendTrueColor(*buf,0,128);
 }
 
 // Simple translucency with one color, over a set number of lines starting from the top.
@@ -1131,7 +1101,7 @@ void V_DrawFadeConsBack(INT32 plines)
 	// just the stop position
 	deststop = screen_main + vid.width * min(plines, vid.height);
 	for (buf = screen_main; buf < deststop; ++buf)
-		V_DrawPixelTrueColor(buf, V_BlendTrueColor(*buf,V_GetTrueColor(palindex),128));
+		*buf = V_BlendTrueColor(*buf,V_GetTrueColor(palindex),128);
 }
 
 // Gets string colormap, used for 0x80 color codes
@@ -2183,15 +2153,14 @@ void V_Init(void)
 	if (rendermode != render_soft)
 		return; // be sure to cause a NULL read/write error so we detect it, in case of..
 
-	// Jimita
-	#define NEWSCREEN Z_Malloc(screensize, PU_STATIC, NULL)
+#define NEWSCREEN Z_Malloc(screensize, PU_STATIC, NULL)
 	screen_main			= NEWSCREEN;
 	screen_altblit		= NEWSCREEN;
 	screen_sshotbuffer 	= NEWSCREEN;
 	screen_fadestart 	= NEWSCREEN;
 	screen_fadeend 		= NEWSCREEN;
 	screen_postimage  	= NEWSCREEN;
-	#undef NEWSCREEN
+#undef NEWSCREEN
 
 	if (base)
 		screen_main = base;

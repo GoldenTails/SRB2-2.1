@@ -48,7 +48,6 @@ extern size_t validcount, linecount, loopcount, framecount;
 extern lighttable_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
 extern lighttable_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
 
-// Jimita: True-color
 extern lighttable32_t *scalelight_tc[LIGHTLEVELS][MAXLIGHTSCALE];
 extern lighttable32_t *zlight_tc[LIGHTLEVELS][MAXLIGHTZ];
 
@@ -84,7 +83,6 @@ extern consvar_t cv_drawdist, cv_drawdist_nights, cv_drawdist_precip, cv_precipd
 extern consvar_t cv_skybox;
 extern consvar_t cv_tailspickup;
 
-// Jimita: True-color
 extern consvar_t cv_truecolormaps;
 extern consvar_t cv_translucency;
 

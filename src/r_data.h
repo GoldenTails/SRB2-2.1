@@ -21,7 +21,6 @@
 #pragma interface
 #endif
 
-// Jimita
 UINT8 NearestColor(UINT8 r, UINT8 g, UINT8 b);
 
 // moved here for r_sky.c (texpatch_t is used)
@@ -87,8 +86,6 @@ lumpnum_t R_GetFlatNumForName(const char *name);
 void R_ClearTextureNumCache(boolean btell);
 INT32 R_TextureNumForName(const char *name);
 INT32 R_CheckTextureNumForName(const char *name);
-
-// Jimita: True-color
 void R_InitColormapsTC(UINT8 palindex);
 void R_SetTrueColormap(UINT32 *colormap);
 void R_SetTrueColormapDS(UINT32 *colormap);

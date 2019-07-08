@@ -69,9 +69,9 @@ void R_DrawColumn_32(void)
 				//  using a lighting/special effects LUT.
 				// heightmask is the Tutti-Frutti fix
 				if (dc_truecolormap)
-					V_DrawPixelTrueColor(dest, V_TrueColormapRGBA(source[frac>>FRACBITS]));
+					*dest = V_TrueColormapRGBA(source[frac>>FRACBITS]);
 				else
-					V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[source[frac>>FRACBITS]]));
+					*dest = V_GetTrueColor(colormap[source[frac>>FRACBITS]]);
 				dest += vid.width;
 
 				// Avoid overflow.
@@ -89,26 +89,26 @@ void R_DrawColumn_32(void)
 			while ((count -= 2) >= 0) // texture height is a power of 2
 			{
 				if (dc_truecolormap)
-					V_DrawPixelTrueColor(dest, V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]));
+					*dest = V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]);
 				else
-					V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[source[(frac>>FRACBITS) & heightmask]]));
+					*dest = V_GetTrueColor(colormap[source[(frac>>FRACBITS) & heightmask]]);
 
 				dest += vid.width;
 				frac += fracstep;
 
 				if (dc_truecolormap)
-					V_DrawPixelTrueColor(dest, V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]));
+					*dest = V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]);
 				else
-					V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[source[(frac>>FRACBITS) & heightmask]]));
+					*dest = V_GetTrueColor(colormap[source[(frac>>FRACBITS) & heightmask]]);
 				dest += vid.width;
 				frac += fracstep;
 			}
 			if (count & 1)
 			{
 				if (dc_truecolormap)
-					V_DrawPixelTrueColor(dest, V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]));
+					*dest = V_TrueColormapRGBA(source[(frac>>FRACBITS) & heightmask]);
 				else
-					V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[source[(frac>>FRACBITS) & heightmask]]));
+					*dest = V_GetTrueColor(colormap[source[(frac>>FRACBITS) & heightmask]]);
 			}
 		}
 	}
@@ -166,9 +166,9 @@ void R_Draw2sMultiPatchColumn_32(void)
 				if (val != TRANSPARENTPIXEL)
 				{
 					if (dc_truecolormap)
-						V_DrawPixelTrueColor(dest, V_TrueColormapRGBA(val));
+						*dest = V_TrueColormapRGBA(val);
 					else
-						V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[val]));
+						*dest = V_GetTrueColor(colormap[val]);
 				}
 				dest += vid.width;
 
@@ -190,9 +190,9 @@ void R_Draw2sMultiPatchColumn_32(void)
 				if (val != TRANSPARENTPIXEL)
 				{
 					if (dc_truecolormap)
-						V_DrawPixelTrueColor(dest, V_TrueColormapRGBA(val));
+						*dest = V_TrueColormapRGBA(val);
 					else
-						V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[val]));
+						*dest = V_GetTrueColor(colormap[val]);
 				}
 				dest += vid.width;
 				frac += fracstep;
@@ -201,9 +201,9 @@ void R_Draw2sMultiPatchColumn_32(void)
 				if (val != TRANSPARENTPIXEL)
 				{
 					if (dc_truecolormap)
-						V_DrawPixelTrueColor(dest, V_TrueColormapRGBA(val));
+						*dest = V_TrueColormapRGBA(val);
 					else
-						V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[val]));
+						*dest = V_GetTrueColor(colormap[val]);
 				}
 				dest += vid.width;
 				frac += fracstep;
@@ -214,9 +214,9 @@ void R_Draw2sMultiPatchColumn_32(void)
 				if (val != TRANSPARENTPIXEL)
 				{
 					if (dc_truecolormap)
-						V_DrawPixelTrueColor(dest, V_TrueColormapRGBA(val));
+						*dest = V_TrueColormapRGBA(val);
 					else
-						V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[val]));
+						*dest = V_GetTrueColor(colormap[val]);
 				}
 			}
 		}
@@ -275,9 +275,9 @@ void R_Draw2sMultiPatchTranslucentColumn_32(void)
 				if (val != TRANSPARENTPIXEL)
 				{
 					if (dc_truecolormap)
-						V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA(val), dc_transmap));
+						*dest = V_BlendTrueColor(*dest, V_TrueColormapRGBA(val), dc_transmap);
 					else
-						V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), dc_transmap));
+						*dest = V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), dc_transmap);
 				}
 
 				dest += vid.width;
@@ -300,9 +300,9 @@ void R_Draw2sMultiPatchTranslucentColumn_32(void)
 				if (val != TRANSPARENTPIXEL)
 				{
 					if (dc_truecolormap)
-						V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA(val), dc_transmap));
+						*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(val), dc_transmap));
 					else
-						V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), dc_transmap));
+						*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), dc_transmap));
 				}
 				dest += vid.width;
 				frac += fracstep;
@@ -311,9 +311,9 @@ void R_Draw2sMultiPatchTranslucentColumn_32(void)
 				if (val != TRANSPARENTPIXEL)
 				{
 					if (dc_truecolormap)
-						V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA(val), dc_transmap));
+						*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(val), dc_transmap));
 					else
-						V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), dc_transmap));
+						*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), dc_transmap));
 				}
 				dest += vid.width;
 				frac += fracstep;
@@ -324,9 +324,9 @@ void R_Draw2sMultiPatchTranslucentColumn_32(void)
 				if (val != TRANSPARENTPIXEL)
 				{
 					if (dc_truecolormap)
-						V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA(val), dc_transmap));
+						*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(val), dc_transmap));
 					else
-						V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), dc_transmap));
+						*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), dc_transmap));
 				}
 			}
 		}
@@ -383,9 +383,9 @@ void R_DrawTranslucentColumn_32(void)
 				// using a lighting/special effects LUT.
 				// heightmask is the Tutti-Frutti fix
 				if (dc_truecolormap)
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[frac>>FRACBITS]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[frac>>FRACBITS]), dc_transmap));
 				else
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[frac>>FRACBITS]]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[frac>>FRACBITS]]), dc_transmap));
 				dest += vid.width;
 				if ((frac += fracstep) >= heightmask)
 					frac -= heightmask;
@@ -397,25 +397,25 @@ void R_DrawTranslucentColumn_32(void)
 			while ((count -= 2) >= 0) // texture height is a power of 2
 			{
 				if (dc_truecolormap)
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
 				else
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
 				dest += vid.width;
 				frac += fracstep;
 
 				if (dc_truecolormap)
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
 				else
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
 				dest += vid.width;
 				frac += fracstep;
 			}
 			if (count & 1)
 			{
 				if (dc_truecolormap)
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(source[(frac>>FRACBITS)&heightmask]), dc_transmap));
 				else
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
 			}
 		}
 	}
@@ -466,9 +466,9 @@ void R_DrawTranslatedTranslucentColumn_32(void)
 				//  using a lighting/special effects LUT.
 				// heightmask is the Tutti-Frutti fix
 				if (dc_truecolormap)
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[frac>>FRACBITS]]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[frac>>FRACBITS]]), dc_transmap));
 				else
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(dc_colormap[dc_translation[dc_source[frac>>FRACBITS]]]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(dc_colormap[dc_translation[dc_source[frac>>FRACBITS]]]), dc_transmap));
 
 				dest += vid.width;
 				if ((frac += fracstep) >= heightmask)
@@ -481,25 +481,25 @@ void R_DrawTranslatedTranslucentColumn_32(void)
 			while ((count -= 2) >= 0) // texture height is a power of 2
 			{
 				if (dc_truecolormap)
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
 				else
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(dc_colormap[dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(dc_colormap[dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]]), dc_transmap));
 				dest += vid.width;
 				frac += fracstep;
 
 				if (dc_truecolormap)
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
 				else
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(dc_colormap[dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(dc_colormap[dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]]), dc_transmap));
 				dest += vid.width;
 				frac += fracstep;
 			}
 			if (count & 1)
 			{
 				if (dc_truecolormap)
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA(dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]), dc_transmap));
 				else
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(dc_colormap[dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]]), dc_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(dc_colormap[dc_translation[dc_source[(frac>>FRACBITS)&heightmask]]]), dc_transmap));
 			}
 		}
 	}
@@ -539,9 +539,9 @@ void R_DrawTranslatedColumn_32(void)
 		// Thus the "green" ramp of the player 0 sprite
 		//  is mapped to gray, red, black/indigo.
 		if (dc_truecolormap)
-			V_DrawPixelTrueColor(dest, V_TrueColormapRGBA(dc_translation[dc_source[frac>>FRACBITS]]));
+			*dest = (V_TrueColormapRGBA(dc_translation[dc_source[frac>>FRACBITS]]));
 		else
-			V_DrawPixelTrueColor(dest, V_GetTrueColor(dc_colormap[dc_translation[dc_source[frac>>FRACBITS]]]));
+			*dest = (V_GetTrueColor(dc_colormap[dc_translation[dc_source[frac>>FRACBITS]]]));
 
 		dest += vid.width;
 		frac += fracstep;
@@ -559,7 +559,7 @@ void R_DrawFogSpan_32(void)
 
 	while (count >= 4)
 	{
-		#define FOG(i) V_DrawPixelTrueColor(dest+i, V_BlendTrueColor(*(dest+i), 0xFF000000, ((ds_foglight/256)*8)));
+		#define FOG(i) *(dest+i) = (V_BlendTrueColor(*(dest+i), 0xFF000000, ((ds_foglight/256)*8)));
 		FOG(0)
 		FOG(1)
 		FOG(2)
@@ -572,7 +572,7 @@ void R_DrawFogSpan_32(void)
 
 	while (count--)
 	{
-		V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, 0xFF000000, ((ds_foglight/256)*8)));
+		*dest = (V_BlendTrueColor(*dest, 0xFF000000, ((ds_foglight/256)*8)));
 		dest++;
 	}
 }
@@ -598,7 +598,7 @@ void R_DrawFogColumn_32(void)
 	dest = &topleft[dc_yl*vid.width + dc_x];
 	do
 	{
-		V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, 0xFF000000, ((dc_foglight/256)*8)));
+		*dest = (V_BlendTrueColor(*dest, 0xFF000000, ((dc_foglight/256)*8)));
 		dest += vid.width;
 	} while (count--);
 }
@@ -721,9 +721,9 @@ void R_DrawSpan_32(void)
 		// need!
 		#define MAINSPANLOOP(i) \
 		if (ds_truecolormap) \
-			V_DrawPixelTrueColor(&(dest[i]), V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)])); \
+			dest[i] = (V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)])); \
 		else \
-			V_DrawPixelTrueColor(&(dest[i]), V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]])); \
+			dest[i] = (V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]])); \
 		xposition += xstep; \
 		yposition += ystep;
 
@@ -744,9 +744,9 @@ void R_DrawSpan_32(void)
 	while (count-- && dest <= deststop)
 	{
 		if (ds_truecolormap)
-			V_DrawPixelTrueColor(dest++, V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]));
+			*dest++ = (V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]));
 		else
-			V_DrawPixelTrueColor(dest++, V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]));
+			*dest++ = (V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]));
 		xposition += xstep;
 		yposition += ystep;
 	}
@@ -798,9 +798,9 @@ void R_DrawSplat_32(void)
 		if (val != TRANSPARENTPIXEL) \
 		{ \
 			if (ds_truecolormap) \
-				V_DrawPixelTrueColor(&(dest[i]), V_TrueColormapRGBA_DS(val)); \
+				dest[i] = (V_TrueColormapRGBA_DS(val)); \
 			else \
-				V_DrawPixelTrueColor(&(dest[i]), V_GetTrueColor(colormap[val])); \
+				dest[i] = (V_GetTrueColor(colormap[val])); \
 		} \
 		xposition += xstep; \
 		yposition += ystep;
@@ -827,9 +827,9 @@ void R_DrawSplat_32(void)
 		if (val != TRANSPARENTPIXEL)
 		{
 			if (ds_truecolormap)
-				V_DrawPixelTrueColor(dest, V_TrueColormapRGBA_DS(val));
+				*dest = (V_TrueColormapRGBA_DS(val));
 			else
-				V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[val]));
+				*dest = (V_GetTrueColor(colormap[val]));
 		}
 
 		dest++;
@@ -880,9 +880,9 @@ void R_DrawTranslucentSplat_32(void)
 		if (val != TRANSPARENTPIXEL) \
 		{ \
 			if (ds_truecolormap) \
-				V_DrawPixelTrueColor(&(dest[i]), V_BlendTrueColor(dest[i], V_TrueColormapRGBA_DS(val), ds_transmap)); \
+				dest[i] = (V_BlendTrueColor(dest[i], V_TrueColormapRGBA_DS(val), ds_transmap)); \
 			else \
-				V_DrawPixelTrueColor(&(dest[i]), V_BlendTrueColor(dest[i], V_GetTrueColor(colormap[val]), ds_transmap)); \
+				dest[i] = (V_BlendTrueColor(dest[i], V_GetTrueColor(colormap[val]), ds_transmap)); \
 		} \
 		xposition += xstep; \
 		yposition += ystep;
@@ -907,9 +907,9 @@ void R_DrawTranslucentSplat_32(void)
 		if (val != TRANSPARENTPIXEL)
 		{
 			if (ds_truecolormap)
-				V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA_DS(val), ds_transmap));
+				*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA_DS(val), ds_transmap));
 			else
-				V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), ds_transmap));
+				*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[val]), ds_transmap));
 		}
 
 		dest++;
@@ -956,9 +956,9 @@ void R_DrawTranslucentSpan_32(void)
 		// need!
 		#define MAINSPANLOOP(i) \
 		if (ds_truecolormap) \
-			V_DrawPixelTrueColor(&(dest[i]), V_BlendTrueColor(dest[i], V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]), ds_transmap)); \
+			dest[i] = (V_BlendTrueColor(dest[i], V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]), ds_transmap)); \
 		else \
-			V_DrawPixelTrueColor(&(dest[i]), V_BlendTrueColor(dest[i], V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap)); \
+			dest[i] = (V_BlendTrueColor(dest[i], V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap)); \
 		xposition += xstep; \
 		yposition += ystep;
 
@@ -979,9 +979,9 @@ void R_DrawTranslucentSpan_32(void)
 	while (count--)
 	{
 		if (ds_truecolormap)
-			V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]), ds_transmap));
+			*dest = (V_BlendTrueColor(*dest, V_TrueColormapRGBA_DS(source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]), ds_transmap));
 		else
-			V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap));
+			*dest = (V_BlendTrueColor(*dest, V_GetTrueColor(colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap));
 		dest++;
 		xposition += xstep;
 		yposition += ystep;
@@ -1086,10 +1086,10 @@ void R_DrawTiltedSpan_32(void)
 			if (ds_truecolormap)
 			{
 				truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-				V_DrawPixelTrueColor(dest, (truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
+				*dest = ((truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
 			}
 			else
-				V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
+				*dest = (V_GetTrueColor(colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
 
 			ds_x1++;
 			dest++;
@@ -1111,10 +1111,10 @@ void R_DrawTiltedSpan_32(void)
 			if (ds_truecolormap)
 			{
 				truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-				V_DrawPixelTrueColor(dest, (truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
+				*dest = ((truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
 			}
 			else
-				V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
+				*dest = (V_GetTrueColor(colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
 
 			ds_x1++;
 		}
@@ -1141,10 +1141,10 @@ void R_DrawTiltedSpan_32(void)
 				if (ds_truecolormap)
 				{
 					truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-					V_DrawPixelTrueColor(dest, (truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
+					*dest = ((truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
 				}
 				else
-					V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
+					*dest = (V_GetTrueColor(colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]));
 
 				ds_x1++;
 				dest++;
@@ -1229,10 +1229,10 @@ void R_DrawTiltedTranslucentSpan_32(void)
 			if (ds_truecolormap)
 			{
 				truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-				V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, (truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]), ds_transmap));
+				*dest = (V_BlendTrueColor(*dest, (truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]), ds_transmap));
 			}
 			else
-				V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor((colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]])), ds_transmap));
+				*dest = (V_BlendTrueColor(*dest, V_GetTrueColor((colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]])), ds_transmap));
 
 			dest++;
 			u += stepu;
@@ -1253,10 +1253,10 @@ void R_DrawTiltedTranslucentSpan_32(void)
 			if (ds_truecolormap)
 			{
 				truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-				V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, (truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]), ds_transmap));
+				*dest = (V_BlendTrueColor(*dest, (truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]), ds_transmap));
 			}
 			else
-				V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor((colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]])), ds_transmap));
+				*dest = (V_BlendTrueColor(*dest, V_GetTrueColor((colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]])), ds_transmap));
 		}
 		else
 		{
@@ -1280,10 +1280,10 @@ void R_DrawTiltedTranslucentSpan_32(void)
 				if (ds_truecolormap)
 				{
 					truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, (truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]), ds_transmap));
+					*dest = (V_BlendTrueColor(*dest, (truecolormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]]), ds_transmap));
 				}
 				else
-					V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, V_GetTrueColor((colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]])), ds_transmap));
+					*dest = (V_BlendTrueColor(*dest, V_GetTrueColor((colormap[source[((v >> nflatyshift) & nflatmask) | (u >> nflatxshift)]])), ds_transmap));
 
 				dest++;
 				u += stepu;
@@ -1369,10 +1369,10 @@ void R_DrawTiltedSplat_32(void)
 				if (ds_truecolormap)
 				{
 					truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-					V_DrawPixelTrueColor(dest, truecolormap[val]);
+					*dest = (truecolormap[val]);
 				}
 				else
-					V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[val]));
+					*dest = (V_GetTrueColor(colormap[val]));
 			}
 
 			ds_x1++;
@@ -1398,10 +1398,10 @@ void R_DrawTiltedSplat_32(void)
 				if (ds_truecolormap)
 				{
 					truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-					V_DrawPixelTrueColor(dest, truecolormap[val]);
+					*dest = (truecolormap[val]);
 				}
 				else
-					V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[val]));
+					*dest = (V_GetTrueColor(colormap[val]));
 			}
 
 			ds_x1++;
@@ -1432,10 +1432,10 @@ void R_DrawTiltedSplat_32(void)
 					if (ds_truecolormap)
 					{
 						truecolormap = planezlight_tc[tiltlighting[ds_x1]] + (ds_truecolormap - truecolormaps);
-						V_DrawPixelTrueColor(dest, truecolormap[val]);
+						*dest = (truecolormap[val]);
 					}
 					else
-						V_DrawPixelTrueColor(dest, V_GetTrueColor(colormap[val]));
+						*dest = (V_GetTrueColor(colormap[val]));
 				}
 
 				ds_x1++;
@@ -1483,9 +1483,9 @@ void R_DrawTranslucentWaterSpan_32(void)
 		// need!
 		#define MAINSPANLOOP(i) \
 		if (ds_truecolormap) \
-			V_DrawPixelTrueColor(&(dest[i]), V_BlendTrueColor(*dsrc++, (ds_truecolormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap)); \
+			dest[i] = (V_BlendTrueColor(*dsrc++, (ds_truecolormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap)); \
 		else \
-			V_DrawPixelTrueColor(&(dest[i]), V_BlendTrueColor(*dsrc++, V_GetTrueColor(ds_colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap)); \
+			dest[i] = (V_BlendTrueColor(*dsrc++, V_GetTrueColor(ds_colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap)); \
 		xposition += xstep; \
 		yposition += ystep;
 
@@ -1506,16 +1506,15 @@ void R_DrawTranslucentWaterSpan_32(void)
 	while (count--)
 	{
 		if (ds_truecolormap)
-			V_DrawPixelTrueColor(dest++, V_BlendTrueColor(*dsrc++, (ds_truecolormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap));
+			*dest++ = (V_BlendTrueColor(*dsrc++, (ds_truecolormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap));
 		else
-			V_DrawPixelTrueColor(dest++, V_BlendTrueColor(*dsrc++, V_GetTrueColor(ds_colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap));
+			*dest++ = (V_BlendTrueColor(*dsrc++, V_GetTrueColor(ds_colormap[source[((yposition >> nflatyshift) & nflatmask) | (xposition >> nflatxshift)]]), ds_transmap));
 		xposition += xstep;
 		yposition += ystep;
 	}
 }
 #endif
 
-// Jimita (27-12-2018)
 void R_DrawBlendColumn_32(void)
 {
 	UINT32 *dest;
@@ -1533,7 +1532,7 @@ void R_DrawBlendColumn_32(void)
 	dest = &topleft[dc_yl*vid.width + dc_x];
 	do
 	{
-		V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, dc_blendcolor, dc_transmap));
+		*dest = V_BlendTrueColor(*dest, dc_blendcolor, dc_transmap);
 		dest += vid.width;
 	} while (count--);
 }
@@ -1545,7 +1544,7 @@ void R_DrawBlendSpan_32(void)
 
 	while (count >= 4)
 	{
-		#define FOG(i) V_DrawPixelTrueColor(dest+i, V_BlendTrueColor(*(dest+i), ds_blendcolor, ds_transmap));
+		#define FOG(i) *(dest+i) = V_BlendTrueColor(*(dest+i), ds_blendcolor, ds_transmap);
 		FOG(0)
 		FOG(1)
 		FOG(2)
@@ -1558,7 +1557,7 @@ void R_DrawBlendSpan_32(void)
 
 	while (count--)
 	{
-		V_DrawPixelTrueColor(dest, V_BlendTrueColor(*dest, ds_blendcolor, ds_transmap));
+		*dest = V_BlendTrueColor(*dest, ds_blendcolor, ds_transmap);
 		dest++;
 	}
 }

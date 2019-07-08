@@ -97,7 +97,6 @@ TMatrix *RotateZMatrix(angle_t rad);
 
 void M_SetupMemcpy(void);
 
-// Jimita
 void M_Memset32(void *dest, UINT64 value, uintptr_t size);
 
 // counting bits, for weapon ammo code, usually

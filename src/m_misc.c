@@ -30,6 +30,7 @@
 #include "g_game.h"
 #include "m_misc.h"
 #include "hu_stuff.h"
+#include "st_stuff.h"
 #include "v_video.h"
 #include "z_zone.h"
 #include "g_input.h"
@@ -586,7 +587,9 @@ void M_SaveConfig(const char *filename)
 	fclose(f);
 }
 
-
+// ==========================================================================
+//                              SCREENSHOTS
+// ==========================================================================
 #if NUMSCREENS > 2
 static const char *Newsnapshotfile(const char *pathname, const char *ext)
 {
@@ -1209,7 +1212,6 @@ void M_StopMovie(void)
   * \param data     The image data.
   * \param width    Width of the picture.
   * \param height   Height of the picture.
-  * \param palette  Palette of image data
   *  \note if palette is NULL, BGR888 format
   */
 boolean M_SavePNG(const char *filename, void *data, int width, int height)
@@ -1230,8 +1232,7 @@ boolean M_SavePNG(const char *filename, void *data, int width, int height)
 		return false;
 	}
 
-	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL,
-	 PNG_error, PNG_warn);
+	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, PNG_error, PNG_warn);
 	if (!png_ptr)
 	{
 		CONS_Debug(DBG_RENDER, "M_SavePNG: Error on initialize libpng\n");
@@ -1385,9 +1386,8 @@ void M_ScreenShot(void)
 }
 
 /** Takes a screenshot.
-  * The screenshot is saved as "srb2xxxx.pcx" (or "srb2xxxx.tga" in hardware
-  * rendermode) where xxxx is the lowest four-digit number for which a file
-  * does not already exist.
+  * The screenshot is saved as "srb2xxxx.png" where xxxx is the lowest
+  * four-digit number for which a file does not already exist.
   *
   * \sa HWR_ScreenShot
   */
@@ -1401,6 +1401,10 @@ void M_DoScreenShot(void)
 	// Don't take multiple screenshots, obviously
 	takescreenshot = false;
 
+	// how does one take a screenshot without a render system?
+	if (rendermode == render_none)
+		return;
+
 	if (cv_screenshot_option.value == 0)
 		pathname = usehome ? srb2home : srb2path;
 	else if (cv_screenshot_option.value == 1)
@@ -1411,16 +1415,13 @@ void M_DoScreenShot(void)
 		pathname = cv_screenshot_folder.string;
 
 #ifdef USE_PNG
-	if (rendermode != render_none)
-		freename = Newsnapshotfile(pathname,"png");
+	freename = Newsnapshotfile(pathname,"png");
 #else
 	if (rendermode == render_soft)
 		freename = Newsnapshotfile(pathname,"pcx");
-	else if (rendermode != render_none)
+	else if (rendermode == render_opengl)
 		freename = Newsnapshotfile(pathname,"tga");
 #endif
-	else
-		I_Error("Can't take a screenshot without a render system");
 
 	if (rendermode == render_soft)
 	{
@@ -1433,17 +1434,15 @@ void M_DoScreenShot(void)
 
 	// save the pcx file
 #ifdef HWRENDER
-	if (rendermode != render_soft)
+	if (rendermode == render_opengl)
 		ret = HWR_Screenshot(va(pandf,pathname,freename));
 	else
 #endif
-	if (rendermode != render_none)
 	{
 #ifdef USE_PNG
 		ret = M_SavePNG(va(pandf,pathname,freename), linear, vid.width, vid.height);
 #else
-		ret = WritePCXfile(va(pandf,pathname,freename), linear, vid.width, vid.height,
-			W_CacheLumpName(GetPalette(), PU_CACHE));
+		ret = WritePCXfile(va(pandf,pathname,freename), linear, vid.width, vid.height);
 #endif
 	}
 
@@ -1451,14 +1450,14 @@ failure:
 	if (ret)
 	{
 		if (moviemode != MM_SCREENSHOT)
-			CONS_Printf(M_GetText("screen shot %s saved in %s\n"), freename, pathname);
+			CONS_Printf(M_GetText("Screen shot %s saved in %s\n"), freename, pathname);
 	}
 	else
 	{
 		if (freename)
-			CONS_Printf(M_GetText("Couldn't create screen shot %s in %s\n"), freename, pathname);
+			CONS_Alert(CONS_ERROR, M_GetText("Couldn't create screen shot %s in %s\n"), freename, pathname);
 		else
-			CONS_Printf(M_GetText("Couldn't create screen shot (all 10000 slots used!) in %s\n"), pathname);
+			CONS_Alert(CONS_ERROR, M_GetText("Couldn't create screen shot in %s (all 10000 slots used!)\n"), pathname);
 
 		if (moviemode == MM_SCREENSHOT)
 			M_StopMovie();
@@ -2321,7 +2320,6 @@ void M_SetupMemcpy(void)
 		M_Memcpy = mmx_cpy;
 }
 
-// Jimita
 void M_Memset32(void *dest, UINT64 value, uintptr_t size)
 {
 	uintptr_t i;

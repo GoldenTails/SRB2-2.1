@@ -69,7 +69,7 @@ extern fixed_t cachedystep[MAXVIDHEIGHT];
 extern fixed_t basexscale, baseyscale;
 
 extern lighttable_t **planezlight;
-extern lighttable32_t **planezlight_tc;		// Jimita: True-color
+extern lighttable32_t **planezlight_tc;
 
 extern fixed_t *yslope;
 extern lighttable_t **planezlight;

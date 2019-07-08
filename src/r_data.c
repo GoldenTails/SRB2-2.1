@@ -1043,7 +1043,6 @@ static void R_InitSpriteLumps(void)
 	Z_Malloc(max_spritelumps*sizeof(*spritecachedinfo), PU_STATIC, &spritecachedinfo);
 }
 
-// Jimita: True-color
 void R_InitColormapsTC(UINT8 palindex)
 {
 	int color, row, alpha = 255;
@@ -1076,8 +1075,6 @@ static void R_InitColormaps(void)
 	// Init Boom colormaps.
 	R_ClearColormaps();
 	R_InitExtraColormaps();
-
-	// Jimita: True-color
 	R_InitColormapsTC(colormaps[(31*256)+31]);
 }
 
@@ -1097,8 +1094,6 @@ void R_ReInitColormaps(UINT16 num)
 
 	// Init Boom colormaps.
 	R_ClearColormaps();
-
-	// Jimita: True-color
 	R_InitColormapsTC(colormaps[(31*256)+31]);
 }
 
@@ -1155,7 +1150,6 @@ INT32 R_ColormapNumForName(char *name)
 	return (INT32)num_extra_colormaps - 1;
 }
 
-// Jimita: True-color
 void R_SetTrueColormap(UINT32 *colormap)
 {
 	dc_truecolormap = colormap;
@@ -1281,8 +1275,6 @@ INT32 R_CreateColormap(char *p1, char *p2, char *p3)
 	extra_colormaps[mapnum].fadestart = (UINT16)fadestart;
 	extra_colormaps[mapnum].fadeend = (UINT16)fadeend;
 	extra_colormaps[mapnum].fog = fog;
-
-	// Jimita: True-color
 	extra_colormaps[mapnum].tc_rgba = rgb_color|((cb<<16)|(cg<<8)|cr);
 	extra_colormaps[mapnum].tc_fadergba = rgb_color|((llrint(cdestb)<<16)|(llrint(cdestg)<<8)|llrint(cdestr));
 
@@ -1334,8 +1326,6 @@ INT32 R_CreateColormap(char *p1, char *p2, char *p3)
 		// Now allocate memory for the actual colormap array itself!
 		colormap_p = Z_MallocAlign((256 * 34) + 10, PU_LEVEL, NULL, 8);
 		extra_colormaps[mapnum].colormap = (UINT8 *)colormap_p;
-
-		// Jimita: True-color
 		colormap_p32 = Z_MallocAlign(((256 * 34) + 10) * 4, PU_LEVEL, NULL, 32);
 		extra_colormaps[mapnum].truecolormap = (UINT32 *)colormap_p32;
 
@@ -1349,8 +1339,6 @@ INT32 R_CreateColormap(char *p1, char *p2, char *p3)
 
 				*colormap_p = NearestColor((UINT8)RoundUp(map[i][0]), (UINT8)RoundUp(map[i][1]), (UINT8)RoundUp(map[i][2]));
 				colormap_p++;
-
-				// Jimita: True-color
 				rgb_color |= (RoundUp(map[i][2]) & 255) << 16;
 				rgb_color |= (RoundUp(map[i][1]) & 255) << 8;
 				rgb_color |= (RoundUp(map[i][0]) & 255);

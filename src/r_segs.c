@@ -24,8 +24,6 @@
 #include "p_local.h" // Camera...
 #include "p_slopes.h"
 #include "console.h" // con_clipviewtop
-
-// Jimita: True-color
 #include "v_video.h"
 
 // OPTIMIZE: closed two sided lines as single sided
@@ -619,7 +617,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 						if (rlight->extra_colormap)
 						{
 							rlight->rcolormap = rlight->extra_colormap->colormap + (xwalllights[pindex] - colormaps);
-							rlight->tc_rcolormap = rlight->extra_colormap->truecolormap + (xwalllights[pindex] - colormaps);		// Jimita: NOT xwalllights_tc
+							rlight->tc_rcolormap = rlight->extra_colormap->truecolormap + (xwalllights[pindex] - colormaps); // NOT xwalllights_tc
 						}
 						else
 						{
@@ -1216,7 +1214,6 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 							{
 								rlight->rcolormap = pfloor->master->frontsector->extra_colormap->colormap + (xwalllights[pindex] - colormaps);
 								rlight->tc_rcolormap = pfloor->master->frontsector->extra_colormap->truecolormap + (xwalllights[pindex] - colormaps);
-								// Jimita (27-12-2018)
 								if (vfx_translucency)
 								{
 									dc_transmap = 128;
@@ -1329,7 +1326,6 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 			if (pindex >= MAXLIGHTSCALE)
 				pindex = MAXLIGHTSCALE-1;
 
-			// Jimita: True-color
 			{
 				UINT8 *colormap_pointer;
 				dc_colormap = walllights[pindex];
@@ -1347,7 +1343,6 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 					if (pfloor->master->frontsector->extra_colormap)
 					{
 						dc_colormap = pfloor->master->frontsector->extra_colormap->colormap + (colormap_pointer - colormaps);
-						// Jimita (27-12-2018)
 						if (vfx_translucency)
 						{
 							dc_transmap = 128;
