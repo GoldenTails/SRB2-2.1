@@ -575,8 +575,6 @@ static void Impl_HandleWindowEvent(SDL_WindowEvent evt)
 			if (cv_usemouse.value) I_StartupMouse();
 		}
 		//else firsttimeonmouse = SDL_FALSE;
-
-		capslock = !!( SDL_GetModState() & KMOD_CAPS );// in case CL changes
 	}
 	else if (!mousefocus && !kbfocus)
 	{
@@ -934,6 +932,8 @@ void I_StartupMouse(void)
 //
 void I_OsPolling(void)
 {
+	SDL_Keymod mod;
+
 	if (consolevent)
 		I_GetConsoleEvents();
 	if (SDL_WasInit(SDL_INIT_JOYSTICK) == SDL_INIT_JOYSTICK)
@@ -946,6 +946,18 @@ void I_OsPolling(void)
 	I_GetMouseEvents();
 
 	I_GetEvent();
+
+	mod = SDL_GetModState();
+	/* Handle here so that our state is always synched with the system. */
+	shiftdown = ctrldown = altdown = 0;
+	capslock = false;
+	if (mod & KMOD_LSHIFT) shiftdown |= 1;
+	if (mod & KMOD_RSHIFT) shiftdown |= 2;
+	if (mod & KMOD_LCTRL)   ctrldown |= 1;
+	if (mod & KMOD_RCTRL)   ctrldown |= 2;
+	if (mod & KMOD_LALT)     altdown |= 1;
+	if (mod & KMOD_RALT)     altdown |= 2;
+	if (mod & KMOD_CAPS) capslock = true;
 }
 
 //
@@ -979,6 +991,7 @@ void I_UpdateNoBlit(void)
 // from PrBoom's src/SDL/i_video.c
 static inline boolean I_SkipFrame(void)
 {
+#if 0
 	static boolean skip = false;
 
 	if (rendermode != render_soft)
@@ -998,6 +1011,8 @@ static inline boolean I_SkipFrame(void)
 		default:
 			return false;
 	}
+#endif
+	return false;
 }
 
 //
@@ -1459,9 +1474,11 @@ void I_StartupGraphics(void)
 			framebuffer = SDL_TRUE;
 	}
 	if (M_CheckParm("-software"))
-	{
 		rendermode = render_soft;
-	}
+#ifdef HWRENDER
+	else if (M_CheckParm("-opengl"))
+		rendermode = render_opengl;
+#endif
 
 	usesdl2soft = M_CheckParm("-softblit");
 	borderlesswindow = M_CheckParm("-borderless");
@@ -1469,9 +1486,8 @@ void I_StartupGraphics(void)
 	//SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY>>1,SDL_DEFAULT_REPEAT_INTERVAL<<2);
 	VID_Command_ModeList_f();
 #ifdef HWRENDER
-	if (M_CheckParm("-opengl") || rendermode == render_opengl)
+	if (rendermode == render_opengl)
 	{
-		rendermode = render_opengl;
 		HWD.pfnInit             = hwSym("Init",NULL);
 		HWD.pfnFinishUpdate     = NULL;
 		HWD.pfnDraw2DLine       = hwSym("Draw2DLine",NULL);
@@ -1488,7 +1504,6 @@ void I_StartupGraphics(void)
 		HWD.pfnDrawModel        = hwSym("DrawModel",NULL);
 		HWD.pfnCreateModelVBOs  = hwSym("CreateModelVBOs",NULL);
 		HWD.pfnSetTransform     = hwSym("SetTransform",NULL);
-		HWD.pfnGetRenderVersion = hwSym("GetRenderVersion",NULL);
 		HWD.pfnPostImgRedraw    = hwSym("PostImgRedraw",NULL);
 		HWD.pfnFlushScreenTextures=hwSym("FlushScreenTextures",NULL);
 		HWD.pfnStartScreenWipe  = hwSym("StartScreenWipe",NULL);
@@ -1499,7 +1514,6 @@ void I_StartupGraphics(void)
 		HWD.pfnMakeScreenFinalTexture=hwSym("MakeScreenFinalTexture",NULL);
 		HWD.pfnDrawScreenFinalTexture=hwSym("DrawScreenFinalTexture",NULL);
 
-		// jimita
 		HWD.pfnLoadShaders = hwSym("LoadShaders",NULL);
 		HWD.pfnKillShaders = hwSym("KillShaders",NULL);
 		HWD.pfnSetShader = hwSym("SetShader",NULL);
@@ -1508,9 +1522,6 @@ void I_StartupGraphics(void)
 		HWD.pfnLoadCustomShader = hwSym("LoadCustomShader",NULL);
 		HWD.pfnInitCustomShaders = hwSym("InitCustomShaders",NULL);
 
-		// check gl renderer lib
-		if (HWD.pfnGetRenderVersion() != VERSION)
-			I_Error("%s", M_GetText("The version of the renderer doesn't match the version of the executable\nBe sure you have installed SRB2 properly.\n"));
 		if (!HWD.pfnInit()) // load the OpenGL library
 			rendermode = render_soft;
 	}

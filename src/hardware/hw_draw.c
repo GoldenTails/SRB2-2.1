@@ -18,6 +18,7 @@
 #include "../doomdef.h"
 
 #ifdef HWRENDER
+#include "hw_main.h"
 #include "hw_glob.h"
 #include "hw_drv.h"
 
@@ -108,10 +109,10 @@ void HWR_DrawPatch(GLPatch_t *gpatch, INT32 x, INT32 y, INT32 option)
 
 	v[0].z = v[1].z = v[2].z = v[3].z = 1.0f;
 
-	v[0].sow = v[3].sow = 0.0f;
-	v[2].sow = v[1].sow = gpatch->max_s;
-	v[0].tow = v[1].tow = 0.0f;
-	v[2].tow = v[3].tow = gpatch->max_t;
+	v[0].s = v[3].s = 0.0f;
+	v[2].s = v[1].s = gpatch->max_s;
+	v[0].t = v[1].t = 0.0f;
+	v[2].t = v[3].t = gpatch->max_t;
 
 	flags = PF_Translucent|PF_NoDepthTest;
 
@@ -265,17 +266,17 @@ void HWR_DrawFixedPatch(GLPatch_t *gpatch, fixed_t x, fixed_t y, fixed_t pscale,
 
 	if (option & V_FLIP)
 	{
-		v[0].sow = v[3].sow = gpatch->max_s;
-		v[2].sow = v[1].sow = 0.0f;
+		v[0].s = v[3].s = gpatch->max_s;
+		v[2].s = v[1].s = 0.0f;
 	}
 	else
 	{
-		v[0].sow = v[3].sow = 0.0f;
-		v[2].sow = v[1].sow = gpatch->max_s;
+		v[0].s = v[3].s = 0.0f;
+		v[2].s = v[1].s = gpatch->max_s;
 	}
 
-	v[0].tow = v[1].tow = 0.0f;
-	v[2].tow = v[3].tow = gpatch->max_t;
+	v[0].t = v[1].t = 0.0f;
+	v[2].t = v[3].t = gpatch->max_t;
 
 	flags = PF_Translucent|PF_NoDepthTest;
 
@@ -426,10 +427,10 @@ void HWR_DrawCroppedPatch(GLPatch_t *gpatch, fixed_t x, fixed_t y, fixed_t pscal
 
 	v[0].z = v[1].z = v[2].z = v[3].z = 1.0f;
 
-	v[0].sow = v[3].sow = ((sx)/(float)SHORT(gpatch->width) )*gpatch->max_s;
-	v[2].sow = v[1].sow = ((w )/(float)SHORT(gpatch->width) )*gpatch->max_s;
-	v[0].tow = v[1].tow = ((sy)/(float)SHORT(gpatch->height))*gpatch->max_t;
-	v[2].tow = v[3].tow = ((h )/(float)SHORT(gpatch->height))*gpatch->max_t;
+	v[0].s = v[3].s = ((sx)/(float)SHORT(gpatch->width) )*gpatch->max_s;
+	v[2].s = v[1].s = ((w )/(float)SHORT(gpatch->width) )*gpatch->max_s;
+	v[0].t = v[1].t = ((sy)/(float)SHORT(gpatch->height))*gpatch->max_t;
+	v[2].t = v[3].t = ((h )/(float)SHORT(gpatch->height))*gpatch->max_t;
 
 	flags = PF_Translucent|PF_NoDepthTest;
 
@@ -452,41 +453,6 @@ void HWR_DrawCroppedPatch(GLPatch_t *gpatch, fixed_t x, fixed_t y, fixed_t pscal
 	}
 	else
 		HWD.pfnDrawPolygon(NULL, v, 4, flags);
-}
-
-void HWR_DrawPic(INT32 x, INT32 y, lumpnum_t lumpnum)
-{
-	FOutVector      v[4];
-	const GLPatch_t    *patch;
-
-	// make pic ready in hardware cache
-	patch = HWR_GetPic(lumpnum);
-
-//  3--2
-//  | /|
-//  |/ |
-//  0--1
-
-	v[0].x = v[3].x = 2.0f * (float)x/vid.width - 1;
-	v[2].x = v[1].x = 2.0f * (float)(x + patch->width*FIXED_TO_FLOAT(vid.fdupx))/vid.width - 1;
-	v[0].y = v[1].y = 1.0f - 2.0f * (float)y/vid.height;
-	v[2].y = v[3].y = 1.0f - 2.0f * (float)(y + patch->height*FIXED_TO_FLOAT(vid.fdupy))/vid.height;
-
-	v[0].z = v[1].z = v[2].z = v[3].z = 1.0f;
-
-	v[0].sow = v[3].sow =  0;
-	v[2].sow = v[1].sow =  patch->max_s;
-	v[0].tow = v[1].tow =  0;
-	v[2].tow = v[3].tow =  patch->max_t;
-
-
-	//Hurdler: Boris, the same comment as above... but maybe for pics
-	// it not a problem since they don't have any transparent pixel
-	// if I'm right !?
-	// But then, the question is: why not 0 instead of PF_Masked ?
-	// or maybe PF_Environment ??? (like what I said above)
-	// BP: PF_Environment don't change anything ! and 0 is undifined
-	HWD.pfnDrawPolygon(NULL, v, 4, PF_Translucent | PF_NoDepthTest);
 }
 
 // ==========================================================================
@@ -549,10 +515,10 @@ void HWR_DrawFlatFill (INT32 x, INT32 y, INT32 w, INT32 h, lumpnum_t flatlumpnum
 	v[0].z = v[1].z = v[2].z = v[3].z = 1.0f;
 
 	// flat is 64x64 lod and texture offsets are [0.0, 1.0]
-	v[0].sow = v[3].sow = (float)((x & flatflag)/dflatsize);
-	v[2].sow = v[1].sow = (float)(v[0].sow + w/dflatsize);
-	v[0].tow = v[1].tow = (float)((y & flatflag)/dflatsize);
-	v[2].tow = v[3].tow = (float)(v[0].tow + h/dflatsize);
+	v[0].s = v[3].s = (float)((x & flatflag)/dflatsize);
+	v[2].s = v[1].s = (float)(v[0].s + w/dflatsize);
+	v[0].t = v[1].t = (float)((y & flatflag)/dflatsize);
+	v[2].t = v[3].t = (float)(v[0].t + h/dflatsize);
 
 	HWR_GetFlat(flatlumpnum);
 
@@ -588,10 +554,10 @@ void HWR_FadeScreenMenuBack(UINT32 color, INT32 height)
 	v[2].y = v[3].y =  1.0f;
 	v[0].z = v[1].z = v[2].z = v[3].z = 1.0f;
 
-	v[0].sow = v[3].sow = 0.0f;
-	v[2].sow = v[1].sow = 1.0f;
-	v[0].tow = v[1].tow = 1.0f;
-	v[2].tow = v[3].tow = 0.0f;
+	v[0].s = v[3].s = 0.0f;
+	v[2].s = v[1].s = 1.0f;
+	v[0].t = v[1].t = 1.0f;
+	v[2].t = v[3].t = 0.0f;
 
 	Surf.PolyColor.rgba = UINT2RGBA(color);
 	Surf.PolyColor.s.alpha = (UINT8)((0xff/2) * ((float)height / vid.height)); //calum: varies console alpha
@@ -614,10 +580,10 @@ void HWR_DrawConsoleBack(UINT32 color, INT32 height)
 	v[2].y = v[3].y =  1.0f;
 	v[0].z = v[1].z = v[2].z = v[3].z = 1.0f;
 
-	v[0].sow = v[3].sow = 0.0f;
-	v[2].sow = v[1].sow = 1.0f;
-	v[0].tow = v[1].tow = 1.0f;
-	v[2].tow = v[3].tow = 0.0f;
+	v[0].s = v[3].s = 0.0f;
+	v[2].s = v[1].s = 1.0f;
+	v[0].t = v[1].t = 1.0f;
+	v[2].t = v[3].t = 0.0f;
 
 	Surf.PolyColor.rgba = UINT2RGBA(color);
 	Surf.PolyColor.s.alpha = 0x80;
@@ -869,14 +835,12 @@ void HWR_DrawConsoleFill(INT32 x, INT32 y, INT32 w, INT32 h, UINT32 color, INT32
 	v[0].y = v[1].y = fy;
 	v[2].y = v[3].y = fy - fh;
 
-	//Hurdler: do we still use this argb color? if not, we should remove it
-	v[0].argb = v[1].argb = v[2].argb = v[3].argb = 0xff00ff00; //;
 	v[0].z = v[1].z = v[2].z = v[3].z = 1.0f;
 
-	v[0].sow = v[3].sow = 0.0f;
-	v[2].sow = v[1].sow = 1.0f;
-	v[0].tow = v[1].tow = 0.0f;
-	v[2].tow = v[3].tow = 1.0f;
+	v[0].s = v[3].s = 0.0f;
+	v[2].s = v[1].s = 1.0f;
+	v[0].t = v[1].t = 0.0f;
+	v[2].t = v[3].t = 1.0f;
 
 	Surf.PolyColor.rgba = UINT2RGBA(color);
 	Surf.PolyColor.s.alpha = 0x80;
@@ -974,14 +938,12 @@ void HWR_DrawFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 color)
 	v[0].y = v[1].y = fy;
 	v[2].y = v[3].y = fy - fh;
 
-	//Hurdler: do we still use this argb color? if not, we should remove it
-	v[0].argb = v[1].argb = v[2].argb = v[3].argb = 0xff00ff00; //;
 	v[0].z = v[1].z = v[2].z = v[3].z = 1.0f;
 
-	v[0].sow = v[3].sow = 0.0f;
-	v[2].sow = v[1].sow = 1.0f;
-	v[0].tow = v[1].tow = 0.0f;
-	v[2].tow = v[3].tow = 1.0f;
+	v[0].s = v[3].s = 0.0f;
+	v[2].s = v[1].s = 1.0f;
+	v[0].t = v[1].t = 0.0f;
+	v[2].t = v[3].t = 1.0f;
 
 	Surf.PolyColor = V_GetColor(color);
 
@@ -1071,21 +1033,24 @@ UINT8 *HWR_GetScreenshot(void)
 	return buf;
 }
 
-boolean HWR_Screenshot(const char *lbmname)
+boolean HWR_Screenshot(const char *pathname)
 {
 	boolean ret;
 	UINT8 *buf = malloc(vid.width * vid.height * 3 * sizeof (*buf));
 
 	if (!buf)
+	{
+		CONS_Debug(DBG_RENDER, "HWR_Screenshot: Failed to allocate memory\n");
 		return false;
+	}
 
 	// returns 24bit 888 RGB
 	HWD.pfnReadRect(0, 0, vid.width, vid.height, vid.width * 3, (void *)buf);
 
 #ifdef USE_PNG
-	ret = M_SavePNG(lbmname, buf, vid.width, vid.height, NULL);
+	ret = M_SavePNG(pathname, buf, vid.width, vid.height, NULL);
 #else
-	ret = saveTGA(lbmname, buf, vid.width, vid.height);
+	ret = saveTGA(pathname, buf, vid.width, vid.height);
 #endif
 	free(buf);
 	return ret;

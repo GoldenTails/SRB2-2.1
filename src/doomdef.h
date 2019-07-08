@@ -150,9 +150,9 @@ extern FILE *logstream;
 // we use comprevision and compbranch instead.
 #else
 #define VERSION    201 // Game version
-#define SUBVERSION 23  // more precise version number
-#define VERSIONSTRING "v2.1.23"
-#define VERSIONSTRINGW L"v2.1.23"
+#define SUBVERSION 24  // more precise version number
+#define VERSIONSTRING "v2.1.24"
+#define VERSIONSTRINGW L"v2.1.24"
 // Hey! If you change this, add 1 to the MODVERSION below!
 // Otherwise we can't force updates!
 #endif
@@ -217,7 +217,7 @@ extern FILE *logstream;
 // it's only for detection of the version the player is using so the MS can alert them of an update.
 // Only set it higher, not lower, obviously.
 // Note that we use this to help keep internal testing in check; this is why v2.1.0 is not version "1".
-#define MODVERSION 28
+#define MODVERSION 29
 
 // To version config.cfg, MAJOREXECVERSION is set equal to MODVERSION automatically.
 // Increment MINOREXECVERSION whenever a config change is needed that does not correspond
@@ -304,6 +304,8 @@ typedef enum
 #define TICRATE 35
 #define NEWTICRATERATIO 1 // try 4 for 140 fps :)
 #define NEWTICRATE (TICRATE*NEWTICRATERATIO)
+
+#define MUSICRATE 1000 // sound timing is calculated by milliseconds
 
 #define RING_DIST 512*FRACUNIT // how close you need to be to a ring to attract it
 
@@ -415,6 +417,9 @@ extern INT32 cv_debug;
 extern UINT8 shiftdown, ctrldown, altdown;
 extern boolean capslock;
 
+// WARNING: a should be unsigned but to add with 2048, it isn't!
+#define AIMINGTODY(a) (FINETANGENT((2048+(((INT32)a)>>ANGLETOFINESHIFT)) & FINEMASK)*160)
+
 // if we ever make our alloc stuff...
 #define ZZ_Alloc(x) Z_Malloc(x, PU_STATIC, NULL)
 
@@ -428,13 +433,17 @@ INT32 I_GetKey(void);
 #define max(x, y) (((x) > (y)) ? (x) : (y))
 #endif
 
+#ifndef M_PIl
+#define M_PIl 3.1415926535897932384626433832795029L
+#endif
+
 // Floating point comparison epsilons from float.h
 #ifndef FLT_EPSILON
 #define FLT_EPSILON 1.1920928955078125e-7f
 #endif
 
 #ifndef DBL_EPSILON
-#define DBL_EPSILON 2.2204460492503131e-16
+#define DBL_EPSILON 2.2204460492503131e-16l
 #endif
 
 // An assert-type mechanism.
@@ -529,6 +538,9 @@ extern const char *compdate, *comptime, *comprevision, *compbranch;
 /// on the bright side it fixes some weird issues with translucent walls
 /// \note	SRB2CB port.
 ///      	SRB2CB itself ported this from PrBoom+
-#define NEWCLIP
+//#define NEWCLIP
+
+/// Hardware renderer: OpenGL
+#define GL_SHADERS
 
 #endif // __DOOMDEF__

@@ -19,6 +19,7 @@
 #ifndef _HWR_DEFS_
 #define _HWR_DEFS_
 #include "../doomtype.h"
+#include "../r_defs.h"
 
 #define ZCLIP_PLANE 4.0f // Used for the actual game drawing
 #define NZCLIP_PLANE 0.9f // Seems to be only used for the HUD and screen textures
@@ -74,21 +75,65 @@ typedef struct
 	FLOAT x,y;
 } F2DCoord, v2d_t;
 
-// Simple 3D vector
-typedef struct FVector
-{
-		FLOAT x,y,z;
-} FVector;
+// ======================
+//      wallVert3D
+// ----------------------
+// :crab: IS GONE! :crab:
+// ======================
 
-// 3D model vector (coords + texture coords)
+// -----------
+// structures
+// -----------
+
+// a vertex of a Doom 'plane' polygon
 typedef struct
 {
-	FLOAT       x,y,z;
-	FLOAT       s,t,w;            // texture coordinates
-} wallVert3D;
+	float x;
+	float y;
+	float z;
+} polyvertex_t;
 
-//Hurdler: Transform (coords + angles)
-//BP: transform order : scale(rotation_x(rotation_y(translation(v))))
+#ifdef _MSC_VER
+#pragma warning(disable :  4200)
+#endif
+
+// a convex 'plane' polygon, clockwise order
+typedef struct
+{
+	INT32 numpts;
+	polyvertex_t pts[0];
+} poly_t;
+
+#ifdef _MSC_VER
+#pragma warning(default :  4200)
+#endif
+
+// holds extra info for 3D render, for each subsector in subsectors[]
+typedef struct
+{
+	poly_t *planepoly;  // the generated convex polygon
+} extrasubsector_t;
+
+// needed for sprite rendering
+// equivalent of the software renderer's vissprites
+typedef struct gr_vissprite_s
+{
+	// Doubly linked list
+	struct gr_vissprite_s *prev;
+	struct gr_vissprite_s *next;
+	float x1, x2;
+	float z1, z2;
+	float tz, ty;
+	lumpnum_t patchlumpnum;
+	boolean flip;
+	UINT8 translucency;       //alpha level 0-255
+	mobj_t *mobj;
+	boolean precip; // Tails 08-25-2002
+	boolean vflip;
+   //Hurdler: 25/04/2000: now support colormap in hardware mode
+	UINT8 *colormap;
+	INT32 dispoffset; // copy of info->dispoffset, affects ordering but not drawing
+} gr_vissprite_t;
 
 // Kart features
 //#define USE_FTRANSFORM_ANGLEZ
@@ -112,15 +157,15 @@ typedef struct
 #ifdef USE_FTRANSFORM_MIRROR
 	boolean     mirror;          // SRB2Kart: Encore Mode
 #endif
+	boolean     shearing;        // 14042019
+	angle_t     viewaiming;      // 17052019
 } FTransform;
 
 // Transformed vector, as passed to HWR API
 typedef struct
 {
 	FLOAT       x,y,z;
-	FLOAT       sow;            // s texture ordinate (s over w)
-	FLOAT       tow;            // t texture ordinate (t over w)
-	FUINT       argb;           // flat-shaded color
+	FLOAT       s,t;
 } FOutVector;
 
 // ==========================================================================
@@ -151,8 +196,8 @@ enum EPolyFlags
 	PF_Decal            = 0x00000800,   // Enable polygon offset
 	PF_Modulated        = 0x00001000,   // Modulation (multiply output with constant ARGB)
 	                                    // When set, pass the color constant into the FSurfaceInfo -> FlatColor
-	PF_NoTexture        = 0x00002000,   // Use the small white texture
-	PF_Ripple           = 0x00004000,	// jimita: water shader effect
+	PF_NoTexture        = 0x00002000,   // Disable texture
+	PF_Ripple           = 0x00004000,	// Water shader effect
 	//                    0x00008000
 	PF_RemoveYWrap      = 0x00010000,   // Force clamp texture on Y
 	PF_ForceWrapX       = 0x00020000,   // Force repeat texture on X
@@ -193,6 +238,8 @@ typedef struct FSurfaceInfo FSurfaceInfo;
 
 enum hwdsetspecialstate
 {
+	HWD_SET_SHADERS,
+
 	HWD_SET_FOG_MODE,
 	HWD_SET_FOG_DENSITY,
 
@@ -202,6 +249,9 @@ enum hwdsetspecialstate
 	HWD_NUMSTATE
 };
 typedef enum hwdsetspecialstate hwdspecialstate_t;
+
+#define GL_NORMALFOG 0x00000000
+#define GL_FADEFOG 0x19000000
 
 enum hwdfiltermode
 {

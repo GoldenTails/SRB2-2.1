@@ -141,7 +141,7 @@ static void PNG_warn(png_structp PNG, png_const_charp pngtext)
 	CONS_Debug(DBG_RENDER, "libpng warning at %p: %s", PNG, pngtext);
 }
 
-static GrTextureFormat_t PNG_Load(const char *filename, int *w, int *h, GLPatch_t *grpatch)
+static GLTextureFormat_t PNG_Load(const char *filename, int *w, int *h, GLPatch_t *grpatch)
 {
 	png_structp png_ptr;
 	png_infop png_info_ptr;
@@ -271,7 +271,7 @@ typedef struct
 	UINT8 filler[54];
 } PcxHeader;
 
-static GrTextureFormat_t PCX_Load(const char *filename, int *w, int *h,
+static GLTextureFormat_t PCX_Load(const char *filename, int *w, int *h,
 	GLPatch_t *grpatch)
 {
 	PcxHeader header;
@@ -520,7 +520,7 @@ void HWR_InitMD2(void)
 			}
 		}
 		// no sprite/player skin name found?!?
-		CONS_Printf("Unknown sprite/player skin %s detected in md2.dat\n", name);
+		//CONS_Printf("Unknown sprite/player skin %s detected in md2.dat\n", name);
 md2found:
 		// move on to next line...
 		continue;
@@ -864,10 +864,6 @@ static void HWR_GetBlendedTexture(GLPatch_t *gpatch, GLPatch_t *blendgpatch, con
 // Returns          :
 // -----------------+
 
-// hw_main.c
-#define NORMALFOG 0x00000000
-#define FADEFOG 0x19000000
-
 void HWR_DrawMD2(gr_vissprite_t *spr)
 {
 	md2_t *md2;
@@ -916,7 +912,7 @@ void HWR_DrawMD2(gr_vissprite_t *spr)
 		if (colormap)
 			HWR_Lighting(&Surf, lightlevel, colormap->rgba, colormap->fadergba);
 		else
-			HWR_NoColormapLighting(&Surf, lightlevel, NORMALFOG, FADEFOG);
+			HWR_NoColormapLighting(&Surf, lightlevel, GL_NORMALFOG, GL_FADEFOG);
 	}
 
 	// Look at HWR_ProjectSprite for more
@@ -1096,7 +1092,7 @@ void HWR_DrawMD2(gr_vissprite_t *spr)
 		p.mirror = atransform.mirror; // from Kart
 #endif
 
-		HWD.pfnSetShader(4);	// jimita: model shader
+		HWD.pfnSetShader(4);	// model shader
 		HWD.pfnDrawModel(md2->model, frame, durs, tics, nextFrame, &p, finalscale, flip, &Surf);
 	}
 }

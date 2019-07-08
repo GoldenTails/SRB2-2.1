@@ -59,12 +59,10 @@
 // ==========================================================================
 
 // Constants
-#ifndef M_PIl
-#define M_PIl 3.1415926535897932384626433832795029L
-#endif
 #define DEGREE (0.017453292519943295769236907684883l) // 2*PI/360
 
 void GL_DBG_Printf(const char *format, ...) /*FUNCPRINTF*/;
+#define DBG_Printf GL_DBG_Printf
 
 #ifdef _WINDOWS
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);

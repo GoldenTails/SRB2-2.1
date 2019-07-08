@@ -36,6 +36,7 @@
 
 #ifdef HWRENDER
 #include "../hardware/r_opengl/r_opengl.h"
+#include "../hardware/hw_main.h"
 #include "ogl_sdl.h"
 #include "../i_system.h"
 #include "hwsym_sdl.h"
@@ -174,14 +175,6 @@ boolean OglSdlSurface(INT32 w, INT32 h)
 		maximumAnisotropy = 1;
 
 	SetupGLFunc4();
-
-	// jimita
-	if (isExtAvailable("GL_ARB_compatibility", gl_extensions))
-		GLEXT_legacy = true;
-
-	if (isExtAvailable("GL_ARB_fragment_shader", gl_extensions)
-	&& isExtAvailable("GL_ARB_vertex_shader", gl_extensions))
-		GLEXT_shaders = true;
 
 	granisotropicmode_cons_t[1].value = maximumAnisotropy;
 

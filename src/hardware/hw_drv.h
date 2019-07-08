@@ -27,12 +27,6 @@
 // ==========================================================================
 
 EXPORT boolean HWRAPI(Init) (void);
-#ifndef HAVE_SDL
-EXPORT void HWRAPI(Shutdown) (void);
-#endif
-#ifdef _WINDOWS
-EXPORT void HWRAPI(GetModeList) (vmode_t **pvidmodes, INT32 *numvidmodes);
-#endif
 #if defined (PURESDL) || defined (macintosh)
 EXPORT void HWRAPI(SetPalette) (INT32 *, RGBA_t *gamma);
 #else
@@ -54,9 +48,8 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value);
 //Hurdler: added for new development
 EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, INT32 duration, INT32 tics, INT32 nextFrameIndex, FTransform *pos, float scale, UINT8 flipped, FSurfaceInfo *Surface);
 EXPORT void HWRAPI(CreateModelVBOs) (model_t *model);
-EXPORT void HWRAPI(SetTransform) (FTransform *ptransform);
+EXPORT void HWRAPI(SetTransform) (FTransform *stransform);
 EXPORT INT32 HWRAPI(GetTextureUsed) (void);
-EXPORT INT32 HWRAPI(GetRenderVersion) (void);
 
 EXPORT void HWRAPI(FlushScreenTextures) (void);
 EXPORT void HWRAPI(StartScreenWipe) (void);
@@ -103,13 +96,6 @@ struct hwdriver_s
 	CreateModelVBOs     pfnCreateModelVBOs;
 	SetTransform        pfnSetTransform;
 	GetTextureUsed      pfnGetTextureUsed;
-	GetRenderVersion    pfnGetRenderVersion;
-#ifdef _WINDOWS
-	GetModeList         pfnGetModeList;
-#endif
-#ifndef HAVE_SDL
-	Shutdown            pfnShutdown;
-#endif
 	PostImgRedraw       pfnPostImgRedraw;
 	FlushScreenTextures pfnFlushScreenTextures;
 	StartScreenWipe     pfnStartScreenWipe;
@@ -120,7 +106,6 @@ struct hwdriver_s
 	MakeScreenFinalTexture  pfnMakeScreenFinalTexture;
 	DrawScreenFinalTexture  pfnDrawScreenFinalTexture;
 
-	// jimita
 	LoadShaders pfnLoadShaders;
 	KillShaders pfnKillShaders;
 	SetShader pfnSetShader;

@@ -70,6 +70,7 @@
 
 #include <math.h>
 #include "../v_video.h"
+#include "hw_main.h"
 #include "hw_clip.h"
 #include "hw_glob.h"
 #include "../r_state.h"
@@ -319,12 +320,12 @@ void gld_clipper_Clear(void)
 
 #define RMUL (1.6f/1.333333f)
 
-angle_t gld_FrustumAngle(void)
+angle_t gld_FrustumAngle(angle_t tiltangle)
 {
 	double floatangle;
 	angle_t a1;
 
-	float tilt = (float)fabs(((double)(int)aimingangle) / ANG1);
+	float tilt = (float)fabs(((double)(int)tiltangle) / ANG1);
 
 	// NEWCLIP TODO: SRB2CBTODO: make a global render_fov for this function
 
@@ -333,12 +334,10 @@ angle_t gld_FrustumAngle(void)
 	float render_multiplier = 64.0f / render_fovratio / RMUL;
 
 	if (tilt > 90.0f)
-	{
 		tilt = 90.0f;
-	}
 
 	// If the pitch is larger than this you can look all around at a FOV of 90
-	if (abs((signed)aimingangle) > 46 * ANG1)
+	if (abs((signed)tiltangle) > 46 * ANG1)
 		return 0xffffffff;
 
 	// ok, this is a gross hack that barely works...
@@ -351,7 +350,7 @@ angle_t gld_FrustumAngle(void)
 }
 
 // SRB2CB I don't think used any of this stuff, let's disable for now since SRB2 probably doesn't want it either
-// compiler complains about (p)glGetDoublev anyway, in case anyone wants this
+// compiler complains about (p)glGetFloatv anyway, in case anyone wants this
 // only r_opengl.c can use the base gl funcs as it turns out, that's a problem for whoever wants sphere frustum checks
 // btw to renable define HAVE_SPHEREFRUSTRUM in hw_clip.h
 #ifdef HAVE_SPHEREFRUSTRUM
