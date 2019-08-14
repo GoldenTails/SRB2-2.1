@@ -171,8 +171,8 @@ static void R_InstallSpriteLump(UINT16 wad,            // graphics patch
 #ifdef ROTSPRITE
 void R_CacheRotSprite(spriteframe_t *sprframe, INT32 rot, UINT8 flip)
 {
-	INT32 i;
-	INT32 angle, realangle;
+	UINT32 i;
+	INT32 angle;
 	patch_t *patch;
 	patch_t *newpatch;
 	UINT16 *rawsrc, *rawdst;
@@ -229,8 +229,8 @@ void R_CacheRotSprite(spriteframe_t *sprframe, INT32 rot, UINT8 flip)
 			{
 				for (sx = 0; sx < width; sx++)
 				{
-					fixed_t dx = FixedMul((sx-ox) << FRACBITS, ca) + FixedMul((sy-oy) << FRACBITS, sa) + (ox << FRACBITS);
-					fixed_t dy = -FixedMul((sx-ox) << FRACBITS, sa) + FixedMul((sy-oy) << FRACBITS, ca) + (oy << FRACBITS);
+					dx = FixedMul((sx-ox) << FRACBITS, ca) + FixedMul((sy-oy) << FRACBITS, sa) + (ox << FRACBITS);
+					dy = -FixedMul((sx-ox) << FRACBITS, sa) + FixedMul((sy-oy) << FRACBITS, ca) + (oy << FRACBITS);
 					dx >>= FRACBITS;
 					dy >>= FRACBITS;
 					if (dx < minx) minx = dx;
