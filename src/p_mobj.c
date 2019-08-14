@@ -2355,6 +2355,11 @@ static boolean P_ZMovement(mobj_t *mo)
 
 	}
 
+/*#ifdef ROTSPRITE
+	if (mo->type == MT_BIGTUMBLEWEED || mo->type == MT_LITTLETUMBLEWEED)
+		mo->rollangle += FixedAngle(P_AproxDistance(mo->momx, mo->momy));
+#endif*/
+
 	// clip movement
 	if (((mo->z <= mo->floorz && !(mo->eflags & MFE_VERTICALFLIP))
 		|| (mo->z + mo->height >= mo->ceilingz && mo->eflags & MFE_VERTICALFLIP))

@@ -16,6 +16,7 @@
 
 #include "sounds.h"
 #include "r_plane.h"
+#include "r_defs.h"
 
 // number of sprite lumps for spritewidth,offset,topoffset lookup tables
 // Fab: this is a hack : should allocate the lookup tables per sprite
@@ -48,6 +49,10 @@ void R_AddSpriteDefs(UINT16 wadnum);
 
 #ifdef DELFILE
 void R_DelSpriteDefs(UINT16 wadnum);
+#endif
+
+#ifdef ROTSPRITE
+void R_CacheRotSprite(spriteframe_t *sprframe, INT32 rot, UINT8 flip);
 #endif
 
 //SoM: 6/5/2000: Light sprites correctly!
@@ -135,7 +140,7 @@ typedef struct vissprite_s
 	fixed_t xiscale; // negative if flipped
 
 	fixed_t texturemid;
-	lumpnum_t patch;
+	patch_t *patch;
 
 	lighttable_t *colormap; // for color translation and shadow draw
 	                        // maxbright frames as well

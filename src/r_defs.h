@@ -24,6 +24,10 @@
 
 #include "screen.h" // MAXVIDWIDTH, MAXVIDHEIGHT
 
+#ifdef HWRENDER
+#include "m_aatree.h"
+#endif
+
 #define POLYOBJECTS
 
 //
@@ -750,6 +754,13 @@ typedef struct
 
 	// Flip bits (1 = flip) to use for view angles 0-7.
 	UINT8 flip;
+
+	// Rotated sprite 0-360
+	patch_t *rotsprite[8][ROTANGLES];
+	boolean rotcached[8];
+#ifdef HWRENDER
+	aatree_t *hwr_rotsprite[8]; // Hmmmmm yes I am very smart
+#endif
 } spriteframe_t;
 
 //

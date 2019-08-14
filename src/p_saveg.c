@@ -946,9 +946,15 @@ typedef enum
 	MD2_HNEXT       = 1<<7,
 #ifdef ESLOPE
 	MD2_HPREV       = 1<<8,
-	MD2_SLOPE       = 1<<9
+	MD2_SLOPE       = 1<<9,
+#ifdef ROTSPRITE
+	MD2_ROLLANGLE   = 1<<10,
+#endif
 #else
-	MD2_HPREV       = 1<<8
+	MD2_HPREV       = 1<<8,
+#ifdef ROTSPRITE
+	MD2_ROLLANGLE   = 1<<9
+#endif
 #endif
 } mobj_diff2_t;
 
@@ -1144,6 +1150,10 @@ static void SaveMobjThinker(const thinker_t *th, const UINT8 type)
 	if (mobj->standingslope)
 		diff2 |= MD2_SLOPE;
 #endif
+#ifdef ROTSPRITE
+	if (mobj->rollangle)
+		diff2 |= MD2_ROLLANGLE;
+#endif
 	if (diff2 != 0)
 		diff |= MD_MORE;
 
@@ -1262,6 +1272,10 @@ static void SaveMobjThinker(const thinker_t *th, const UINT8 type)
 #ifdef ESLOPE
 	if (diff2 & MD2_SLOPE)
 		WRITEUINT16(save_p, mobj->standingslope->id);
+#endif
+#ifdef ROTSPRITE
+	if (diff2 & MD2_ROLLANGLE)
+		WRITEANGLE(save_p, mobj->rollangle);
 #endif
 
 	WRITEUINT32(save_p, mobj->mobjnum);
@@ -2134,7 +2148,12 @@ static void LoadMobjThinker(actionf_p1 thinker)
 	if (diff2 & MD2_SLOPE)
 		mobj->standingslope = P_SlopeById(READUINT16(save_p));
 #endif
-
+#ifdef ROTSPRITE
+	if (diff2 & MD2_ROLLANGLE)
+		mobj->rollangle = READANGLE(save_p);
+	else
+		mobj->rollangle = 0;
+#endif
 
 	if (diff & MD_REDFLAG)
 	{

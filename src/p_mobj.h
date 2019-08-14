@@ -160,7 +160,11 @@ typedef enum
 	MF_GRENADEBOUNCE    = 1<<28,
 	// Run the action thinker on spawn.
 	MF_RUNSPAWNFUNC     = 1<<29,
-	// free: 1<<30 and 1<<31
+#ifdef ROTSPRITE
+	// This mobj has a roll angle.
+	MF_ROLLANGLE        = 1<<30,
+#endif // ROTSPRITE
+	// free: 1<<31
 } mobjflag_t;
 
 typedef enum
@@ -272,6 +276,9 @@ typedef struct mobj_s
 
 	// More drawing info: to determine current sprite.
 	angle_t angle;  // orientation
+#ifdef ROTSPRITE
+	angle_t rollangle;
+#endif
 	spritenum_t sprite; // used to find patch_t and flip value
 	UINT32 frame; // frame number, plus bits see p_pspr.h
 	UINT16 anim_duration; // for FF_ANIMATE states

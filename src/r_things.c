@@ -20,6 +20,7 @@
 #include "z_zone.h"
 #include "m_misc.h"
 #include "i_video.h" // rendermode
+#include "i_system.h"
 #include "r_things.h"
 #include "r_plane.h"
 #include "p_tick.h"
@@ -30,6 +31,9 @@
 #include "m_cheat.h" // objectplace
 #ifdef HWRENDER
 #include "hardware/hw_md2.h"
+#include "hardware/hw_glob.h"
+#include "hardware/hw_light.h"
+#include "hardware/hw_drv.h"
 #endif
 
 #ifdef PC_DOS
@@ -63,6 +67,11 @@ static lighttable_t **spritelights;
 INT16 negonearray[MAXVIDWIDTH];
 INT16 screenheightarray[MAXVIDWIDTH];
 
+#ifdef ROTSPRITE
+static fixed_t cosang2rad[ROTANGLES];
+static fixed_t sinang2rad[ROTANGLES];
+#endif
+
 //
 // INITIALIZATION FUNCTIONS
 //
@@ -95,7 +104,7 @@ static void R_InstallSpriteLump(UINT16 wad,            // graphics patch
 {
 	char cn = R_Frame2Char(frame); // for debugging
 
-	INT32 r;
+	INT32 r, ang;
 	lumpnum_t lumppat = wad;
 	lumppat <<= 16;
 	lumppat += lump;
@@ -105,6 +114,18 @@ static void R_InstallSpriteLump(UINT16 wad,            // graphics patch
 
 	if (maxframe ==(size_t)-1 || frame > maxframe)
 		maxframe = frame;
+
+	// rotsprite
+	for (r = 0; r < 8; r++)
+	{
+		sprtemp[frame].rotcached[r] = false;
+		for (ang = 0; ang < ROTANGLES; ang++)
+			sprtemp[frame].rotsprite[r][ang] = NULL;
+#ifdef HWRENDER
+		if (rendermode == render_opengl)
+			sprtemp[frame].hwr_rotsprite[r] = M_AATreeAlloc(AATREE_ZUSER);
+#endif // HWRENDER
+	}
 
 	if (rotation == 0)
 	{
@@ -147,6 +168,146 @@ static void R_InstallSpriteLump(UINT16 wad,            // graphics patch
 		sprtemp[frame].flip &= ~(1<<rotation);
 }
 
+#ifdef ROTSPRITE
+void R_CacheRotSprite(spriteframe_t *sprframe, INT32 rot, UINT8 flip)
+{
+	INT32 i;
+	INT32 angle, realangle;
+	patch_t *patch;
+	patch_t *newpatch;
+	UINT16 *rawsrc, *rawdst;
+	size_t size, size2;
+	const char *lumpname;
+
+	//if (!sprframe->rotate)
+	{
+		INT32 sx,sy;
+		INT32 dx,dy;
+		INT32 ox,oy;
+		INT32 nox,noy;
+		INT32 width,height;
+		fixed_t ca, sa;
+		lumpnum_t lump = sprframe->lumppat[rot];
+
+		if (lump == LUMPERROR)
+			return;
+		// Because there's something wrong with SPR_DFLM, I guess
+		if (!R_CheckIfPatch(lump))
+			return;
+		patch = (patch_t *)W_CacheLumpNum(lump, PU_CACHE);
+		lumpname = W_CheckNameForNum(lump);
+		CONS_Debug(DBG_RENDER, "R_CacheRotSprite: %s\n", lumpname);
+
+		width = patch->width;
+		height = patch->height;
+		ox = (width/2);
+		oy = (height/2);
+
+		size = (width*height);
+		rawsrc = Z_Malloc(size * sizeof(UINT16), PU_STATIC, NULL);
+
+		// can't memset here
+		for (i = 0; i < size; i++)
+			rawsrc[i] = 0xFF00;
+
+		R_PatchToFlat(patch, rawsrc, (flip != 0x00));
+
+		// Don't cache angle = 0, that would be stoopid
+		for (angle = 1; angle < ROTANGLES; angle++)
+		{
+			INT32 minx = 32767, maxx = -32767;
+			INT32 miny = 32767, maxy = -32767;
+			INT32 xdiff = 0, ydiff = 0;
+			INT32 newwidth, newheight;
+
+			//fa = ang2rad[angle];
+			ca = cosang2rad[angle];
+			sa = sinang2rad[angle];
+
+			// Find the dimensions of the rotated patch
+			for (sy = 0; sy < height; sy++)
+			{
+				for (sx = 0; sx < width; sx++)
+				{
+					fixed_t dx = FixedMul((sx-ox) << FRACBITS, ca) + FixedMul((sy-oy) << FRACBITS, sa) + (ox << FRACBITS);
+					fixed_t dy = -FixedMul((sx-ox) << FRACBITS, sa) + FixedMul((sy-oy) << FRACBITS, ca) + (oy << FRACBITS);
+					dx >>= FRACBITS;
+					dy >>= FRACBITS;
+					if (dx < minx) minx = dx;
+					if (dx > maxx) maxx = dx;
+					if (dy < miny) miny = dy;
+					if (dy > maxy) maxy = dy;
+				}
+			}
+
+			newwidth = (maxx-minx)+1;
+			newheight = (maxy-miny)+1;
+
+			nox = newwidth * ((float)ox / (float)width);
+			noy = newheight * ((float)oy / (float)height);
+
+			size2 = (newwidth*newheight);
+			if (!size2)
+				size2 = size;
+
+			rawdst = Z_Malloc(size2 * sizeof(UINT16), PU_STATIC, NULL);
+
+			// can't memset here
+			for (i = 0; i < size2; i++)
+				rawdst[i] = 0xFF00;
+
+			for (dy = 0; dy < newheight; dy++)
+			{
+				for (dx = 0; dx < newwidth; dx++)
+				{
+					sx = FixedMul(((dx-xdiff)-nox) << FRACBITS, ca) + FixedMul(((dy-ydiff)-noy) << FRACBITS, sa) + (ox << FRACBITS);
+					sy = -FixedMul(((dx-xdiff)-nox) << FRACBITS, sa) + FixedMul(((dy-ydiff)-noy) << FRACBITS, ca) + (oy << FRACBITS);
+					sx >>= FRACBITS;
+					sy >>= FRACBITS;
+					if (sx >= 0 && sy >= 0 && sx < width && sy < height)
+						rawdst[(dy*newwidth)+dx] = rawsrc[(sy*width)+sx];
+				}
+			}
+
+			newpatch = R_FlatToPatch(rawdst, newwidth, newheight, &size);
+			newpatch->topoffset = (newpatch->height/2) - ((patch->height / 2) - patch->topoffset);
+			newpatch->leftoffset = (newpatch->width/2) + ((patch->width / 2) - patch->leftoffset);
+
+			//BP: we cannot use special tric in hardware mode because feet in ground caused by z-buffer
+			if (rendermode != render_none) // not for psprite
+				newpatch->topoffset += 4;
+
+			// P_PrecacheLevel
+			if (devparm)
+				spritememory += size;
+
+#ifdef HWRENDER
+			if (rendermode == render_opengl)
+			{
+				GLPatch_t *grPatch = HWR_GetCachedGLRotSprite(sprframe->hwr_rotsprite[rot], angle, newpatch);
+				HWR_MakePatch(newpatch, grPatch, &grPatch->mipmap, false);
+				sprframe->rotsprite[rot][angle] = (patch_t *)grPatch;
+			}
+			else
+#endif // HWRENDER
+				sprframe->rotsprite[rot][angle] = newpatch;
+
+			Z_Free(rawdst);
+		}
+
+		Z_Free(rawsrc);
+
+#ifdef HWRENDER
+		if (rendermode == render_soft)
+#endif
+			W_UnlockCachedPatch(patch);
+
+		I_OsPolling();
+		I_UpdateNoBlit();
+	}
+}
+#endif
+
 // Install a single sprite, given its identifying name (4 chars)
 //
 // (originally part of R_AddSpriteDefs)
@@ -168,6 +329,7 @@ static boolean R_AddSingleSpriteDef(const char *sprname, spritedef_t *spritedef,
 	lumpinfo_t *lumpinfo;
 	patch_t patch;
 	UINT8 numadded = 0;
+	INT32 rot, ang;
 
 	memset(sprtemp,0xFF, sizeof (sprtemp));
 	maxframe = (size_t)-1;
@@ -303,6 +465,16 @@ static boolean R_AddSingleSpriteDef(const char *sprname, spritedef_t *spritedef,
 	if (spritedef->numframes &&             // has been allocated
 		spritedef->numframes < maxframe)   // more frames are defined ?
 	{
+		for (frame = 0; frame < spritedef->numframes; frame++)
+		{
+			spriteframe_t *sprframe = &spritedef->spriteframes[frame];
+			if (sprframe->rotsprite)
+			{
+				for (rot = 0; rot < 8; rot++)
+					for (ang = 0; ang < ROTANGLES; ang++)
+						Z_Free(sprframe->rotsprite[rot][ang]);
+			}
+		}
 		Z_Free(spritedef->spriteframes);
 		spritedef->spriteframes = NULL;
 	}
@@ -500,7 +672,6 @@ static UINT32 visspritecount;
 static UINT32 clippedvissprites;
 static vissprite_t *visspritechunks[MAXVISSPRITES >> VISSPRITECHUNKBITS] = {NULL};
 
-
 //
 // R_InitSprites
 // Called at program start.
@@ -508,11 +679,23 @@ static vissprite_t *visspritechunks[MAXVISSPRITES >> VISSPRITECHUNKBITS] = {NULL
 void R_InitSprites(void)
 {
 	size_t i;
+#ifdef ROTSPRITE
+	INT32 angle, realangle = 0;
+	float fa;
+#endif
 
 	for (i = 0; i < MAXVIDWIDTH; i++)
-	{
 		negonearray[i] = -1;
+
+#ifdef ROTSPRITE
+	for (angle = 0; angle < ROTANGLES; angle++)
+	{
+		fa = ANG2RAD(FixedAngle(realangle<<FRACBITS));
+		cosang2rad[angle] = FLOAT_TO_FIXED(cos(-fa));
+		sinang2rad[angle] = FLOAT_TO_FIXED(sin(-fa));
+		realangle += ROTANGDIFF;
 	}
+#endif
 
 	//
 	// count the number of sprite names, and allocate sprites table
@@ -748,7 +931,7 @@ static void R_DrawVisSprite(vissprite_t *vis)
 	INT32 texturecolumn;
 #endif
 	fixed_t frac;
-	patch_t *patch = W_CacheLumpNum(vis->patch, PU_CACHE);
+	patch_t *patch = vis->patch;
 	fixed_t this_scale = vis->mobj->scale;
 	INT32 x1, x2;
 	INT64 overflow_test;
@@ -901,7 +1084,7 @@ static void R_DrawPrecipitationVisSprite(vissprite_t *vis)
 	INT64 overflow_test;
 
 	//Fab : R_InitSprites now sets a wad lump number
-	patch = W_CacheLumpNum(vis->patch, PU_CACHE);
+	patch = vis->patch;
 	if (!patch)
 		return;
 
@@ -1077,6 +1260,15 @@ static void R_ProjectSprite(mobj_t *thing)
 	INT32 light = 0;
 	fixed_t this_scale = thing->scale;
 
+	// rotsprite
+	fixed_t spr_width, spr_height;
+	fixed_t spr_offset, spr_topoffset;
+#ifdef ROTSPRITE
+	patch_t *rotsprite = NULL;
+	angle_t arollangle = thing->rollangle;
+	UINT32 rollangle = AngleFixed(arollangle)>>FRACBITS;
+#endif
+
 	// transform the origin point
 	tr_x = thing->x - viewx;
 	tr_y = thing->y - viewy;
@@ -1164,18 +1356,45 @@ static void R_ProjectSprite(mobj_t *thing)
 	if (thing->skin && ((skin_t *)thing->skin)->flags & SF_HIRES)
 		this_scale = FixedMul(this_scale, ((skin_t *)thing->skin)->highresscale);
 
+	spr_width = spritecachedinfo[lump].width;
+	spr_height = spritecachedinfo[lump].height;
+	spr_offset = spritecachedinfo[lump].offset;
+	spr_topoffset = spritecachedinfo[lump].topoffset;
+
+#ifdef ROTSPRITE
+	if (rollangle > 0 && (thing->flags & MF_ROLLANGLE))
+	{
+		if (!sprframe->rotcached[rot])
+		{
+			R_CacheRotSprite(sprframe, rot, flip);
+			sprframe->rotcached[rot] = true;
+		}
+		rollangle /= ROTANGDIFF;
+		rotsprite = sprframe->rotsprite[rot][rollangle];
+		if (rotsprite != NULL)
+		{
+			spr_width = rotsprite->width << FRACBITS;
+			spr_height = rotsprite->height << FRACBITS;
+			spr_offset = rotsprite->leftoffset << FRACBITS;
+			spr_topoffset = rotsprite->topoffset << FRACBITS;
+			// flip -> rotate, not rotate -> flip
+			flip = 0;
+		}
+	}
+#endif
+
 	// calculate edges of the shape
 	if (flip)
-		tx -= FixedMul(spritecachedinfo[lump].width-spritecachedinfo[lump].offset, this_scale);
+		tx -= FixedMul(spr_width-spr_offset, this_scale);
 	else
-		tx -= FixedMul(spritecachedinfo[lump].offset, this_scale);
+		tx -= FixedMul(spr_offset, this_scale);
 	x1 = (centerxfrac + FixedMul (tx,xscale)) >>FRACBITS;
 
 	// off the right side?
 	if (x1 > viewwidth)
 		return;
 
-	tx += FixedMul(spritecachedinfo[lump].width, this_scale);
+	tx += FixedMul(spr_width, this_scale);
 	x2 = ((centerxfrac + FixedMul (tx,xscale)) >>FRACBITS) - 1;
 
 	// off the left side
@@ -1198,13 +1417,13 @@ static void R_ProjectSprite(mobj_t *thing)
 		// When vertical flipped, draw sprites from the top down, at least as far as offsets are concerned.
 		// sprite height - sprite topoffset is the proper inverse of the vertical offset, of course.
 		// remember gz and gzt should be seperated by sprite height, not thing height - thing height can be shorter than the sprite itself sometimes!
-		gz = thing->z + thing->height - FixedMul(spritecachedinfo[lump].topoffset, this_scale);
-		gzt = gz + FixedMul(spritecachedinfo[lump].height, this_scale);
+		gz = thing->z + thing->height - FixedMul(spr_topoffset, this_scale);
+		gzt = gz + FixedMul(spr_height, this_scale);
 	}
 	else
 	{
-		gzt = thing->z + FixedMul(spritecachedinfo[lump].topoffset, this_scale);
-		gz = gzt - FixedMul(spritecachedinfo[lump].height, this_scale);
+		gzt = thing->z + FixedMul(spr_topoffset, this_scale);
+		gz = gzt - FixedMul(spr_height, this_scale);
 	}
 
 	if (thing->subsector->sector->cullheight)
@@ -1301,7 +1520,7 @@ static void R_ProjectSprite(mobj_t *thing)
 
 	if (flip)
 	{
-		vis->startfrac = spritecachedinfo[lump].width-1;
+		vis->startfrac = spr_width-1;
 		vis->xiscale = -iscale;
 	}
 	else
@@ -1315,7 +1534,12 @@ static void R_ProjectSprite(mobj_t *thing)
 
 	//Fab: lumppat is the lump number of the patch to use, this is different
 	//     than lumpid for sprites-in-pwad : the graphics are patched
-	vis->patch = sprframe->lumppat[rot];
+#ifdef ROTSPRITE
+	if (rotsprite != NULL)
+		vis->patch = rotsprite;
+	else
+#endif
+		vis->patch = W_CacheLumpNum(sprframe->lumppat[rot], PU_CACHE);
 
 //
 // determine the colormap (lightlevel & special effects)
@@ -1519,7 +1743,7 @@ static void R_ProjectPrecipitationSprite(precipmobj_t *thing)
 
 	//Fab: lumppat is the lump number of the patch to use, this is different
 	//     than lumpid for sprites-in-pwad : the graphics are patched
-	vis->patch = sprframe->lumppat[0];
+	vis->patch = W_CacheLumpNum(sprframe->lumppat[0], PU_CACHE);
 
 	// specific translucency
 	if (thing->frame & FF_TRANSMASK)

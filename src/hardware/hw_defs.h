@@ -109,6 +109,9 @@ typedef struct
 	FLOAT       fovxangle, fovyangle;
 	INT32       splitscreen;
 	boolean     flip;            // screenflip
+	// rotsprite
+	boolean     roll;
+	FLOAT       centerx,centery;
 } FTransform;
 
 // Transformed vector, as passed to HWR API
