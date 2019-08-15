@@ -116,6 +116,7 @@ static void R_InstallSpriteLump(UINT16 wad,            // graphics patch
 		maxframe = frame;
 
 	// rotsprite
+#ifdef ROTSPRITE
 	for (r = 0; r < 8; r++)
 	{
 		sprtemp[frame].rotcached[r] = false;
@@ -126,6 +127,7 @@ static void R_InstallSpriteLump(UINT16 wad,            // graphics patch
 			sprtemp[frame].hwr_rotsprite[r] = M_AATreeAlloc(AATREE_ZUSER);
 #endif // HWRENDER
 	}
+#endif
 
 	if (rotation == 0)
 	{
