@@ -331,7 +331,9 @@ static boolean R_AddSingleSpriteDef(const char *sprname, spritedef_t *spritedef,
 	lumpinfo_t *lumpinfo;
 	patch_t patch;
 	UINT8 numadded = 0;
+#ifdef ROTSPRITE
 	INT32 rot, ang;
+#endif
 
 	memset(sprtemp,0xFF, sizeof (sprtemp));
 	maxframe = (size_t)-1;
