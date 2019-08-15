@@ -1323,9 +1323,9 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 				if (toucher->momz > 0)
 					special->momz += toucher->momz/8;
 
-#ifndef ROTSPRITE
+//#ifndef ROTSPRITE
 				P_SetMobjState(special, special->info->seestate);
-#endif
+//#endif
 			}
 			return;
 		case MT_SMALLMACECHAIN:
