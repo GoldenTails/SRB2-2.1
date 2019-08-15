@@ -467,6 +467,7 @@ static boolean R_AddSingleSpriteDef(const char *sprname, spritedef_t *spritedef,
 	if (spritedef->numframes &&             // has been allocated
 		spritedef->numframes < maxframe)   // more frames are defined ?
 	{
+#ifdef ROTSPRITE
 		for (frame = 0; frame < spritedef->numframes; frame++)
 		{
 			spriteframe_t *sprframe = &spritedef->spriteframes[frame];
@@ -477,6 +478,7 @@ static boolean R_AddSingleSpriteDef(const char *sprname, spritedef_t *spritedef,
 						Z_Free(sprframe->rotsprite[rot][ang]);
 			}
 		}
+#endif
 		Z_Free(spritedef->spriteframes);
 		spritedef->spriteframes = NULL;
 	}
