@@ -1009,7 +1009,7 @@ static void SV_SendResynch(INT32 node)
 			break;
 	}
 
-	if (resynch_score[node] > (unsigned)cv_resynchattempts.value*250)
+	if (cv_resynchattempts.value != -1 && resynch_score[node] > (unsigned)cv_resynchattempts.value*250)
 	{
 		XBOXSTATIC UINT8 buf[2];
 		buf[0] = (UINT8)nodetoplayer[node];
@@ -2920,7 +2920,7 @@ consvar_t cv_allownewplayer = {"allowjoin", "On", CV_NETVAR, CV_OnOff, NULL, 0, 
 consvar_t cv_joinnextround = {"joinnextround", "Off", CV_NETVAR, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL}; /// \todo not done
 static CV_PossibleValue_t maxplayers_cons_t[] = {{2, "MIN"}, {32, "MAX"}, {0, NULL}};
 consvar_t cv_maxplayers = {"maxplayers", "8", CV_SAVE, maxplayers_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
-static CV_PossibleValue_t resynchattempts_cons_t[] = {{0, "MIN"}, {20, "MAX"}, {0, NULL}};
+static CV_PossibleValue_t resynchattempts_cons_t[] = {{-1, "MIN"}, {20, "MAX"}, {0, NULL}};
 consvar_t cv_resynchattempts = {"resynchattempts", "10", 0, resynchattempts_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL	};
 consvar_t cv_blamecfail = {"blamecfail", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL	};
 
@@ -3868,7 +3868,7 @@ FILESTAMP
 			{
 				SV_RequireResynch(node);
 
-				if (cv_resynchattempts.value && resynch_score[node] <= (unsigned)cv_resynchattempts.value*250)
+				if (cv_resynchattempts.value && cv_resynchattempts.value != -1 && resynch_score[node] <= (unsigned)cv_resynchattempts.value*250)
 				{
 					if (cv_blamecfail.value)
 						CONS_Printf(M_GetText("Synch failure for player %d (%s); expected %hd, got %hd\n"),
