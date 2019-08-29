@@ -31,6 +31,10 @@
 #include "z_zone.h"
 #include "m_random.h" // quake camera shake
 
+#ifdef SOFTPOLY
+#include "polyrenderer/r_softpoly.h"
+#endif
+
 #ifdef HWRENDER
 #include "hardware/hw_main.h"
 #endif
@@ -57,10 +61,19 @@ fixed_t centerxfrac, centeryfrac;
 fixed_t projection;
 fixed_t projectiony; // aspect ratio
 
+#ifdef SOFTPOLY
+fixed_t viewfocratio;
+boolean bigstretchy;
+#endif // SOFTPOLY
+
 // just for profiling purposes
 size_t framecount;
 
 size_t loopcount;
+
+#ifdef ESLOPE
+float focallengthf;
+#endif // ESLOPE
 
 fixed_t viewx, viewy, viewz;
 angle_t viewangle, aimingangle;
@@ -456,7 +469,7 @@ static void R_InitTextureMapping(void)
 	INT32 i;
 	INT32 x;
 	INT32 t;
-	fixed_t focallength;
+	fixed_t focallength, fovtan;
 
 	// Use tangent table to generate viewangletox:
 	//  viewangletox will give the next greatest x
@@ -464,12 +477,11 @@ static void R_InitTextureMapping(void)
 	//
 	// Calc focallength
 	//  so FIELDOFVIEW angles covers SCREENWIDTH.
-	focallength = FixedDiv(centerxfrac,
-		FINETANGENT(FINEANGLES/4+/*cv_fov.value*/ FIELDOFVIEW/2));
-
+	fovtan = FINETANGENT(FINEANGLES/4+FIELDOFVIEW/2);
+	focallength = FixedDiv(centerxfrac, fovtan);
 #ifdef ESLOPE
 	focallengthf = FIXED_TO_FLOAT(focallength);
-#endif
+#endif // ESLOPE
 
 	for (i = 0; i < FINEANGLES/2; i++)
 	{
@@ -601,9 +613,18 @@ void R_ExecuteSetViewSize(void)
 	centerxfrac = centerx<<FRACBITS;
 	centeryfrac = centery<<FRACBITS;
 
-	projection = centerxfrac;
-	//projectiony = (((vid.height*centerx*BASEVIDWIDTH)/BASEVIDHEIGHT)/vid.width)<<FRACBITS;
+	// aspect ratio
+#ifdef SOFTPOLY
+	bigstretchy = (cv_models.value);
+	if (bigstretchy)
+	{
+		projectiony = (((vid.height*centerx*BASEVIDWIDTH)/BASEVIDHEIGHT)/vid.width)<<FRACBITS;
+		viewfocratio = (projectiony / centerx);
+	}
+	else
+#endif // SOFTPOLY
 	projectiony = centerxfrac;
+	projection = centerxfrac;
 
 	R_InitViewBuffer(scaledviewwidth, viewheight);
 
@@ -630,7 +651,7 @@ void R_ExecuteSetViewSize(void)
 		{
 			dy = ((i - viewheight*8)<<FRACBITS) + FRACUNIT/2;
 			dy = abs(dy);
-			yslopetab[i] = FixedDiv(centerx*FRACUNIT, dy);
+			yslopetab[i] = FixedDiv(projectiony, dy);
 		}
 	}
 
@@ -661,6 +682,10 @@ void R_ExecuteSetViewSize(void)
 #endif
 
 	am_recalc = true;
+#ifdef SOFTPOLY
+	if (cv_models.value)
+		RSP_Viewport(viewwidth, viewheight);
+#endif
 }
 
 //
@@ -670,24 +695,29 @@ void R_ExecuteSetViewSize(void)
 void R_Init(void)
 {
 	// screensize independent
-	//I_OutputMsg("\nR_InitData");
+	CONS_Printf("R_InitData()...\n");
 	R_InitData();
 
-	//I_OutputMsg("\nR_InitViewBorder");
+	CONS_Printf("R_InitViewBorder()...\n");
 	R_InitViewBorder();
-	R_SetViewSize(); // setsizeneeded is set true
+	R_SetViewSize();
 
-	//I_OutputMsg("\nR_InitPlanes");
+	CONS_Printf("R_InitPlanes()...\n");
 	R_InitPlanes();
 
-	// this is now done by SCR_Recalc() at the first mode set
-	//I_OutputMsg("\nR_InitLightTables");
+	CONS_Printf("R_InitLightTables()...\n");
 	R_InitLightTables();
 
-	//I_OutputMsg("\nR_InitTranslationTables\n");
+	CONS_Printf("R_InitTranslationTables()...\n");
 	R_InitTranslationTables();
 
+	CONS_Printf("R_InitDrawNodes()...\n");
 	R_InitDrawNodes();
+
+#ifdef SOFTPOLY
+	CONS_Printf("RSP_InitModels()...\n");
+	RSP_InitModels();
+#endif
 
 	framecount = 0;
 }
@@ -872,6 +902,10 @@ void R_SetupFrame(player_t *player, boolean skybox)
 	viewcos = FINECOSINE(viewangle>>ANGLETOFINESHIFT);
 
 	R_SetupFreelook();
+#ifdef SOFTPOLY
+	if (cv_models.value)
+		RSP_ModelView();
+#endif
 }
 
 void R_SkyboxFrame(player_t *player)
@@ -1090,6 +1124,10 @@ void R_SkyboxFrame(player_t *player)
 	viewcos = FINECOSINE(viewangle>>ANGLETOFINESHIFT);
 
 	R_SetupFreelook();
+#ifdef SOFTPOLY
+	if (cv_models.value)
+		RSP_ModelView();
+#endif
 }
 
 #define ANGLED_PORTALS
@@ -1215,6 +1253,9 @@ void R_RenderPlayerView(player_t *player)
 {
 	portal_pair *portal;
 	const boolean skybox = (skyboxmo[0] && cv_skybox.value);
+#ifdef SOFTPOLY
+	boolean portalrendered = false;
+#endif // SOFTPOLY
 
 	if (cv_homremoval.value && player == &players[displayplayer]) // if this is display player 1
 	{
@@ -1295,6 +1336,14 @@ void R_RenderPlayerView(player_t *player)
 		CONS_Debug(DBG_RENDER, "Rendering portal from line %d to %d\n", portal->line1, portal->line2);
 		portalrender = portal->pass;
 
+#ifdef SOFTPOLY
+		if (cv_models.value)
+		{
+			RSP_StoreViewpoint();
+			portalrendered = true;
+		}
+#endif // SOFTPOLY
+
 		R_PortalFrame(&lines[portal->line1], &lines[portal->line2], portal);
 
 		R_PortalClearClipSegs(portal->start, portal->end);
@@ -1303,6 +1352,10 @@ void R_RenderPlayerView(player_t *player)
 
 		validcount++;
 
+#ifdef SOFTPOLY
+		if (cv_models.value)
+			RSP_ModelView();
+#endif
 		R_RenderBSPNode((INT32)numnodes - 1);
 		R_ClipSprites();
 		//R_DrawPlanes();
@@ -1317,6 +1370,11 @@ void R_RenderPlayerView(player_t *player)
 		Z_Free(portal);
 	}
 	// END PORTAL RENDERING
+
+#ifdef SOFTPOLY
+	if (portalrendered && cv_models.value)
+		RSP_RestoreViewpoint();
+#endif
 
 	R_DrawPlanes();
 #ifdef FLOORSPLATS
@@ -1407,18 +1465,17 @@ void R_RegisterEngineStuff(void)
 	CV_RegisterVar(&cv_voodoocompatibility);
 	CV_RegisterVar(&cv_grfogcolor);
 	CV_RegisterVar(&cv_grsoftwarefog);
+
 #ifdef ALAM_LIGHTING
 	CV_RegisterVar(&cv_grstaticlighting);
 	CV_RegisterVar(&cv_grdynamiclighting);
 	CV_RegisterVar(&cv_grcoronas);
 	CV_RegisterVar(&cv_grcoronasize);
 #endif
-	CV_RegisterVar(&cv_grmd2);
-	CV_RegisterVar(&cv_grspritebillboarding);
-#endif
 
-#ifdef HWRENDER
-	if (rendermode != render_soft && rendermode != render_none)
+	CV_RegisterVar(&cv_grspritebillboarding);
+
+	if (rendermode == render_opengl)
 		HWR_AddCommands();
 #endif
 }

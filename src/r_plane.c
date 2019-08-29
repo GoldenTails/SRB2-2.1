@@ -282,11 +282,22 @@ void R_MapPlane(INT32 y, INT32 x1, INT32 x2)
 		distance = cacheddistance[y] = FixedMul(planeheight, yslope[y]);
 		ds_xstep = cachedxstep[y] = FixedMul(distance, basexscale);
 		ds_ystep = cachedystep[y] = FixedMul(distance, baseyscale);
+		span = abs(centery-y);
 
-		if ((span = abs(centery-y)))
+		if (span != 0)
 		{
-			ds_xstep = cachedxstep[y] = FixedMul(planesin, planeheight) / span;
-			ds_ystep = cachedystep[y] = FixedMul(planecos, planeheight) / span;
+#ifdef SOFTPOLY
+			if (bigstretchy)
+			{
+				ds_xstep = cachedxstep[y] = FixedMul(FixedMul(planesin, planeheight), viewfocratio) / span;
+				ds_ystep = cachedystep[y] = FixedMul(FixedMul(planecos, planeheight), viewfocratio) / span;
+			}
+			else
+#endif // SOFTPOLY
+			{
+				ds_xstep = cachedxstep[y] = FixedMul(planesin, planeheight) / span;
+				ds_ystep = cachedystep[y] = FixedMul(planecos, planeheight) / span;
+			}
 		}
 	}
 	else
