@@ -178,6 +178,10 @@ void RSP_DrawTriangle(rsp_triangle_t *tri)
 	rsp_vertex_t v1 = tri->vertices[1];
 	rsp_vertex_t v2 = tri->vertices[2];
 
+	// avoid a crash here
+	if (!rsp_curtrifunc)
+		I_Error("RSP_DrawTriangle: no triangle drawer set!");
+
 	// transform x and y of each vertex to screen coordinates
 	#define TRANSFORM_VERTEX(vertex) \
 	{ \
@@ -256,7 +260,7 @@ void RSP_DrawTriangle(rsp_triangle_t *tri)
 			tri->vertices[0] = v0;
 			tri->vertices[1] = v3;
 			tri->vertices[2] = v2;
-			RSP_TexturedMappedTriangle(tri, TRI_FLATBOTTOM);
+			rsp_curtrifunc(tri, TRI_FLATBOTTOM);
 		}
 
 		if (!is_degenerate_triangle(v1, v3, v2))
@@ -264,7 +268,7 @@ void RSP_DrawTriangle(rsp_triangle_t *tri)
 			tri->vertices[0] = v1;
 			tri->vertices[1] = v3;
 			tri->vertices[2] = v2;
-			RSP_TexturedMappedTriangle(tri, TRI_FLATTOP);
+			rsp_curtrifunc(tri, TRI_FLATTOP);
 		}
 	}
 }
@@ -281,10 +285,13 @@ void RSP_DrawTriangleList(rsp_triangle_t *tri, rsp_triangle_t *list, INT32 count
 
 void RSP_TransformTriangle(rsp_triangle_t *tri)
 {
+	if (rsp_projectionmatrix == NULL)
+		I_Error("RSP_TransformTriangle: no projection matrix!");
+
 	// transform triangle to projection matrix
-	tri->vertices[0].position = RSP_MatrixMultiplyVector(&rsp_projectionmatrix, &tri->vertices[0].position);
-	tri->vertices[1].position = RSP_MatrixMultiplyVector(&rsp_projectionmatrix, &tri->vertices[1].position);
-	tri->vertices[2].position = RSP_MatrixMultiplyVector(&rsp_projectionmatrix, &tri->vertices[2].position);
+	tri->vertices[0].position = RSP_MatrixMultiplyVector(rsp_projectionmatrix, &tri->vertices[0].position);
+	tri->vertices[1].position = RSP_MatrixMultiplyVector(rsp_projectionmatrix, &tri->vertices[1].position);
+	tri->vertices[2].position = RSP_MatrixMultiplyVector(rsp_projectionmatrix, &tri->vertices[2].position);
 
 	// cull triangle by "normal" direction
 	if (rsp_target.cullmode != TRICULL_NONE)
