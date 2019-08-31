@@ -235,14 +235,14 @@ void RSP_DrawTriangle(rsp_triangle_t *tri)
 
 		// lerp 1/Z and UV for v3. For perspective texture mapping calculate u/z, v/z.
 		{
-			float invV0Z = 1.f/v0.position.z;
-			float invV1Z = 1.f/v1.position.z;
+			float invV0Z = 1.0f / v0.position.z;
+			float invV1Z = 1.0f / v1.position.z;
 			fixed_t v0x = FLOAT_TO_FIXED(v0.position.x);
 			fixed_t v1x = FLOAT_TO_FIXED(v1.position.x);
 
 			// get v3.z value by interpolating 1/z (it's lerp-able)
 			if (v0x - v1x)
-				v3.position.z = 1.0 / LERP(invV1Z, invV0Z, (v3.position.x - v1.position.x) / (v0.position.x - v1.position.x));
+				v3.position.z = 1.0f / LERP(invV1Z, invV0Z, (v3.position.x - v1.position.x) / (v0.position.x - v1.position.x));
 			else
 				v3.position.z = v0.position.z;
 
@@ -300,8 +300,9 @@ void RSP_TransformTriangle(rsp_triangle_t *tri)
 		fpvector4_t d2 = RSP_VectorSubtract(&tri->vertices[2].position, &tri->vertices[0].position);
 		fpvector4_t n = RSP_VectorCrossProduct(&d1, &d2);
 		float dot = RSP_VectorDotProduct(&tri->vertices[0].position, &n);
+		dot *= -1.0f;
 		if (tri->flipped)
-			dot = -dot;
+			dot *= -1.0f;
 		// backside cull
 		if (rsp_target.cullmode == TRICULL_BACK && (dot >= 0))
 			return;

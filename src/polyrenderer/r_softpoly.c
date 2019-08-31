@@ -16,8 +16,26 @@ rendertarget_t rsp_target;
 viewpoint_t rsp_viewpoint;
 fpmatrix16_t *rsp_projectionmatrix = NULL;
 
-// init the polygon renderer, after resolution change
-void RSP_Viewport(INT32 width, INT32 height)
+// init the polygon renderer
+void RSP_Init(void)
+{
+	CONS_Printf("Polygon renderer init\n");
+
+	// set pixel functions
+	rsp_basepixelfunc = RSP_DrawPixel;
+	rsp_transpixelfunc = RSP_DrawTranslucentPixel;
+
+	// set triangle functions
+	rsp_fixedtrifunc = RSP_TexturedMappedTriangle;
+	rsp_floattrifunc = RSP_TexturedMappedTriangleFP;
+
+	// run other initialisation code
+	RSP_SetDrawerFunctions();
+	RSP_InitModels();
+}
+
+// make the viewport, after resolution change
+void RSP_Viewport(INT32 width, INT32 height, boolean sscreen)
 {
 	const float den = 1.7f;
 	float fov = 90.0f - (48.0f / den);
@@ -28,7 +46,7 @@ void RSP_Viewport(INT32 width, INT32 height)
 	rsp_target.height = height;
 
 	// viewport aspect ratio and fov
-	if (splitscreen)
+	if (sscreen)
 	{
 		fov /= den;
 		aspecty /= 2.0f;
@@ -40,7 +58,7 @@ void RSP_Viewport(INT32 width, INT32 height)
 	// make fixed-point depth buffer
 	if (rsp_target.depthbuffer)
 		Z_Free(rsp_target.depthbuffer);
-	rsp_target.depthbuffer = (fixed_t *)Z_Malloc(sizeof(fixed_t) * (rsp_target.width * rsp_target.height), PU_STATIC, NULL);
+	rsp_target.depthbuffer = (fixed_t *)Z_Malloc(sizeof(fixed_t) * (rsp_target.width * rsp_target.height), PU_SOFTPOLY, NULL);
 
 	// renderer modes
 	rsp_target.mode = (RENDERMODE_COLOR|RENDERMODE_DEPTH);
@@ -52,14 +70,6 @@ void RSP_Viewport(INT32 width, INT32 height)
 
 	// make projection matrix
 	RSP_MakePerspectiveMatrix(&rsp_viewpoint.projection_matrix, fov, rsp_target.aspectratio, 0.1f, rsp_target.far_plane);
-
-	// set pixel functions
-	rsp_basepixelfunc = RSP_DrawPixel;
-	rsp_transpixelfunc = RSP_DrawTranslucentPixel;
-
-	// set triangle functions
-	rsp_fixedtrifunc = RSP_TexturedMappedTriangle;
-	rsp_floattrifunc = RSP_TexturedMappedTriangleFP;
 }
 
 // up vector
@@ -85,12 +95,21 @@ static void RSP_SetupFrame(fixed_t vx, fixed_t vy, fixed_t vz, angle_t vangle)
 	// in reality, there is no model matrix
 	modelview = RSP_MatrixMultiply(&rsp_viewpoint.view_matrix, &rsp_viewpoint.projection_matrix);
 	if (rsp_projectionmatrix == NULL)
-		rsp_projectionmatrix = Z_Malloc(sizeof(fpmatrix16_t), PU_STATIC, NULL);
+		rsp_projectionmatrix = Z_Malloc(sizeof(fpmatrix16_t), PU_SOFTPOLY, NULL);
 	M_Memcpy(rsp_projectionmatrix, &modelview, sizeof(fpmatrix16_t));
 }
 
-// setup frame
 void RSP_ModelView(void)
+{
+	// set drawer functions
+	RSP_SetDrawerFunctions();
+
+	// Clear the depth buffer, and setup the matrixes.
+	RSP_ClearDepthBuffer();
+	RSP_SetupFrame(viewx, viewy, viewz, viewangle);
+}
+
+void RSP_SetDrawerFunctions(void)
 {
 	// Arkus: Set pixel drawer.
 	rsp_curpixelfunc = rsp_basepixelfunc;
@@ -102,15 +121,14 @@ void RSP_ModelView(void)
 		rsp_curtrifunc = rsp_floattrifunc;
 	else
 		rsp_curtrifunc = NULL;
-
-	// Clear the depth buffer, and setup the matrixes.
-	RSP_ClearDepthBuffer();
-	RSP_SetupFrame(viewx, viewy, viewz, viewangle);
 }
 
 // on frame start
 void RSP_OnFrame(void)
 {
+	if (!cv_models.value)
+		return;
+
 	RSP_ModelView();
 	rsp_viewwindowx = viewwindowx;
 	rsp_viewwindowy = viewwindowy;
@@ -176,21 +194,109 @@ void RSP_ClearDepthBuffer(void)
 }
 
 // Arkus: Debug rendering.
-void RSP_DebugRender(fixed_t vx, fixed_t vy, fixed_t vz, INT32 wx, INT32 wy)
+void RSP_DebugRender(INT32 model)
 {
-	fixed_t z = vz;
+	fixed_t vx = 0, vy = 0, vz = 0;
+	angle_t va = ANGLE_90;
+	INT32 skinnum = R_SkinAvailable(cv_skin.string);
+	UINT8 skincolour = cv_playercolor.value;
 	static float angle;
-	angle -= 2.0f;
+	static fixed_t frame;
 
+	if (!cv_models.value)
+		return;
+
+	if (!netgame && gamestate == GS_LEVEL && players[consoleplayer].mo)
+	{
+		skinnum = ((skin_t*)players[0].mo->skin)-skins;
+		skincolour = (players[consoleplayer].mo)->color;
+	}
+
+	if (skinnum < 0)
+		skinnum = 0;
+	if (skinnum > MAXSKINS)
+		skinnum = 0;
+	if (skincolour >= MAXTRANSLATIONS)
+		skincolour = MAXTRANSLATIONS-1;
+
+	if (model < 2)
+	{
+		vz = 32*FRACUNIT;
+		vy = -128*FRACUNIT;
+	}
+	else if (model == 2)
+	{
+		vz = 48*FRACUNIT;
+		vy = -256*FRACUNIT;
+	}
+	else if (model == 3)
+	{
+		vz = 40*FRACUNIT;
+		vy = -128*FRACUNIT;
+	}
+
+	// store viewpoint
+	rsp_viewpoint.viewx = vx;
+	rsp_viewpoint.viewy = vy;
+	rsp_viewpoint.viewz = vz;
+	rsp_viewpoint.viewangle = va;
+	rsp_viewpoint.aimingangle = 0;
+	rsp_viewpoint.viewcos = FINECOSINE(va>>ANGLETOFINESHIFT);
+	rsp_viewpoint.viewsin = FINESINE(va>>ANGLETOFINESHIFT);
+
+	// set viewpoint
+	RSP_Viewport(vid.width, vid.height, false);
+	RSP_SetupFrame(vx, vy, vz, va);
 	RSP_ClearDepthBuffer();
-	rsp_viewwindowx = wx;
-	rsp_viewwindowy = wy;
+	rsp_viewwindowx = 0;
+	rsp_viewwindowy = (40 * vid.dupy);
 	rsp_target.aiming = false;
 
-	//RSP_RenderModelSimple(SPR_PLAY, 0, angle, SKINCOLOR_BLUE, NULL, false);
+	// standing player
+	if (model == 0)
+	{
+		RSP_RenderModelSimple(SPR_PLAY, 0, 0, 0, 0, angle, skincolour, &skins[skinnum], false, false);
+		angle -= 2.0f;
+	}
+	// walking player
+	else if (model == 1)
+	{
+		const INT32 numframes = 8;
+		INT32 curframe = FixedInt(frame) % numframes;
+		INT32 curframenum = states[S_PLAY_RUN1+curframe].frame;
+		INT32 nextframe, nextframenum;
+		float pol = 0.0f;
 
-	RSP_SetupFrame(vx, vy, z, ANGLE_90);
-	RSP_RenderModelSimple(SPR_SIGN, Color_Opposite[SKINCOLOR_BLUE*2+1], angle, Color_Opposite[SKINCOLOR_BLUE*2], NULL, false);
-	RSP_SetupFrame(vx, vy, z - 24*FRACUNIT, ANGLE_90);
-	RSP_RenderModelSimple(SPR_PLAY, states[S_PLAY_SIGN].frame, angle, SKINCOLOR_BLUE, &skins[0], false);
+		if (cv_modelinterpolation.value)
+		{
+			nextframe = FixedInt(frame+FRACUNIT) % numframes;
+			nextframenum = states[S_PLAY_RUN1+nextframe].frame;
+			pol = FIXED_TO_FLOAT(frame % FRACUNIT);
+			RSP_RenderInterpolatedModelSimple(SPR_PLAY, curframenum, nextframenum, pol, 0, 0, 0, angle, skincolour, &skins[skinnum], false, false);
+		}
+		else
+			RSP_RenderModelSimple(SPR_PLAY, curframenum, 0, 0, 0, angle, skincolour, &skins[skinnum], false, false);
+
+		angle -= 1.0f;
+		frame += ((FRACUNIT*2) / 10);
+	}
+	// monitors
+	else if (model == 2)
+	{
+		INT32 i;
+		const INT32 nummonitors = 10;
+		const float distance = 40.0f;
+		for (i = 0; i < nummonitors; i++)
+			RSP_RenderModelSimple(SPR_YLTV+i, 0, ((-nummonitors/2 + i) * distance) + (distance / 2.0f), 0, 0, 0.0f, 0, NULL, false, true);
+	}
+	// sign post
+	else if (model == 3)
+	{
+		RSP_RenderModelSimple(SPR_SIGN, states[S_SIGN53].frame + Color_Opposite[skincolour*2+1], 0, 0, 0, angle, Color_Opposite[skincolour*2], NULL, false, false);
+		RSP_RenderModelSimple(SPR_PLAY, states[S_PLAY_SIGN].frame, 0, 0, 24.0f, angle, skincolour, &skins[skinnum], false, false);
+		angle -= 2.0f;
+	}
+
+	// restore the viewport!!!!!!!!!
+	RSP_Viewport(viewwidth, viewheight, splitscreen);
 }

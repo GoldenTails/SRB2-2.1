@@ -164,8 +164,15 @@ extern consvar_t cv_renderview;
 extern consvar_t cv_vidwait;
 
 // 3D models
-extern consvar_t cv_models;
+extern consvar_t cv_models, cv_modelinterpolation;
 #ifdef SOFTPOLY
+extern consvar_t cv_modelbillboarding;
+enum
+{
+	BILLBOARD_SCREEN = 1,
+	BILLBOARD_CAMERA,
+};
+
 extern consvar_t cv_texturemapping;
 enum
 {
