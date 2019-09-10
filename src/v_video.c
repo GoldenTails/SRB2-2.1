@@ -1730,6 +1730,13 @@ void V_DrawSmallThinString(INT32 x, INT32 y, INT32 option, const char *string)
 	}
 }
 
+void V_DrawRightAlignedSmallThinString(INT32 x, INT32 y, INT32 option, const char *string)
+{
+	x <<= FRACBITS;
+	x -= V_SmallThinStringWidth(string, option)/2;
+	V_DrawSmallThinStringAtFixed(x, y<<FRACBITS, option, string);
+}
+
 // Draws a string at a fixed_t location.
 void V_DrawStringAtFixed(fixed_t x, fixed_t y, INT32 option, const char *string)
 {
@@ -2093,10 +2100,10 @@ void V_DrawSmallThinStringAtFixed(fixed_t x, fixed_t y, INT32 option, const char
 	switch (option & V_SPACINGMASK)
 	{
 		case V_MONOSPACE:
-			spacewidth = 4<<FRACBITS;
+			spacewidth = 5<<FRACBITS;
 			/* FALLTHRU */
 		case V_OLDSPACING:
-			charwidth = 4<<FRACBITS;
+			charwidth = 5<<FRACBITS;
 			break;
 		case V_6WIDTHSPACE:
 			spacewidth = 3<<FRACBITS;
@@ -2489,6 +2496,45 @@ INT32 V_ThinStringWidth(const char *string, INT32 option)
 			w += spacewidth;
 		else
 			w += (charwidth ? charwidth : SHORT(tny_font[c]->width));
+	}
+
+	return w;
+}
+
+//
+// Find string width from tny_font chars, 0.5x scale
+//
+INT32 V_SmallThinStringWidth(const char *string, INT32 option)
+{
+	INT32 c, w = 0;
+	INT32 spacewidth = 2<<FRACBITS, charwidth = 0;
+	size_t i;
+
+	switch (option & V_SPACINGMASK)
+	{
+		case V_MONOSPACE:
+			spacewidth = 5<<FRACBITS;
+			/* FALLTHRU */
+		case V_OLDSPACING:
+			charwidth = 5<<FRACBITS;
+			break;
+		case V_6WIDTHSPACE:
+			spacewidth = 3<<FRACBITS;
+		default:
+			break;
+	}
+
+	for (i = 0; i < strlen(string); i++)
+	{
+		c = string[i];
+		if ((UINT8)c >= 0x80 && (UINT8)c <= 0x89) //color parsing! -Inuyasha 2.16.09
+			continue;
+
+		c = toupper(c) - HU_FONTSTART;
+		if (c < 0 || c >= HU_FONTSIZE || !tny_font[c])
+			w += spacewidth;
+		else
+			w += (charwidth ? charwidth : (SHORT(tny_font[c]->width)/2)<<FRACBITS);
 	}
 
 	return w;

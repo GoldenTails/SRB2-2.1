@@ -178,6 +178,7 @@ void V_DrawRightAlignedThinString(INT32 x, INT32 y, INT32 option, const char *st
 
 // draw a string using the tny_font, 0.5x scale
 void V_DrawSmallThinString(INT32 x, INT32 y, INT32 option, const char *string);
+void V_DrawRightAlignedSmallThinString(INT32 x, INT32 y, INT32 option, const char *string);
 
 // draw a string using the hu_font at fixed_t coordinates
 void V_DrawStringAtFixed(fixed_t x, fixed_t y, INT32 option, const char *string);
@@ -213,6 +214,8 @@ INT32 V_StringWidth(const char *string, INT32 option);
 INT32 V_SmallStringWidth(const char *string, INT32 option);
 // Find string width from tny_font chars
 INT32 V_ThinStringWidth(const char *string, INT32 option);
+// Find string width from tny_font chars, 0.5x scale
+INT32 V_SmallThinStringWidth(const char *string, INT32 option);
 
 void V_DoPostProcessor(INT32 view, postimg_t type, INT32 param);
 
