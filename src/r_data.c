@@ -581,14 +581,7 @@ void R_LoadTextures(void)
 
 			Z_Unlock(patchlump);
 
-<<<<<<< HEAD
 			texturewidth[i] = texture->width;
-=======
-			k = 1;
-			while (k << 1 <= texture->width)
-				k <<= 1;
-			texturewidthmask[i] = k - 1;
->>>>>>> upstream/master
 			textureheight[i] = texture->height << FRACBITS;
 			i++;
 		}
