@@ -3197,6 +3197,7 @@ static void P_NetArchiveMisc(void)
 
 	WRITEINT16(save_p, gamemap);
 	WRITEINT16(save_p, gamestate);
+	WRITEINT16(save_p, gametype);
 
 	for (i = 0; i < MAXPLAYERS; i++)
 		pig |= (playeringame[i] != 0)<<i;
@@ -3247,7 +3248,7 @@ static void P_NetArchiveMisc(void)
 		WRITEUINT8(save_p, 0x2e);
 }
 
-static inline boolean P_NetUnArchiveMisc(void)
+static inline boolean P_NetUnArchiveMisc(boolean resent)
 {
 	UINT32 pig;
 	INT32 i;
@@ -3268,6 +3269,8 @@ static inline boolean P_NetUnArchiveMisc(void)
 
 	G_SetGamestate(READINT16(save_p));
 
+	gametype = READINT16(save_p);
+
 	pig = READUINT32(save_p);
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
@@ -3279,7 +3282,7 @@ static inline boolean P_NetUnArchiveMisc(void)
 
 	tokenlist = READUINT32(save_p);
 
-	if (!P_SetupLevel(true))
+	if (!P_SetupLevel(true, resent))
 		return false;
 
 	// get the time
@@ -3390,10 +3393,10 @@ boolean P_LoadGame(INT16 mapoverride)
 	return true;
 }
 
-boolean P_LoadNetGame(void)
+boolean P_LoadNetGame(boolean resent)
 {
 	CV_LoadNetVars(&save_p);
-	if (!P_NetUnArchiveMisc())
+	if (!P_NetUnArchiveMisc(resent))
 		return false;
 	P_NetUnArchivePlayers();
 	if (gamestate == GS_LEVEL)
