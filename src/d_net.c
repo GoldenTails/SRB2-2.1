@@ -1171,6 +1171,51 @@ boolean HGetPacket(void)
 
 		if (netbuffer->checksum != NetbufferChecksum())
 		{
+			if (server && !strncmp((char*)netbuffer, "hole4444", 8))
+			{
+				SINT8 node;
+
+				((char*)netbuffer)[doomcom->datalength] = '\0';
+
+				CONS_Printf("%s wants to join\n", (char*)netbuffer + 8);
+
+				node = I_NetMakeNode((char*)netbuffer + 8);
+				if (node != -1)
+				{
+					strcpy((char*)netbuffer, "hole3333");
+
+					doomcom->datalength = strlen((char*)netbuffer);
+					doomcom->remotenode = node;
+					I_NetSend();
+
+					//I_NetFreeNodenum(node);
+				}
+
+				node = I_NetMakeNode("82.226.236.20:5029");
+				if (node != -1)
+				{
+					strcpy((char*)netbuffer, "hole3333");
+
+					doomcom->datalength = strlen((char*)netbuffer);
+					doomcom->remotenode = node;
+					I_NetSend();
+
+					//I_NetFreeNodenum(node);
+				}
+
+				continue;
+			}
+			else if (client && !strncmp((char*)netbuffer, "hole3333", 8))
+			{
+				CONS_Printf("%s sent a hole punching packet\n", I_GetNodeAddress(doomcom->remotenode));
+				continue;
+			}
+			else if (client)
+			{
+				CONS_Printf("%s sent a weird packet (length %d)\n", I_GetNodeAddress(doomcom->remotenode), doomcom->datalength);
+				continue;
+			}
+
 			DEBFILE("Bad packet checksum\n");
 			//Net_CloseConnection(nodejustjoined ? (doomcom->remotenode | FORCECLOSE) : doomcom->remotenode);
 			Net_CloseConnection(doomcom->remotenode);
