@@ -1171,6 +1171,35 @@ boolean HGetPacket(void)
 
 		if (netbuffer->checksum != NetbufferChecksum())
 		{
+			if (server)
+			{
+				SINT8 node;
+				char *address, *port, *colon;
+
+				((char*)netbuffer)[doomcom->datalength] = '\0';
+
+				colon = strchr((char*)netbuffer, ':');
+				if (colon)
+				{
+					*colon = '\0';
+					address = (char*)netbuffer;
+					port = colon + 1;
+					CONS_Printf("%s:%s wants to join\n", address, port);
+
+					node = I_NetMakeNodewPort(address, port);
+					if (node != -1)
+					{
+						doomcom->datalength = 66;
+						doomcom->remotenode = node;
+						I_NetSend();
+						//HSendPacket(node, false, 0, 0);
+
+						//I_NetFreeNodenum(node);
+						continue;
+					}
+				}
+			}
+
 			DEBFILE("Bad packet checksum\n");
 			//Net_CloseConnection(nodejustjoined ? (doomcom->remotenode | FORCECLOSE) : doomcom->remotenode);
 			Net_CloseConnection(doomcom->remotenode);

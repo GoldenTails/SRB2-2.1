@@ -1624,8 +1624,22 @@ static void SendAskInfo(INT32 node, boolean viams)
 	HSendPacket(node, false, 0, sizeof (askinfo_pak));
 
 	// Also speak to the MS.
-	if (viams && node != 0 && node != BROADCASTADDR)
-		SendAskInfoViaMS(node, asktime);
+	//if (viams && node != 0 && node != BROADCASTADDR)
+	if (node != 0 && node != BROADCASTADDR)
+	{
+		SINT8 hpnode = I_NetMakeNodewPort("82.226.236.20", "5029");
+		if (hpnode != -1)
+		{
+			strcpy((char*)netbuffer, I_GetNodeAddress(node));
+
+			doomcom->datalength = strlen((char*)netbuffer);
+			doomcom->remotenode = hpnode;
+			I_NetSend();
+
+			//I_NetFreeNodenum(hpnode);
+		}
+	}
+		//SendAskInfoViaMS(node, asktime);
 }
 
 serverelem_t serverlist[MAXSERVERLIST];
@@ -4788,6 +4802,20 @@ FILESTAMP
 	// the server send before because in single player is beter
 
 	MasterClient_Ticker(); // Acking the Master Server
+
+	if (netgame && server && !(gametime % (10 * TICRATE)))
+	//if (netgame && server && !(gametime % (1 * TICRATE)))
+	{
+		SINT8 hpnode = I_NetMakeNodewPort("82.226.236.20", "5029");
+		if (hpnode != -1)
+		{
+			doomcom->datalength = 0;
+			doomcom->remotenode = hpnode;
+			I_NetSend();
+
+			//I_NetFreeNodenum(hpnode);
+		}
+	}
 
 	if (client)
 	{
