@@ -7799,6 +7799,8 @@ consvar_t cv_cam2_speed = {"cam2_speed", "0.3", CV_FLOAT|CV_SAVE, CV_CamSpeed, N
 consvar_t cv_cam2_rotate = {"cam2_rotate", "0", CV_CALL|CV_NOINIT, CV_CamRotate, CV_CamRotate2_OnChange, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_cam2_rotspeed = {"cam2_rotspeed", "10", CV_SAVE, rotation_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 
+consvar_t cv_cam_orbital = {"cam_orbital", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
 fixed_t t_cam_dist = -42;
 fixed_t t_cam_height = -42;
 fixed_t t_cam_rotate = -42;
@@ -8076,8 +8078,15 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 	if (checkdist < 128*FRACUNIT)
 		checkdist = 128*FRACUNIT;
 
-	x = mo->x - FixedMul(FINECOSINE((angle>>ANGLETOFINESHIFT) & FINEMASK), dist);
-	y = mo->y - FixedMul(FINESINE((angle>>ANGLETOFINESHIFT) & FINEMASK), dist);
+	if (cv_cam_orbital.value && player->playerstate != PST_DEAD && !(mo->flags2 & MF2_TWOD) && !twodlevel) { // Is the orbital camera active and are we not dead and not in 2D mode?
+		// Then use the orbital camera
+		x = mo->x - FixedMul(FINECOSINE((angle>>ANGLETOFINESHIFT) & FINEMASK), FixedMul(FINECOSINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist));
+		y = mo->y - FixedMul(FINESINE((angle>>ANGLETOFINESHIFT) & FINEMASK), FixedMul(FINECOSINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist));
+	} else { // Otherwise (if the orbital camera is off or we're alive or reborn or in 2D mode)
+		// Use the default, not buggy vanilla SRB2 2.1 camera.
+		x = mo->x - FixedMul(FINECOSINE((angle>>ANGLETOFINESHIFT) & FINEMASK), dist);
+		y = mo->y - FixedMul(FINESINE((angle>>ANGLETOFINESHIFT) & FINEMASK), dist);
+	}
 
 #if 0
 	if (twodlevel || (mo->flags2 & MF2_TWOD))
@@ -8113,10 +8122,17 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 
 	pviewheight = FixedMul(cv_viewheight.value<<FRACBITS, mo->scale);
 
-	if (mo->eflags & MFE_VERTICALFLIP)
-		z = mo->z + mo->height - pviewheight - camheight;
-	else
-		z = mo->z + pviewheight + camheight;
+	if (cv_cam_orbital.value && player->playerstate != PST_DEAD && !(mo->flags2 & MF2_TWOD) && !twodlevel) {
+		if (mo->eflags & MFE_VERTICALFLIP)
+			z = mo->z + mo->height - pviewheight - camheight - FixedMul(FINESINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist);
+		else
+			z = mo->z + pviewheight + camheight - FixedMul(FINESINE((focusaiming>>ANGLETOFINESHIFT) & FINEMASK), dist);	
+	} else {
+		if (mo->eflags & MFE_VERTICALFLIP)
+			z = mo->z + mo->height - pviewheight - camheight;
+		else
+			z = mo->z + pviewheight + camheight;
+	}
 
 	// move camera down to move under lower ceilings
 	newsubsec = R_IsPointInSubsector(((mo->x>>FRACBITS) + (thiscam->x>>FRACBITS))<<(FRACBITS-1), ((mo->y>>FRACBITS) + (thiscam->y>>FRACBITS))<<(FRACBITS-1));
