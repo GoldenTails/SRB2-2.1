@@ -573,12 +573,13 @@ typedef struct seg_s
 	sector_t *frontsector;
 	sector_t *backsector;
 
-	fixed_t length;	// precalculated seg length
+	// precalculated seg length
+	fixed_t length;
+	float flength;
 #ifdef HWRENDER
 	// new pointers so that AdjustSegs doesn't mess with v1/v2
 	void *pv1; // polyvertex_t
 	void *pv2; // polyvertex_t
-	float flength; // length of the seg, used by hardware renderer
 
 	lightmap_t *lightmaps; // for static lightmap
 #endif
@@ -643,9 +644,9 @@ typedef struct drawseg_s
 	INT32 x1;
 	INT32 x2;
 
-	fixed_t scale1;
-	fixed_t scale2;
-	fixed_t scalestep;
+	float scale1;
+	float scale2;
+	float scalestep;
 
 	INT32 silhouette; // 0 = none, 1 = bottom, 2 = top, 3 = both
 
@@ -667,7 +668,7 @@ typedef struct drawseg_s
 	UINT8 portalpass; // if > 0 and <= portalrender, do not affect sprite clipping
 
 #ifdef ESLOPE
-	fixed_t maskedtextureheight[MAXVIDWIDTH]; // For handling sloped midtextures
+	float maskedtextureheight[MAXVIDWIDTH]; // For handling sloped midtextures
 
 	vertex_t leftpos, rightpos; // Used for rendering FOF walls with slopes
 #endif

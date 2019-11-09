@@ -54,8 +54,10 @@ size_t validcount = 1;
 INT32 centerx, centery;
 
 fixed_t centerxfrac, centeryfrac;
+float centerxfloat, centeryfloat;
 fixed_t projection;
 fixed_t projectiony; // aspect ratio
+float lightingaspectratio;
 
 // just for profiling purposes
 size_t framecount;
@@ -387,24 +389,22 @@ angle_t R_PointToAngleEx(INT32 x2, INT32 y2, INT32 x1, INT32 y1)
 // killough 5/2/98: reformatted, cleaned up
 //
 // note: THIS IS USED ONLY FOR WALLS!
-fixed_t R_ScaleFromGlobalAngle(angle_t visangle)
+float R_ScaleFromGlobalAngleFloat(angle_t visangle)
 {
 	angle_t anglea = ANGLE_90 + (visangle-viewangle);
 	angle_t angleb = ANGLE_90 + (visangle-rw_normalangle);
-	fixed_t den = FixedMul(rw_distance, FINESINE(anglea>>ANGLETOFINESHIFT));
+	float den = rw_distance * FIXED_TO_FLOAT(FINESINE(anglea>>ANGLETOFINESHIFT));
 	// proff 11/06/98: Changed for high-res
-	fixed_t num = FixedMul(projectiony, FINESINE(angleb>>ANGLETOFINESHIFT));
-
-	if (den > num>>16)
+	fixed_t fnum = FixedMul(projectiony, FINESINE(angleb>>ANGLETOFINESHIFT));
+	float num = FIXED_TO_FLOAT(fnum);
+	if (den >= 0.01f)
 	{
-		num = FixedDiv(num, den);
-		if (num > 64*FRACUNIT)
-			return 64*FRACUNIT;
-		if (num < 256)
-			return 256;
+		num = (num / den);
+		if (num < 0.01f)
+			return 0.01f;
 		return num;
 	}
-	return 64*FRACUNIT;
+	return 0.01f;
 }
 
 //
@@ -600,6 +600,9 @@ void R_ExecuteSetViewSize(void)
 	centery = viewheight/2;
 	centerxfrac = centerx<<FRACBITS;
 	centeryfrac = centery<<FRACBITS;
+	centerxfloat = FIXED_TO_FLOAT(centerxfrac);
+	centeryfloat = FIXED_TO_FLOAT(centeryfrac);
+	lightingaspectratio = 640.0f / (float)vid.width;
 
 	projection = centerxfrac;
 	//projectiony = (((vid.height*centerx*BASEVIDWIDTH)/BASEVIDHEIGHT)/vid.width)<<FRACBITS;
@@ -744,7 +747,7 @@ subsector_t *R_IsPointInSubsector(fixed_t x, fixed_t y)
 static mobj_t *viewmobj;
 
 // WARNING: a should be unsigned but to add with 2048, it isn't!
-#define AIMINGTODY(a) ((FINETANGENT((2048+(((INT32)a)>>ANGLETOFINESHIFT)) & FINEMASK)*160)>>FRACBITS)
+#define AIMINGTODY(a) (FINETANGENT((2048+(((INT32)a)>>ANGLETOFINESHIFT)) & FINEMASK)*160)
 
 // recalc necessary stuff for mouseaiming
 // slopes are already calculated for the full possible view (which is 4*viewheight).
@@ -757,11 +760,12 @@ static void R_SetupFreelook(void)
 		// clip it in the case we are looking a hardware 90 degrees full aiming
 		// (lmps, network and use F12...)
 		G_SoftwareClipAimingPitch((INT32 *)&aimingangle);
-		dy = AIMINGTODY(aimingangle) * viewwidth/BASEVIDWIDTH;
-		yslope = &yslopetab[viewheight*8 - (viewheight/2 + dy)];
+		dy = FixedMul(AIMINGTODY(aimingangle), (viewwidth/BASEVIDWIDTH)<<FRACBITS);
+		yslope = &yslopetab[viewheight*8 - (viewheight/2 + (dy>>FRACBITS))];
 	}
-	centery = (viewheight/2) + dy;
+	centery = (viewheight/2) + (dy>>FRACBITS);
 	centeryfrac = centery<<FRACBITS;
+	centeryfloat = FIXED_TO_FLOAT(centeryfrac);
 }
 
 #undef AIMINGTODY
