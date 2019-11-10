@@ -86,12 +86,11 @@ static UINT32 atohex(const char *s);
 static void CV_filtermode_ONChange(void);
 static void CV_anisotropic_ONChange(void);
 static void CV_FogDensity_ONChange(void);
-static void CV_grFov_OnChange(void);
+static void CV_grModelLighting_OnChange(void);
 // ==========================================================================
 //                                          3D ENGINE COMMANDS & CONSOLE VARS
 // ==========================================================================
 
-static CV_PossibleValue_t grfov_cons_t[] = {{0, "MIN"}, {179*FRACUNIT, "MAX"}, {0, NULL}};
 static CV_PossibleValue_t grfiltermode_cons_t[]= {{HWD_SET_TEXTUREFILTER_POINTSAMPLED, "Nearest"},
 	{HWD_SET_TEXTUREFILTER_BILINEAR, "Bilinear"}, {HWD_SET_TEXTUREFILTER_TRILINEAR, "Trilinear"},
 	{HWD_SET_TEXTUREFILTER_MIXED1, "Linear_Nearest"},
@@ -112,7 +111,7 @@ static consvar_t cv_grbeta = {"gr_beta", "0", 0, CV_Unsigned, NULL, 0, NULL, NUL
 
 static float HWRWipeCounter = 1.0f;
 consvar_t cv_grrounddown = {"gr_rounddown", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
-consvar_t cv_grfov = {"gr_fov", "90", CV_FLOAT|CV_CALL, grfov_cons_t, CV_grFov_OnChange, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_grmodellighting = {"gr_modellighting", "Off", CV_CALL, CV_OnOff, CV_grModelLighting_OnChange, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grfogdensity = {"gr_fogdensity", "150", CV_CALL|CV_NOINIT, CV_Unsigned,
                              CV_FogDensity_ONChange, 0, NULL, NULL, 0, 0, NULL};
 
@@ -872,7 +871,7 @@ static void HWR_DrawSegsSplats(FSurfaceInfo * pSurf)
 		if (!M_PointInBox(segbbox,splat->v1.x,splat->v1.y) && !M_PointInBox(segbbox,splat->v2.x,splat->v2.y))
 			continue;
 
-		gpatch = W_CachePatchNum(splat->patch, PU_CACHE);
+		gpatch = W_CachePatchNum(splat->patch, PU_PATCH);
 		HWR_GetPatch(gpatch);
 
 		wallVerts[0].x = wallVerts[3].x = FIXED_TO_FLOAT(splat->v1.x);
@@ -4311,7 +4310,7 @@ static void HWR_SplitSprite(gr_vissprite_t *spr)
 	if (hires)
 		this_scale = this_scale * FIXED_TO_FLOAT(((skin_t *)spr->mobj->skin)->highresscale);
 
-	gpatch = W_CachePatchNum(spr->patchlumpnum, PU_CACHE);
+	gpatch = W_CachePatchNum(spr->patchlumpnum, PU_PATCH);
 
 	// cache the patch in the graphics card memory
 	//12/12/99: Hurdler: same comment as above (for md2)
@@ -4664,7 +4663,7 @@ static void HWR_DrawSprite(gr_vissprite_t *spr)
 	//          sure to do it the right way. So actually, we keep normal sprite
 	//          in memory and we add the md2 model if it exists for that sprite
 
-	gpatch = W_CachePatchNum(spr->patchlumpnum, PU_CACHE);
+	gpatch = W_CachePatchNum(spr->patchlumpnum, PU_PATCH);
 
 #ifdef ALAM_LIGHTING
 	if (!(spr->mobj->flags2 & MF2_DEBRIS) && (spr->mobj->sprite != SPR_PLAY ||
@@ -4809,7 +4808,7 @@ static inline void HWR_DrawPrecipitationSprite(gr_vissprite_t *spr)
 		return;
 
 	// cache sprite graphics
-	gpatch = W_CachePatchNum(spr->patchlumpnum, PU_CACHE);
+	gpatch = W_CachePatchNum(spr->patchlumpnum, PU_PATCH);
 
 	// create the sprite billboard
 	//
@@ -5338,20 +5337,18 @@ static void HWR_DrawSprites(void)
 				HWR_DrawPrecipitationSprite(spr);
 			else
 #endif
-				if (spr->mobj && spr->mobj->skin && spr->mobj->sprite == SPR_PLAY)
-				{
-					if (!cv_grmd2.value || md2_playermodels[(skin_t*)spr->mobj->skin-skins].notfound || md2_playermodels[(skin_t*)spr->mobj->skin-skins].scale < 0.0f)
-						HWR_DrawSprite(spr);
-					else
-						HWR_DrawMD2(spr);
-				}
+			{
+				boolean modelavailable = cv_models.value;
+				skin_t *skin = (skin_t *)spr->mobj->skin;
+				if ((skin != NULL) && (skin->flags & SF_RENDERMODEL))
+					modelavailable = true;
+				else if (!modelavailable)
+					modelavailable = R_GetModelDefFlag(spr->mobj->sprite, MDF_REPLACESPRITES);
+				if (modelavailable && HWR_DrawMD2(spr))
+					;
 				else
-				{
-					if (!cv_grmd2.value || md2_models[spr->mobj->sprite].notfound || md2_models[spr->mobj->sprite].scale < 0.0f)
-						HWR_DrawSprite(spr);
-					else
-						HWR_DrawMD2(spr);
-				}
+					HWR_DrawSprite(spr);
+			}
 		}
 	}
 }
@@ -5457,6 +5454,8 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	UINT8 flip;
 	angle_t ang;
 	INT32 heightsec, phs;
+	boolean model;
+	boolean dontcullmodel;
 
 	if (!thing)
 		return;
@@ -5470,9 +5469,25 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	// rotation around vertical axis
 	tz = (tr_x * gr_viewcos) + (tr_y * gr_viewsin);
 
+	{
+		skin_t *skin = (skin_t *)thing->skin;
+		model = ((cv_models.value || R_GetModelDefFlag(thing->sprite, MDF_REPLACESPRITES)) && md2_models[thing->sprite].notfound == false);
+		dontcullmodel = R_GetModelDefFlag(thing->sprite, MDF_DONOTCULL);
+		if ((skin != NULL) && (skin->flags & SF_RENDERMODEL))
+			model = true;
+	}
+
 	// thing is behind view plane?
-	if (tz < ZCLIP_PLANE && (!cv_grmd2.value || md2_models[thing->sprite].notfound == true)) //Yellow: Only MD2's dont disappear
-		return;
+	if (tz < ZCLIP_PLANE)
+	{
+		if (model) //Yellow: Only MD2's dont disappear
+		{
+			if (!dontcullmodel)
+				return;
+		}
+		else
+			return;
+	}
 
 	// The above can stay as it works for cutting sprites that are too close
 	tr_x = FIXED_TO_FLOAT(thing->x);
@@ -5888,7 +5903,7 @@ void HWR_SetViewSize(void)
 // ==========================================================================
 void HWR_RenderSkyboxView(INT32 viewnumber, player_t *player)
 {
-	const float fpov = FIXED_TO_FLOAT(cv_grfov.value+player->fovadd);
+	const float fpov = FIXED_TO_FLOAT(viewfov);
 	postimg_t *type;
 
 	if (splitscreen && player == &players[secondarydisplayplayer])
@@ -6012,7 +6027,7 @@ if (0)
 		viewangle = localaiming2;
 
 	// Handle stuff when you are looking farther up or down.
-	if ((aimingangle || cv_grfov.value+player->fovadd > 90*FRACUNIT))
+	if ((aimingangle || viewfov > 90*FRACUNIT))
 	{
 		dup_viewangle += ANGLE_90;
 		HWR_ClearClipSegs();
@@ -6090,7 +6105,7 @@ if (0)
 // ==========================================================================
 void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 {
-	const float fpov = FIXED_TO_FLOAT(cv_grfov.value+player->fovadd);
+	const float fpov = FIXED_TO_FLOAT(viewfov);
 	postimg_t *type;
 
 	const boolean skybox = (skyboxmo[0] && cv_skybox.value); // True if there's a skybox object and skyboxes are on
@@ -6126,6 +6141,7 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 
 	// note: sets viewangle, viewx, viewy, viewz
 	R_SetupFrame(player, false); // This can stay false because it is only used to set viewsky in r_main.c, which isn't used here
+	framecount++; // timedemo
 
 	// copy view cam position for local use
 	dup_viewx = viewx;
@@ -6159,6 +6175,10 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	//                     It should replace all other gr_viewxxx when finished
 	atransform.anglex = (float)(aimingangle>>ANGLETOFINESHIFT)*(360.0f/(float)FINEANGLES);
 	atransform.angley = (float)(viewangle>>ANGLETOFINESHIFT)*(360.0f/(float)FINEANGLES);
+
+	atransform.axisx = 0.0f;
+	atransform.axisy = 0.0f;
+	atransform.axisz = 0.0f;
 
 	if (*type == postimg_flip)
 		atransform.flip = true;
@@ -6229,7 +6249,7 @@ if (0)
 		viewangle = localaiming2;
 
 	// Handle stuff when you are looking farther up or down.
-	if ((aimingangle || cv_grfov.value+player->fovadd > 90*FRACUNIT))
+	if ((aimingangle || viewfov > 90*FRACUNIT))
 	{
 		dup_viewangle += ANGLE_90;
 		HWR_ClearClipSegs();
@@ -6352,10 +6372,9 @@ static void HWR_FoggingOn(void)
 // ==========================================================================
 
 
-static void CV_grFov_OnChange(void)
+static void CV_grModelLighting_OnChange(void)
 {
-	if ((netgame || multiplayer) && !cv_debug && cv_grfov.value != 90*FRACUNIT)
-		CV_Set(&cv_grfov, cv_grfov.defaultvalue);
+	HWD.pfnSetSpecialState(HWD_SET_MODEL_LIGHTING, cv_grmodellighting.value);
 }
 
 static void Command_GrStats_f(void)
@@ -6378,13 +6397,18 @@ static void Command_GrStats_f(void)
 //added by Hurdler: console varibale that are saved
 void HWR_AddCommands(void)
 {
-	CV_RegisterVar(&cv_grrounddown);
-	CV_RegisterVar(&cv_grfov);
-	CV_RegisterVar(&cv_grfogdensity);
-	CV_RegisterVar(&cv_grfiltermode);
-	CV_RegisterVar(&cv_granisotropicmode);
-	CV_RegisterVar(&cv_grcorrecttricks);
-	CV_RegisterVar(&cv_grsolvetjoin);
+	static boolean alreadycalled = false;
+	if (!alreadycalled)
+	{
+		CV_RegisterVar(&cv_grrounddown);
+		CV_RegisterVar(&cv_grmodellighting);
+		CV_RegisterVar(&cv_grfogdensity);
+		CV_RegisterVar(&cv_grfiltermode);
+		CV_RegisterVar(&cv_granisotropicmode);
+		CV_RegisterVar(&cv_grcorrecttricks);
+		CV_RegisterVar(&cv_grsolvetjoin);
+	}
+	alreadycalled = true;
 }
 
 static inline void HWR_AddEngineCommands(void)
@@ -6456,6 +6480,7 @@ void HWR_Shutdown(void)
 	HWR_FreeExtraSubsectors();
 	HWR_FreePolyPool();
 	HWR_FreeTextureCache();
+	HWR_FreeColormaps();
 	HWD.pfnFlushScreenTextures();
 }
 
@@ -6700,11 +6725,6 @@ static void HWR_RenderWall(wallVert3D   *wallVerts, FSurfaceInfo *pSurf, FBITFIE
 #endif
 }
 
-void HWR_SetPaletteColor(INT32 palcolor)
-{
-	HWD.pfnSetSpecialState(HWD_SET_PALETTECOLOR, palcolor);
-}
-
 INT32 HWR_GetTextureUsed(void)
 {
 	return HWD.pfnGetTextureUsed();
@@ -6751,7 +6771,6 @@ void HWR_DoPostProcessor(player_t *player)
 	if (splitscreen) // Not supported in splitscreen - someone want to add support?
 		return;
 
-#ifdef SHUFFLE
 	// Drunken vision! WooOOooo~
 	if (*type == postimg_water || *type == postimg_heat)
 	{
@@ -6794,7 +6813,6 @@ void HWR_DoPostProcessor(player_t *player)
 			HWD.pfnMakeScreenTexture();
 	}
 	// Flipping of the screen isn't done here anymore
-#endif // SHUFFLE
 }
 
 void HWR_StartScreenWipe(void)
@@ -6841,7 +6859,7 @@ void HWR_DoWipe(UINT8 wipenum, UINT8 scrnnum)
 
 	HWR_GetFadeMask(lumpnum);
 
-	HWD.pfnDoScreenWipe(HWRWipeCounter); // Still send in wipecounter since old stuff might not support multitexturing
+	HWD.pfnDoScreenWipe();
 
 	HWRWipeCounter += 0.05f; // increase opacity of end screen
 

@@ -86,6 +86,10 @@ int	snprintf(char *str, size_t n, const char *fmt, ...);
 #include "sdl12/SRB2XBOX/xboxhelp.h"
 #endif
 
+#ifdef SOFTPOLY
+#include "polyrenderer/r_softpoly.h"
+#endif
+
 #ifdef HWRENDER
 #include "hardware/hw_main.h" // 3D View Rendering
 #endif
@@ -116,6 +120,8 @@ boolean devparm = false; // started game with -devparm
 
 boolean singletics = false; // timedemo
 boolean lastdraw = false;
+
+static void D_CheckRendererState(void);
 
 postimg_t postimgtype = postimg_none;
 INT32 postimgparam;
@@ -227,6 +233,7 @@ gamestate_t wipegamestate = GS_LEVEL;
 
 static void D_Display(void)
 {
+	INT32 setrenderstillneeded = 0;
 	boolean forcerefresh = false;
 	static boolean wipe = false;
 	INT32 wipedefindex = 0;
@@ -237,19 +244,49 @@ static void D_Display(void)
 	if (nodrawers)
 		return; // for comparative timing/profiling
 
-	// check for change of screen size (video mode)
-	if (setmodeneeded && !wipe)
-		SCR_SetMode(); // change video mode
+	// Jimita: Switching renderers works by checking
+	// if the game has to do it right when the frame
+	// needs to render. If so, five things will happen:
+	// 1. Interface functions will be called so
+	//    that switching to OpenGL creates a
+	//    GL context, and switching to Software
+	//    allocates screen buffers.
+	// 2. Software will set drawer functions,
+	//    and OpenGL will load textures and
+	//    create plane polygons, if necessary.
+	// 3. Functions related to switching video
+	//    modes (resolution) are called.
+	// 4. Patch data is freed from memory,
+	//    and recached if necessary.
+	// 5. The frame is ready to be drawn!
 
-	if (vid.recalc)
+	// stop movie if needs to change renderer
+	if (setrenderneeded && (moviemode != MM_OFF))
+		M_StopMovie();
+
+	// check for change of renderer or screen size (video mode)
+	if ((setrenderneeded || setmodeneeded) && !wipe)
+	{
+		if (setrenderneeded)
+		{
+			CONS_Debug(DBG_RENDER, "setrenderneeded set (%d)\n", setrenderneeded);
+			setrenderstillneeded = setrenderneeded;
+		}
+		SCR_SetMode(); // change video mode
+	}
+
+	if (vid.recalc || setrenderstillneeded)
 		SCR_Recalc(); // NOTE! setsizeneeded is set by SCR_Recalc()
 
 	// change the view size if needed
-	if (setsizeneeded)
+	if (setsizeneeded || setrenderstillneeded)
 	{
 		R_ExecuteSetViewSize();
 		forcerefresh = true; // force background redraw
 	}
+
+	// Jimita
+	D_CheckRendererState();
 
 	// draw buffered stuff to screen
 	// Used only by linux GGI version
@@ -375,14 +412,15 @@ static void D_Display(void)
 				if (rendermode != render_none)
 				{
 					viewwindowy = vid.height / 2;
+
 					M_Memcpy(ylookup, ylookup2, viewheight*sizeof (ylookup[0]));
 
 					topleft = screens[0] + viewwindowy*vid.width + viewwindowx;
 
 					R_RenderPlayerView(&players[secondarydisplayplayer]);
 
-					viewwindowy = 0;
 					M_Memcpy(ylookup, ylookup1, viewheight*sizeof (ylookup[0]));
+					viewwindowy = 0;
 				}
 			}
 
@@ -426,7 +464,7 @@ static void D_Display(void)
 			py = 4;
 		else
 			py = viewwindowy + 4;
-		patch = W_CachePatchName("M_PAUSE", PU_CACHE);
+		patch = W_CachePatchName("M_PAUSE", PU_PATCH);
 		V_DrawScaledPatch(viewwindowx + (BASEVIDWIDTH - SHORT(patch->width))/2, py, 0, patch);
 	}
 
@@ -453,6 +491,13 @@ static void D_Display(void)
 		{
 			F_WipeEndScreen();
 			F_RunWipe(wipedefs[wipedefindex], gamestate != GS_TIMEATTACK);
+		}
+
+		// reset counters so timedemo doesn't count the wipe duration
+		if (timingdemo)
+		{
+			framecount = 0;
+			demostarttime = I_GetTime();
 		}
 	}
 
@@ -489,6 +534,25 @@ static void D_Display(void)
 
 		I_FinishUpdate(); // page flip or blit buffer
 	}
+
+	needpatchflush = false;
+	needpatchrecache = false;
+}
+
+// Jimita: Check the renderer's state
+// after a possible renderer switch.
+void D_CheckRendererState(void)
+{
+	// flush all patches from memory
+	// (also frees memory tagged with PU_CACHE)
+	// (which are not necessarily patches but I don't care)
+	if (needpatchflush)
+		Z_FlushCachedPatches();
+
+	// some patches have been freed,
+	// so cache them again
+	if (needpatchrecache)
+		R_ReloadHUDGraphics();
 }
 
 // =========================================================================
@@ -503,9 +567,6 @@ void D_SRB2Loop(void)
 
 	if (dedicated)
 		server = true;
-
-	if (M_CheckParm("-voodoo")) // 256x256 Texture Limiter
-		COM_BufAddText("gr_voodoocompatibility on\n");
 
 	// Pushing of + parameters is now done back in D_SRB2Main, not here.
 
@@ -538,8 +599,7 @@ void D_SRB2Loop(void)
 	// hack to start on a nice clear console screen.
 	COM_ImmedExecute("cls;version");
 
-	if (rendermode == render_soft)
-		V_DrawScaledPatch(0, 0, 0, (patch_t *)W_CacheLumpNum(W_GetNumForName("CONSBACK"), PU_CACHE));
+	V_DrawScaledPatch(0, 0, 0, W_CachePatchNum(W_GetNumForName("CONSBACK"), PU_CACHE));
 	I_FinishUpdate(); // page flip or blit buffer
 
 	for (;;)
@@ -1104,6 +1164,11 @@ void D_SRB2Main(void)
 	// Have to be done here before files are loaded
 	M_InitCharacterTables();
 
+#if defined (HWRENDER) || defined (HWRENDER)
+	// Needs to be done BEFORE loading files!!!!
+	R_InitLoadModels();
+#endif
+
 	// load wad, including the main wad file
 	CONS_Printf("W_InitMultipleFiles(): Adding IWAD and main PWADs.\n");
 	if (!W_InitMultipleFiles(startupwadfiles))
@@ -1187,6 +1252,16 @@ void D_SRB2Main(void)
 
 	// set user default mode or mode set at cmdline
 	SCR_CheckDefaultMode();
+
+	// Jimita: Does the render mode need to change?
+	if ((setrenderneeded != 0) && (setrenderneeded != rendermode))
+	{
+		needpatchflush = true;
+		needpatchrecache = true;
+		VID_CheckRenderer();
+		SCR_ChangeRendererCVars(setrenderneeded);
+	}
+	D_CheckRendererState();
 
 	wipegamestate = gamestate;
 

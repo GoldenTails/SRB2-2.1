@@ -41,6 +41,8 @@
 #include "dehacked.h"
 #include "d_clisrv.h"
 #include "r_defs.h"
+#include "r_data.h"
+#include "r_model.h"
 #include "i_system.h"
 #include "md5.h"
 #include "lua_script.h"
@@ -49,10 +51,16 @@
 #endif
 #include "m_misc.h" // M_MapNumber
 
-#ifdef HWRENDER
 #include "r_data.h"
+
+#ifdef HWRENDER
 #include "hardware/hw_main.h"
 #include "hardware/hw_glob.h"
+#include "hardware/hw_md2.h"
+#endif
+
+#ifdef SOFTPOLY
+#include "polyrenderer/r_softpoly.h"
 #endif
 
 #ifdef PC_DOS
@@ -260,6 +268,11 @@ static inline void W_LoadDehackedLumps(UINT16 wadnum)
 				CONS_Printf(M_GetText("Loading object config from %s\n"), wadfiles[wadnum]->filename);
 				DEH_LoadDehackedLumpPwad(wadnum, lump);
 			}
+			else if (memcmp(lump_p->name,"MODELS",6)==0) // Check for MODELS
+			{
+				CONS_Printf(M_GetText("Loading models config from %s\n"), wadfiles[wadnum]->filename);
+				DEH_LoadDehackedLumpPwad(wadnum, lump);
+			}
 	}
 
 #ifdef SCANTHINGS
@@ -277,6 +290,135 @@ static inline void W_LoadDehackedLumps(UINT16 wadnum)
 		}
 	}
 #endif
+}
+
+// Look for all models inside a PK3 archive.
+static void W_LoadModelLumpsPK3(UINT16 wadnum)
+{
+	char wadname[MAX_WADPATH];
+	INT32 modelcount = 0;
+	INT32 i, skinnum = -1;
+
+	UINT16 posStart, posEnd;
+	posStart = W_CheckNumForFolderStartPK3("Models/", wadnum, 0);
+
+	if (posStart != INT16_MAX)
+	{
+		posEnd = W_CheckNumForFolderEndPK3("Models/", wadnum, posStart);
+		posStart++;
+		for (; posStart < posEnd; posStart++)
+		{
+			UINT32 lumpnum = (wadnum<<16)+posStart;
+			const char *lumpname = W_CheckNameForNum(lumpnum);
+
+			if (strlen(lumpname) != 8)
+			{
+				CONS_Alert(CONS_WARNING, M_GetText("W_LoadModelLumpsPK3: Model lump name %s is too short\n"), lumpname);
+				continue;
+			}
+
+			// find skin name with model name
+			for (i = 0; i < MAXSKINS; i++)
+			{
+				if (!strcmp(skins[i].sprite, lumpname+4))
+				{
+					skinnum = i;
+					break;
+				}
+			}
+
+			if (skinnum != -1)
+			{
+#ifdef SOFTPOLY
+				RSP_AddInternalPlayerModel(lumpnum, skinnum, DEFAULTMODELSCALE, 0.0f, 0.0f);
+#endif
+#ifdef HWRENDER
+				HWR_AddInternalPlayerMD2(lumpnum, skinnum, DEFAULTMODELSCALE, 0.0f, 0.0f);
+#endif
+			}
+			else
+			{
+#ifdef SOFTPOLY
+				RSP_AddInternalSpriteModel(lumpnum);
+#endif
+#ifdef HWRENDER
+				HWR_AddInternalSpriteMD2(lumpnum);
+#endif
+			}
+			modelcount++;
+		}
+	}
+
+	if (!modelcount)
+		return;
+	nameonly(strcpy(wadname, wadfiles[wadnum]->filename));
+	CONS_Printf(M_GetText("%s added %d model(s)\n"), wadname, modelcount);
+}
+
+// search for all model lumps in all wads and load it
+static void W_LoadModelLumps(UINT16 wadnum)
+{
+	char wadname[MAX_WADPATH];
+	INT32 modelcount = 0;
+	INT32 i, skinnum = -1;
+
+	UINT16 lump;
+	lumpinfo_t *lump_p = wadfiles[wadnum]->lumpinfo;
+
+	for (lump = 0; lump < wadfiles[wadnum]->numlumps; lump++, lump_p++)
+	{
+		if ((memcmp(lump_p->name,"MD3_",4)==0) || (memcmp(lump_p->name,"MD2_",4)==0)) // Check for MD3 and MD2 lumps
+		{
+			UINT32 lumpnum = (wadnum<<16)+lump;
+			const char *lumpname = W_CheckNameForNum(lumpnum);
+
+			if (strlen(lumpname) != 8)
+			{
+				CONS_Alert(CONS_WARNING, M_GetText("W_LoadModelLumps: Model lump name %s is too short\n"), lumpname);
+				continue;
+			}
+
+			// find skin name with model name
+			if (!strcmp("PLAY", lumpname+4))
+				skinnum = 0;
+			else
+			{
+				for (i = 0; i < MAXSKINS; i++)
+				{
+					if (!strcmp(skins[i].sprite, lumpname+4))
+					{
+						skinnum = i;
+						break;
+					}
+				}
+			}
+
+			if (skinnum != -1)
+			{
+#ifdef SOFTPOLY
+				RSP_AddInternalPlayerModel(lumpnum, skinnum, DEFAULTMODELSCALE, 0.0f, 0.0f);
+#endif
+#ifdef HWRENDER
+				HWR_AddInternalPlayerMD2(lumpnum, skinnum, DEFAULTMODELSCALE, 0.0f, 0.0f);
+#endif
+			}
+			else
+			{
+#ifdef SOFTPOLY
+				RSP_AddInternalSpriteModel(lumpnum);
+#endif
+#ifdef HWRENDER
+				HWR_AddInternalSpriteMD2(lumpnum);
+#endif
+			}
+			modelcount++;
+		}
+	}
+
+	if (!modelcount)
+		return;
+	nameonly(strcpy(wadname, wadfiles[wadnum]->filename));
+	CONS_Printf(M_GetText("%s added %d model(s)\n"), wadname, modelcount);
 }
 
 /** Compute MD5 message digest for bytes read from STREAM of this filname.
@@ -810,6 +952,20 @@ UINT16 W_InitFile(const char *filename)
 		break;
 	}
 
+	// Load models
+	R_FreeModelTextures();
+	switch (wadfile->type)
+	{
+	case RET_WAD:
+		W_LoadModelLumps(numwadfiles - 1);
+		break;
+	case RET_PK3:
+		W_LoadModelLumpsPK3(numwadfiles - 1);
+		break;
+	default:
+		break;
+	}
+
 	W_InvalidateLumpnumCache();
 	return wadfile->numlumps;
 }
@@ -829,8 +985,11 @@ void W_UnloadWadFile(UINT16 num)
 	lumpcache = delwad->lumpcache;
 	numwadfiles--;
 #ifdef HWRENDER
-	if (rendermode != render_soft && rendermode != render_none)
+	if (rendermode == render_opengl)
+	{
+		HWR_FreeColormaps();
 		HWR_FreeTextureCache();
+	}
 	M_AATreeFree(delwad->hwrcache);
 #endif
 	if (*lumpcache)
@@ -1202,8 +1361,6 @@ void zerr(int ret)
 }
 #endif
 
-#define NO_PNG_LUMPS
-
 #ifdef NO_PNG_LUMPS
 static void ErrorIfPNG(UINT8 *d, size_t s, char *f, char *l)
 {
@@ -1422,7 +1579,6 @@ void *W_CacheLumpNumPwad(UINT16 wad, UINT16 lump, INT32 tag)
 
 void *W_CacheLumpNum(lumpnum_t lumpnum, INT32 tag)
 {
-
 	return W_CacheLumpNumPwad(WADFILENUM(lumpnum),LUMPNUM(lumpnum),tag);
 }
 
@@ -1761,6 +1917,12 @@ int W_VerifyNMUSlumps(const char *filename)
 		{"RRINGS", 6}, // Rings HUD (not named as SBO)
 		{"YB_", 3}, // Intermission graphics, goes with the above
 		{"M_", 2}, // As does menu stuff
+
+		{"MD3_", 4}, // MD3 model
+		{"MD2_", 4}, // MD2 model
+		{"TEX_", 4}, // Model texture
+		{"BLE_", 4}, // Model blend texture
+		{"MODELS",7}, // Model config
 
 		{NULL, 0},
 	};

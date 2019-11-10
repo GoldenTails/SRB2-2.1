@@ -29,6 +29,7 @@
 #include "p_setup.h"
 #include "r_data.h"
 #include "r_sky.h"
+#include "r_model.h"
 #include "fastcmp.h"
 #include "lua_script.h"
 #include "lua_hook.h"
@@ -965,6 +966,94 @@ static void readspritelight(MYFILE *f, INT32 num)
 	Z_Free(s);
 }
 #endif // HWRENDER
+
+static void readmodel(MYFILE *f, INT32 num)
+{
+	char *s = Z_Malloc(MAXLINELEN, PU_STATIC, NULL);
+	char *word;
+	char *word2;
+	char word2upr[MAXLINELEN];
+	char *tmp;
+	float fvalue;
+
+	do
+	{
+		if (myfgets(s, MAXLINELEN, f))
+		{
+			if (s[0] == '\n')
+				break;
+
+			// First remove trailing newline, if there is one
+			tmp = strchr(s, '\n');
+			if (tmp)
+				*tmp = '\0';
+
+			tmp = strchr(s, '#');
+			if (tmp)
+				*tmp = '\0';
+			if (s == tmp)
+				continue; // Skip comment lines, but don't break.
+
+			// Set / reset word
+			word = s;
+
+			// Get the part before the " = "
+			tmp = strchr(s, '=');
+			if (tmp)
+				*(tmp-1) = '\0';
+			else
+				break;
+			strupr(word);
+
+			// Now get the part after
+			word2 = tmp += 2;
+			memset(word2upr, 0x00, MAXLINELEN);
+			strncpy(word2upr, word2, MAXLINELEN);
+			strupr(word2upr);
+			fvalue = atof(word2); // used for numerical settings
+
+			// Intentionally no DEHACKED UNDO here.
+			// I didn't forget about it.
+			if (fastcmp(word, "SCALE"))
+				R_SetModelDefScale(num, fvalue);
+			else if (fastcmp(word, "XOFFSET"))
+				R_SetModelDefXOffset(num, fvalue);
+			else if (fastcmp(word, "YOFFSET"))
+				R_SetModelDefYOffset(num, fvalue);
+			else if (fastcmp(word, "ANGLEOFFSET"))
+				R_SetModelDefAngleOffset(num, fvalue);
+			else if (fastcmp(word, "AXISROTATE"))
+			{
+				float qx, qy, qz;
+				if (sscanf(word2, "%f %f %f", &qx, &qy, &qz) == 3)
+				{
+					R_SetModelDefAxisRotation(num, qx, qy, qz);
+					R_SetModelDefFlag(num, MDF_AXISROTATE, true);
+				}
+				else
+					deh_warning("Model %d: bad %s", num, word);
+			}
+			else if (fastcmp(word, "REPLACESPRITES"))
+			{
+				if (word2upr[0] == 'T' || word2upr[0] == 'Y')
+					R_SetModelDefFlag(num, MDF_REPLACESPRITES, true);
+				else
+					R_SetModelDefFlag(num, MDF_REPLACESPRITES, false);
+			}
+			else if (fastcmp(word, "DONOTCULL"))
+			{
+				if (word2upr[0] == 'T' || word2upr[0] == 'Y')
+					R_SetModelDefFlag(num, MDF_DONOTCULL, true);
+				else
+					R_SetModelDefFlag(num, MDF_DONOTCULL, false);
+			}
+			else
+				deh_warning("Model %d: unknown word '%s'", num, word);
+		}
+	} while (!myfeof(f)); // finish when the line is empty
+
+	Z_Free(s);
+}
 
 static const struct {
 	const char *name;
@@ -3465,6 +3554,19 @@ static void DEH_LoadDehackedFile(MYFILE *f, UINT16 wad)
 					DEH_WriteUndoline(word, word2, UNDO_HEADER);
 #endif
 				}
+				else if (fastcmp(word, "MODEL"))
+				{
+					if (i == 0 && word2[0] != '0') // If word2 isn't a number
+						i = get_sprite(word2); // find a sprite by name
+					if (i < NUMSPRITES && i >= 0)
+						readmodel(f, i);
+					else
+					{
+						deh_warning("Sprite number %d out of range (0 - %d)", i, NUMSPRITES-1);
+						ignorelines(f);
+					}
+					DEH_WriteUndoline(word, word2, UNDO_HEADER);
+				}
 				else if (fastcmp(word, "LEVEL"))
 				{
 					// Support using the actual map name,
@@ -3718,6 +3820,87 @@ static void DEH_LoadDehackedFile(MYFILE *f, UINT16 wad)
 	Z_Free(s);
 }
 
+static void DEH_LoadModelConfigFile(MYFILE *f)
+{
+	char *s = Z_Malloc(MAXLINELEN, PU_STATIC, NULL);
+	char *word;
+	char *word2;
+	INT32 i;
+
+	// it doesn't test the version of SRB2 and version of dehacked file
+	dbg_line = -1; // start at -1 so the first line is 0.
+	while (!myfeof(f))
+	{
+		XBOXSTATIC char origpos[128];
+		INT32 size = 0;
+		char *traverse;
+
+		myfgets(s, MAXLINELEN, f);
+		if (s[0] == '\n' || s[0] == '#')
+			continue;
+
+		traverse = s;
+
+		while (traverse[0] != '\n')
+		{
+			traverse++;
+			size++;
+		}
+
+		strncpy(origpos, s, size);
+		origpos[size] = '\0';
+
+		if (NULL != (word = strtok(s, " "))) {
+			strupr(word);
+			if (word[strlen(word)-1] == '\n')
+				word[strlen(word)-1] = '\0';
+		}
+		if (word)
+		{
+			word2 = strtok(NULL, " ");
+			if (word2)
+			{
+				strupr(word2);
+				if (word2[strlen(word2)-1] == '\n')
+					word2[strlen(word2)-1] = '\0';
+				i = atoi(word2);
+				if (fastcmp(word, "MODEL"))
+				{
+					if (i == 0 && word2[0] != '0') // If word2 isn't a number
+						i = get_sprite(word2); // find a sprite by name
+					if (i < NUMSPRITES && i >= 0)
+						readmodel(f, i);
+					else
+					{
+						deh_warning("Sprite number %d out of range (0 - %d)", i, NUMSPRITES-1);
+						ignorelines(f);
+					}
+					DEH_WriteUndoline(word, word2, UNDO_HEADER);
+				}
+				else
+					deh_warning("Unknown word: %s", word);
+			}
+			else
+				deh_warning("missing argument for '%s'", word);
+		}
+		else
+			deh_warning("No word in this line: %s", s);
+	} // end while
+
+	dbg_line = -1;
+	if (deh_num_warning)
+	{
+		CONS_Printf(M_GetText("%d warning%s in the SOC lump\n"), deh_num_warning, deh_num_warning == 1 ? "" : "s");
+		if (devparm) {
+			I_Error("%s%s",va(M_GetText("%d warning%s in the SOC lump\n"), deh_num_warning, deh_num_warning == 1 ? "" : "s"), M_GetText("See log.txt for details.\n"));
+			//while (!I_GetKey())
+				//I_OsPolling();
+		}
+	}
+
+	Z_Free(s);
+}
+
 // read dehacked lump in a wad (there is special trick for for deh
 // file that are converted to wad in w_wad.c)
 void DEH_LoadDehackedLumpPwad(UINT16 wad, UINT16 lump)
@@ -3732,7 +3915,11 @@ void DEH_LoadDehackedLumpPwad(UINT16 wad, UINT16 lump)
 	W_ReadLumpPwad(wad, lump, f.data);
 	f.curpos = f.data;
 	f.data[f.size] = 0;
-	DEH_LoadDehackedFile(&f, wad);
+	/* Oh, a hack! Fuck dehacked. */
+	if (stricmp(wadfiles[wad]->lumpinfo[lump].name, "MODELS") == 0)
+		DEH_LoadModelConfigFile(&f);
+	else
+		DEH_LoadDehackedFile(&f, wad);
 	DEH_WriteUndoline(va("# uload for wad: %u, lump: %u", wad, lump), NULL, UNDO_DONE);
 	Z_Free(f.data);
 }
@@ -7170,6 +7357,7 @@ struct {
 	{"SF_NOSKID",SF_NOSKID},
 	{"SF_NOSPEEDADJUST",SF_NOSPEEDADJUST},
 	{"SF_RUNONWATER",SF_RUNONWATER},
+	{"SF_RENDERMODEL",SF_RENDERMODEL},
 
 	// Character abilities!
 	// Primary

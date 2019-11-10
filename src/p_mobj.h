@@ -160,7 +160,7 @@ typedef enum
 	MF_GRENADEBOUNCE    = 1<<28,
 	// Run the action thinker on spawn.
 	MF_RUNSPAWNFUNC     = 1<<29,
-	// free: 1<<30 and 1<<31
+	// free: 1<< 30 and 1<<31
 } mobjflag_t;
 
 typedef enum

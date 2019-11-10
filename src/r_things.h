@@ -33,6 +33,10 @@ extern INT16 screenheightarray[MAXVIDWIDTH];
 // vars for R_DrawMaskedColumn
 extern INT16 *mfloorclip;
 extern INT16 *mceilingclip;
+#ifdef SOFTPOLY
+extern INT16 *rsp_mfloorclip;
+extern INT16 *rsp_mceilingclip;
+#endif
 extern fixed_t spryscale;
 extern fixed_t sprtopscreen;
 extern fixed_t sprbotscreen;
@@ -76,6 +80,7 @@ typedef struct
 	char realname[SKINNAMESIZE+1]; // Display name for level completion.
 	char hudname[SKINNAMESIZE+1]; // HUD name to display (officially exactly 5 characters long)
 	char charsel[9], face[9], superface[9]; // Arbitrarily named patch lumps
+	char model[9]; // Player model lump
 
 	UINT8 ability; // ability definition
 	UINT8 ability2; // secondary ability definition
@@ -123,6 +128,11 @@ typedef struct vissprite_s
 	struct vissprite_s *next;
 
 	mobj_t *mobj; // for easy access
+#ifdef SOFTPOLY
+	spritenum_t spritenum;
+	void *skin;
+	boolean model;
+#endif
 
 	INT32 x1, x2;
 
@@ -163,6 +173,12 @@ typedef struct vissprite_s
 	boolean vflip; // Flip vertically
 	boolean isScaled;
 	INT32 dispoffset; // copy of info->dispoffset, affects ordering but not drawing
+
+#ifdef SOFTPOLY
+	fixed_t viewx, viewy, viewz;
+	angle_t viewangle, aimingangle;
+	fixed_t viewcos, viewsin;
+#endif
 } vissprite_t;
 
 // A drawnode is something that points to a 3D floor, 3D side, or masked

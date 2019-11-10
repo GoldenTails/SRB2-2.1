@@ -54,6 +54,27 @@ static CV_PossibleValue_t constextsize_cons_t[] = {
 static void CV_constextsize_OnChange(void);
 consvar_t cv_constextsize = {"con_textsize", "Medium", CV_SAVE|CV_CALL, constextsize_cons_t, CV_constextsize_OnChange, 0, NULL, NULL, 0, 0, NULL};
 
+static void CV_Models_OnChange(void);
+consvar_t cv_models = {"models", "On", CV_SAVE|CV_CALL, CV_OnOff, CV_Models_OnChange, 0, NULL, NULL, 0, 0, NULL};
+
+static CV_PossibleValue_t CV_ModelInterpolation[] = {{0, "Off"}, {1, "Sometimes"}, {2, "Always"}, {0, NULL}};
+consvar_t cv_modelinterpolation = {"modelinterpolation", "Sometimes", CV_SAVE, CV_ModelInterpolation, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+#ifdef SOFTPOLY
+static CV_PossibleValue_t CV_ModelBillboarding[] = {
+	{BILLBOARD_SCREEN, "Screen"},
+	{BILLBOARD_CAMERA, "Camera"},
+	{0, NULL}};
+consvar_t cv_modelbillboarding = {"modelbillboarding", "Screen", CV_SAVE, CV_ModelBillboarding, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+static CV_PossibleValue_t CV_TextureMapping[] = {
+	{TEXMAP_FIXED, "Fixed-Point"},
+	{TEXMAP_FLOAT, "Floating-Point"},
+	{0, NULL}};
+static void CV_TextureMapping_OnChange(void);
+consvar_t cv_texturemapping = {"texturemapping", "Floating-Point", CV_SAVE|CV_CALL, CV_TextureMapping, CV_TextureMapping_OnChange, 0, NULL, NULL, 0, 0, NULL};
+#endif // SOFTPOLY
+
 #ifdef HWRENDER
 static void CV_Gammaxxx_ONChange(void);
 // Saved hardware mode variables
@@ -62,8 +83,6 @@ static void CV_Gammaxxx_ONChange(void);
 static CV_PossibleValue_t grgamma_cons_t[] = {{1, "MIN"}, {255, "MAX"}, {0, NULL}};
 static CV_PossibleValue_t grsoftwarefog_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "LightPlanes"}, {0, NULL}};
 
-consvar_t cv_voodoocompatibility = {"gr_voodoocompatibility", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
-consvar_t cv_grfovchange = {"gr_fovchange", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grfog = {"gr_fog", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grfogcolor = {"gr_fogcolor", "AAAAAA", CV_SAVE, NULL, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grsoftwarefog = {"gr_softwarefog", "Off", CV_SAVE, grsoftwarefog_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -80,9 +99,7 @@ consvar_t cv_grcoronas = {"gr_coronas", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, 
 consvar_t cv_grcoronasize = {"gr_coronasize", "1", CV_SAVE| CV_FLOAT, 0, NULL, 0, NULL, NULL, 0, 0, NULL};
 #endif
 
-static CV_PossibleValue_t CV_MD2[] = {{0, "Off"}, {1, "On"}, {2, "Old"}, {0, NULL}};
 // console variables in development
-consvar_t cv_grmd2 = {"gr_md2", "Off", CV_SAVE, CV_MD2, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grspritebillboarding = {"gr_spritebillboarding", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 #endif
 
@@ -281,6 +298,17 @@ static void CV_constextsize_OnChange(void)
 	con_recalc = true;
 }
 
+static void CV_Models_OnChange(void)
+{
+	R_SetViewSize();
+}
+
+#ifdef SOFTPOLY
+static void CV_TextureMapping_OnChange(void)
+{
+	R_SetViewSize();
+}
+#endif
 
 // --------------------------------------------------------------------------
 // Copy a rectangular area from one bitmap to another (8bpp)

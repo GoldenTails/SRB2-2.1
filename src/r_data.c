@@ -40,6 +40,28 @@
 #include <errno.h>
 #endif
 
+#ifdef HAVE_PNG
+
+#ifndef _MSC_VER
+#ifndef _LARGEFILE64_SOURCE
+#define _LARGEFILE64_SOURCE
+#endif
+#endif
+
+#ifndef _LFS64_LARGEFILE
+#define _LFS64_LARGEFILE
+#endif
+
+#ifndef _FILE_OFFSET_BITS
+#define _FILE_OFFSET_BITS 0
+#endif
+
+#include "png.h"
+#ifndef PNG_READ_SUPPORTED
+#undef HAVE_PNG
+#endif
+#endif
+
 //
 // Texture definition.
 // Each texture is composed of one or more patches,
@@ -54,26 +76,9 @@ typedef struct
 	INT16 patch, stepdir, colormap;
 } ATTRPACK mappatch_t;
 
-//
-// Texture definition.
-// An SRB2 wall texture is a list of patches
-// which are to be combined in a predefined order.
-//
-typedef struct
-{
-	char name[8];
-	INT32 masked;
-	INT16 width;
-	INT16 height;
-	INT32 columndirectory; // FIXTHIS: OBSOLETE
-	INT16 patchcount;
-	mappatch_t patches[1];
-} ATTRPACK maptexture_t;
-
 #if defined(_MSC_VER)
 #pragma pack()
 #endif
-
 
 // Store lists of lumps for F_START/F_END etc.
 typedef struct
@@ -128,7 +133,7 @@ static struct {
 static INT32 tidcachelen = 0;
 
 //
-// MAPTEXTURE_T CACHING
+// TEXTURE_T CACHING
 // When a texture is first needed, it counts the number of composite columns
 //  required in the texture and allocates space for a column directory and
 //  any new columns.
@@ -291,7 +296,7 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 		{
 			patchcol = (column_t *)((UINT8 *)realpatch + LONG(realpatch->columnofs[x-x1]));
 
-			// generate column ofset lookup
+			// generate column offset lookup
 			colofs[x] = LONG((x * texture->height) + (texture->width*4));
 			R_DrawColumnInCache(patchcol, block + LONG(colofs[x]), patch->originy, texture->height);
 		}
@@ -302,6 +307,66 @@ done:
 	Z_ChangeTag(block, PU_CACHE);
 	return blocktex;
 }
+
+#ifdef SOFTPOLY
+void RSP_GenerateTexture(patch_t *patch, UINT8 *buffer, INT32 x, INT32 y, INT32 maxwidth, INT32 maxheight, UINT8 *colormap, UINT8 *translation)
+{
+	fixed_t col, ofs;
+	column_t *column;
+	UINT8 *desttop, *dest;
+	UINT8 *source, *deststop;
+
+	if (x >= maxwidth)
+		return;
+	if (y >= maxheight)
+		return;
+
+	desttop = buffer + ((y*maxwidth) + x);
+	deststop = desttop + (maxwidth * maxheight);
+
+	if (!colormap) colormap = colormaps;
+	if (!translation) translation = colormap;
+
+	for (col = 0; col < SHORT(patch->width); col++, desttop++)
+	{
+		INT32 topdelta, prevdelta = -1;
+		if (x+col < 0) // don't draw off the left of the buffer (WRAP PREVENTION)
+			continue;
+		if (x+col >= maxwidth) // don't draw off the right of the buffer (WRAP PREVENTION)
+			break;
+		column = (column_t *)((UINT8 *)patch + LONG(patch->columnofs[col]));
+
+		while (column->topdelta != 0xff)
+		{
+			topdelta = column->topdelta;
+			if (topdelta <= prevdelta)
+				topdelta += prevdelta;
+			prevdelta = topdelta;
+
+			dest = desttop + (topdelta * maxwidth);
+			source = (UINT8 *)column+3;
+
+			for (ofs = 0; dest < deststop && ofs < column->length; ofs++)
+			{
+				if (dest >= buffer && source[ofs] != TRANSPARENTPIXEL)
+				{
+					UINT8 pixel = source[ofs];
+					if (colormap && translation)
+						*dest = colormap[translation[pixel]];
+					else if (colormap)
+						*dest = colormap[pixel];
+					else if (translation)
+						*dest = translation[pixel];
+					else
+						*dest = pixel;
+				}
+				dest += maxwidth;
+			}
+			column = (column_t *)((UINT8 *)column + column->length + 4);
+		}
+	}
+}
+#endif
 
 //
 // R_GetTextureNum
@@ -345,8 +410,6 @@ UINT8 *R_GetColumn(fixed_t tex, INT32 col)
 	return data + LONG(texturecolumnofs[tex][col]);
 }
 
-// convert flats to hicolor as they are requested
-//
 UINT8 *R_GetFlat(lumpnum_t flatlumpnum)
 {
 	return W_CacheLumpNum(flatlumpnum, PU_CACHE);
@@ -1162,7 +1225,6 @@ INT32 R_ColormapNumForName(char *name)
 //
 static double deltas[256][3], map[256][3];
 
-static UINT8 NearestColor(UINT8 r, UINT8 g, UINT8 b);
 static int RoundUp(double number);
 
 INT32 R_CreateColormap(char *p1, char *p2, char *p3)
@@ -1266,7 +1328,6 @@ INT32 R_CreateColormap(char *p1, char *p2, char *p3)
 	extra_colormaps[mapnum].fog = fog;
 
 	// This code creates the colormap array used by software renderer
-	if (rendermode == render_soft)
 	{
 		double r, g, b, cbrightness;
 		int p;
@@ -1342,7 +1403,7 @@ INT32 R_CreateColormap(char *p1, char *p2, char *p3)
 
 // Thanks to quake2 source!
 // utils3/qdata/images.c
-static UINT8 NearestColor(UINT8 r, UINT8 g, UINT8 b)
+UINT8 NearestColor(UINT8 r, UINT8 g, UINT8 b)
 {
 	int dr, dg, db;
 	int distortion, bestdistortion = 256 * 256 * 4, bestcolor = 0, i;
@@ -1364,6 +1425,14 @@ static UINT8 NearestColor(UINT8 r, UINT8 g, UINT8 b)
 	}
 
 	return (UINT8)bestcolor;
+}
+
+UINT8 NearestColorSafe(UINT8 r, UINT8 g, UINT8 b)
+{
+	UINT8 pixel = NearestColor(r, g, b);
+	if (pixel == TRANSPARENTPIXEL)
+		pixel = 220;
+	return pixel;
 }
 
 // Rounds off floating numbers and checks for 0 - 255 bounds
@@ -1611,7 +1680,7 @@ void R_PrecacheLevel(void)
 				lump = sf->lumppat[k];
 				if (devparm)
 					spritememory += W_LumpLength(lump);
-				W_CachePatchNum(lump, PU_CACHE);
+				W_CachePatchNum(lump, PU_PATCH);
 			}
 		}
 	}
@@ -1622,4 +1691,211 @@ void R_PrecacheLevel(void)
 			"flatmemory:    %s k\n"
 			"texturememory: %s k\n"
 			"spritememory:  %s k\n", sizeu1(flatmemory>>10), sizeu2(texturememory>>10), sizeu3(spritememory>>10));
+}
+
+boolean R_IsLumpPNG(UINT8 *d, size_t s)
+{
+	if (s < 67) // http://garethrees.org/2007/11/14/pngcrush/
+		return false;
+	// Check for PNG file signature using memcmp
+	// As it may be faster on CPUs with slow unaligned memory access
+	// Ref: http://www.libpng.org/pub/png/spec/1.2/PNG-Rationale.html#R.PNG-file-signature
+	return (memcmp(&d[0], "\x89\x50\x4e\x47\x0d\x0a\x1a\x0a", 8) == 0);
+}
+
+#ifdef HAVE_PNG
+typedef struct {
+	png_bytep buffer;
+	png_uint_32 bufsize;
+	png_uint_32 current_pos;
+} png_io_t;
+
+static void PNG_IOReader(png_structp png_ptr, png_bytep data, png_size_t length)
+{
+	png_io_t *f = png_get_io_ptr(png_ptr);
+	if (length > (f->bufsize - f->current_pos))
+		png_error(png_ptr, "PNG_IOReader: buffer overrun");
+	memcpy(data, f->buffer + f->current_pos, length);
+	f->current_pos += length;
+}
+
+static void PNG_error(png_structp PNG, png_const_charp pngtext)
+{
+	CONS_Debug(DBG_RENDER, "libpng error at %p: %s", PNG, pngtext);
+	//I_Error("libpng error at %p: %s", PNG, pngtext);
+}
+
+static void PNG_warn(png_structp PNG, png_const_charp pngtext)
+{
+	CONS_Debug(DBG_RENDER, "libpng warning at %p: %s", PNG, pngtext);
+}
+
+static png_bytep *PNG_ReadData(UINT8 *png, UINT16 *w, UINT16 *h, size_t size)
+{
+	png_structp png_ptr;
+	png_infop png_info_ptr;
+	png_uint_32 width, height;
+	int bit_depth, color_type;
+	png_uint_32 y;
+#ifdef PNG_SETJMP_SUPPORTED
+#ifdef USE_FAR_KEYWORD
+	jmp_buf jmpbuf;
+#endif
+#endif
+
+	png_io_t png_io;
+	png_bytep *row_pointers;
+
+	png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, PNG_error, PNG_warn);
+	if (!png_ptr)
+	{
+		CONS_Debug(DBG_RENDER, "PNG_ReadData: Error on initialize libpng\n");
+		return NULL;
+	}
+
+	png_info_ptr = png_create_info_struct(png_ptr);
+	if (!png_info_ptr)
+	{
+		CONS_Debug(DBG_RENDER, "PNG_ReadData: Error on allocate for libpng\n");
+		png_destroy_read_struct(&png_ptr, NULL, NULL);
+		return NULL;
+	}
+
+#ifdef USE_FAR_KEYWORD
+	if (setjmp(jmpbuf))
+#else
+	if (setjmp(png_jmpbuf(png_ptr)))
+#endif
+	{
+		//CONS_Debug(DBG_RENDER, "libpng load error on %s\n", filename);
+		png_destroy_read_struct(&png_ptr, &png_info_ptr, NULL);
+		return NULL;
+	}
+#ifdef USE_FAR_KEYWORD
+	png_memcpy(png_jmpbuf(png_ptr), jmpbuf, sizeof jmp_buf);
+#endif
+
+	// set our own read_function
+	png_io.buffer = (png_bytep)png;
+	png_io.bufsize = size;
+	png_io.current_pos = 0;
+	png_set_read_fn(png_ptr, &png_io, PNG_IOReader);
+
+#ifdef PNG_SET_USER_LIMITS_SUPPORTED
+	png_set_user_limits(png_ptr, 2048, 2048);
+#endif
+
+	png_read_info(png_ptr, png_info_ptr);
+	png_get_IHDR(png_ptr, png_info_ptr, &width, &height, &bit_depth, &color_type, NULL, NULL, NULL);
+
+	if (bit_depth == 16)
+		png_set_strip_16(png_ptr);
+
+	if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
+		png_set_gray_to_rgb(png_ptr);
+	else if (color_type == PNG_COLOR_TYPE_PALETTE)
+		png_set_palette_to_rgb(png_ptr);
+
+	if (png_get_valid(png_ptr, png_info_ptr, PNG_INFO_tRNS))
+		png_set_tRNS_to_alpha(png_ptr);
+	else if (color_type != PNG_COLOR_TYPE_RGB_ALPHA && color_type != PNG_COLOR_TYPE_GRAY_ALPHA)
+	{
+#if PNG_LIBPNG_VER < 10207
+		png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
+#else
+		png_set_add_alpha(png_ptr, 0xFF, PNG_FILLER_AFTER);
+#endif
+	}
+
+	png_read_update_info(png_ptr, png_info_ptr);
+
+	// Read the image
+	row_pointers = (png_bytep*)malloc(sizeof(png_bytep) * height);
+	for (y = 0; y < height; y++)
+		row_pointers[y] = (png_byte*)malloc(png_get_rowbytes(png_ptr, png_info_ptr));
+	png_read_image(png_ptr, row_pointers);
+
+	// bye
+	png_destroy_read_struct(&png_ptr, &png_info_ptr, NULL);
+
+	*w = (INT32)width;
+	*h = (INT32)height;
+	return row_pointers;
+}
+
+// Convert a PNG to a raw image.
+UINT32 *PNG_RawConvert(UINT8 *png, UINT16 *w, UINT16 *h, size_t size, void *user)
+{
+	RGBA_t *flat;
+	png_uint_32 x, y;
+	png_bytep *row_pointers = PNG_ReadData(png, w, h, size);
+	png_uint_32 width = *w, height = *h;
+
+	if (!row_pointers)
+		I_Error("PNG_RawConvert: conversion failed");
+
+	flat = Z_Calloc(width * height * sizeof(UINT32), PU_STATIC, user);
+	for (y = 0; y < height; y++)
+	{
+		png_bytep row = row_pointers[y];
+		for (x = 0; x < width; x++)
+		{
+			png_bytep px = &(row[x * 4]);
+			RGBA_t pixel;
+			pixel.s.red = px[0];
+			pixel.s.green = px[1];
+			pixel.s.blue = px[2];
+			pixel.s.alpha = px[3];
+			flat[((y * width) + x)] = pixel;
+		}
+	}
+	free(row_pointers);
+
+	return (UINT32 *)flat;
+}
+#endif
+
+// https://github.com/coelckers/prboom-plus/blob/master/prboom2/src/r_patch.c#L350
+boolean R_CheckIfPatch(lumpnum_t lump)
+{
+	size_t size;
+	INT16 width, height;
+	patch_t *patch;
+	boolean result;
+
+	size = W_LumpLength(lump);
+
+	// minimum length of a valid Doom patch
+	if (size < 13)
+		return false;
+
+	patch = (patch_t *)W_CacheLumpNum(lump, PU_STATIC);
+
+	width = SHORT(patch->width);
+	height = SHORT(patch->height);
+
+	result = (height > 0 && height <= 16384 && width > 0 && width <= 16384 && width < (INT16)(size / 4));
+
+	if (result)
+	{
+		// The dimensions seem like they might be valid for a patch, so
+		// check the column directory for extra security. All columns
+		// must begin after the column directory, and none of them must
+		// point past the end of the patch.
+		INT16 x;
+
+		for (x = 0; x < width; x++)
+		{
+			UINT32 ofs = LONG(patch->columnofs[x]);
+
+			// Need one byte for an empty column (but there's patches that don't know that!)
+			if (ofs < (UINT32)width * 4 + 8 || ofs >= (UINT32)size)
+			{
+				result = false;
+				break;
+			}
+		}
+	}
+
+	return result;
 }

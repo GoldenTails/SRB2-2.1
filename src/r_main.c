@@ -18,7 +18,9 @@
 #include "g_input.h"
 #include "r_local.h"
 #include "r_splats.h" // faB(21jan): testing
+#include "r_model.h"
 #include "r_sky.h"
+#include "hu_stuff.h"
 #include "st_stuff.h"
 #include "p_local.h"
 #include "keys.h"
@@ -28,11 +30,17 @@
 #include "d_main.h"
 #include "v_video.h"
 #include "p_spec.h" // skyboxmo
+#include "p_setup.h"
 #include "z_zone.h"
 #include "m_random.h" // quake camera shake
 
+#ifdef SOFTPOLY
+#include "polyrenderer/r_softpoly.h"
+#endif
+
 #ifdef HWRENDER
 #include "hardware/hw_main.h"
+#include "hardware/hw_md2.h"
 #endif
 
 //profile stuff ---------------------------------------------------------
@@ -56,19 +64,29 @@ INT32 centerx, centery;
 fixed_t centerxfrac, centeryfrac;
 fixed_t projection;
 fixed_t projectiony; // aspect ratio
+fixed_t fovtan; // field of view
 
 // just for profiling purposes
 size_t framecount;
 
 size_t loopcount;
 
+#ifdef ESLOPE
+float focallengthf;
+#endif // ESLOPE
+
 fixed_t viewx, viewy, viewz;
 angle_t viewangle, aimingangle;
 fixed_t viewcos, viewsin;
+fixed_t viewfov;
 boolean viewsky, skyVisible;
 boolean skyVisible1, skyVisible2; // saved values of skyVisible for P1 and P2, for splitscreen
 sector_t *viewsector;
 player_t *viewplayer;
+
+#ifdef SOFTPOLY
+boolean modelinview = false;
+#endif
 
 // PORTALS!
 // You can thank and/or curse JTE for these.
@@ -121,6 +139,8 @@ lighttable_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
 size_t num_extra_colormaps;
 extracolormap_t extra_colormaps[MAXCOLORMAPS];
 
+static CV_PossibleValue_t fov_cons_t[] = {{0, "MIN"}, {179*FRACUNIT, "MAX"}, {0, NULL}};
+
 static CV_PossibleValue_t drawdist_cons_t[] = {
 	{256, "256"},	{512, "512"},	{768, "768"},
 	{1024, "1024"},	{1536, "1536"},	{2048, "2048"},
@@ -131,6 +151,7 @@ static CV_PossibleValue_t translucenthud_cons_t[] = {{0, "MIN"}, {10, "MAX"}, {0
 static CV_PossibleValue_t maxportals_cons_t[] = {{0, "MIN"}, {12, "MAX"}, {0, NULL}}; // lmao rendering 32 portals, you're a card
 static CV_PossibleValue_t homremoval_cons_t[] = {{0, "No"}, {1, "Yes"}, {2, "Flash"}, {0, NULL}};
 
+static void Fov_OnChange(void);
 static void ChaseCam_OnChange(void);
 static void ChaseCam2_OnChange(void);
 static void FlipCam_OnChange(void);
@@ -152,6 +173,8 @@ consvar_t cv_allowmlook = {"allowmlook", "Yes", CV_NETVAR, CV_YesNo, NULL, 0, NU
 consvar_t cv_showhud = {"showhud", "Yes", CV_CALL,  CV_YesNo, R_SetViewSize, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_translucenthud = {"translucenthud", "10", CV_SAVE, translucenthud_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 
+consvar_t cv_fov = {"fov", "90", CV_FLOAT|CV_CALL, fov_cons_t, Fov_OnChange, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_fovchange = {"fovchange", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_translucency = {"translucency", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_drawdist = {"drawdist", "Infinite", CV_SAVE, drawdist_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_drawdist_nights = {"drawdist_nights", "2048", CV_SAVE, drawdist_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -162,6 +185,12 @@ consvar_t cv_precipdensity = {"precipdensity", "Moderate", CV_SAVE, precipdensit
 consvar_t cv_homremoval = {"homremoval", "No", CV_SAVE, homremoval_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 consvar_t cv_maxportals = {"maxportals", "2", CV_SAVE, maxportals_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+static void Fov_OnChange(void)
+{
+	R_SetFieldOfView(cv_fov.value);
+	R_SetViewSize();
+}
 
 void SplitScreen_OnChange(void)
 {
@@ -176,6 +205,7 @@ void SplitScreen_OnChange(void)
 	}
 
 	// recompute screen size
+	R_SetFieldOfView(cv_fov.value);
 	R_ExecuteSetViewSize();
 
 	if (!demoplayback && !botingame)
@@ -464,12 +494,10 @@ static void R_InitTextureMapping(void)
 	//
 	// Calc focallength
 	//  so FIELDOFVIEW angles covers SCREENWIDTH.
-	focallength = FixedDiv(centerxfrac,
-		FINETANGENT(FINEANGLES/4+/*cv_fov.value*/ FIELDOFVIEW/2));
-
+	focallength = FixedDiv(projection, FINETANGENT(FINEANGLES/4+FIELDOFVIEW/2));
 #ifdef ESLOPE
 	focallengthf = FIXED_TO_FLOAT(focallength);
-#endif
+#endif // ESLOPE
 
 	for (i = 0; i < FINEANGLES/2; i++)
 	{
@@ -569,6 +597,13 @@ void R_SetViewSize(void)
 	setsizeneeded = true;
 }
 
+void R_SetFieldOfView(fixed_t fov)
+{
+	viewfov = fov;
+	if (splitscreen) // Splitscreen FOV should be adjusted to maintain expected vertical view
+		viewfov += 20*FRACUNIT;
+}
+
 //
 // R_ExecuteSetViewSize
 //
@@ -579,6 +614,7 @@ void R_ExecuteSetViewSize(void)
 	INT32 j;
 	INT32 level;
 	INT32 startmapl;
+	angle_t fov;
 
 	setsizeneeded = false;
 
@@ -601,9 +637,12 @@ void R_ExecuteSetViewSize(void)
 	centerxfrac = centerx<<FRACBITS;
 	centeryfrac = centery<<FRACBITS;
 
-	projection = centerxfrac;
-	//projectiony = (((vid.height*centerx*BASEVIDWIDTH)/BASEVIDHEIGHT)/vid.width)<<FRACBITS;
-	projectiony = centerxfrac;
+	fov = FixedAngle(viewfov/2) + ANGLE_90;
+	fovtan = FINETANGENT(fov >> ANGLETOFINESHIFT);
+
+	// aspect ratio
+	projection = FixedDiv(centerxfrac, fovtan);
+	projectiony = projection;
 
 	R_InitViewBuffer(scaledviewwidth, viewheight);
 
@@ -629,8 +668,8 @@ void R_ExecuteSetViewSize(void)
 		for (i = 0; i < j; i++)
 		{
 			dy = ((i - viewheight*8)<<FRACBITS) + FRACUNIT/2;
-			dy = abs(dy);
-			yslopetab[i] = FixedDiv(centerx*FRACUNIT, dy);
+			dy = FixedMul(abs(dy), fovtan);
+			yslopetab[i] = FixedDiv(centerxfrac, dy);
 		}
 	}
 
@@ -661,6 +700,9 @@ void R_ExecuteSetViewSize(void)
 #endif
 
 	am_recalc = true;
+#ifdef SOFTPOLY
+	RSP_Viewport(viewwidth, viewheight);
+#endif
 }
 
 //
@@ -688,6 +730,10 @@ void R_Init(void)
 	R_InitTranslationTables();
 
 	R_InitDrawNodes();
+
+#ifdef SOFTPOLY
+	RSP_Init();
+#endif
 
 	framecount = 0;
 }
@@ -744,7 +790,7 @@ subsector_t *R_IsPointInSubsector(fixed_t x, fixed_t y)
 static mobj_t *viewmobj;
 
 // WARNING: a should be unsigned but to add with 2048, it isn't!
-#define AIMINGTODY(a) ((FINETANGENT((2048+(((INT32)a)>>ANGLETOFINESHIFT)) & FINEMASK)*160)>>FRACBITS)
+#define AIMINGTODY(a) FixedDiv((FINETANGENT((2048+(((INT32)a)>>ANGLETOFINESHIFT)) & FINEMASK)*160)>>FRACBITS, fovtan)
 
 // recalc necessary stuff for mouseaiming
 // slopes are already calculated for the full possible view (which is 4*viewheight).
@@ -870,8 +916,12 @@ void R_SetupFrame(player_t *player, boolean skybox)
 
 	viewsin = FINESINE(viewangle>>ANGLETOFINESHIFT);
 	viewcos = FINECOSINE(viewangle>>ANGLETOFINESHIFT);
+	R_SetFieldOfView(cv_fov.value + player->fovadd);
 
 	R_SetupFreelook();
+#ifdef SOFTPOLY
+	RSP_ModelView();
+#endif
 }
 
 void R_SkyboxFrame(player_t *player)
@@ -1088,8 +1138,12 @@ void R_SkyboxFrame(player_t *player)
 
 	viewsin = FINESINE(viewangle>>ANGLETOFINESHIFT);
 	viewcos = FINECOSINE(viewangle>>ANGLETOFINESHIFT);
+	R_SetFieldOfView(cv_fov.value + player->fovadd);
 
 	R_SetupFreelook();
+#ifdef SOFTPOLY
+	RSP_ModelView();
+#endif
 }
 
 #define ANGLED_PORTALS
@@ -1233,6 +1287,11 @@ void R_RenderPlayerView(player_t *player)
 	portalrender = 0;
 	portal_base = portal_cap = NULL;
 
+#ifdef SOFTPOLY
+	modelinview = false;
+	RSP_OnFrame();
+#endif
+
 	if (skybox && skyVisible)
 	{
 		R_SkyboxFrame(player);
@@ -1289,16 +1348,26 @@ void R_RenderPlayerView(player_t *player)
 //profile stuff ---------------------------------------------------------
 
 	// PORTAL RENDERING
-	for(portal = portal_base; portal; portal = portal_base)
+#ifdef SOFTPOLY
+	if (modelinview && portal_base)
+		RSP_StoreViewpoint();
+#endif
+	for (portal = portal_base; portal; portal = portal_base)
 	{
 		// render the portal
 		CONS_Debug(DBG_RENDER, "Rendering portal from line %d to %d\n", portal->line1, portal->line2);
 		portalrender = portal->pass;
 
 		R_PortalFrame(&lines[portal->line1], &lines[portal->line2], portal);
+#ifdef SOFTPOLY
+		if (modelinview)
+		{
+			RSP_ModelView();
+			rsp_portalrender = portalrender;
+		}
+#endif
 
 		R_PortalClearClipSegs(portal->start, portal->end);
-
 		R_PortalRestoreClipValues(portal->start, portal->end, portal->ceilingclip, portal->floorclip, portal->frontscale);
 
 		validcount++;
@@ -1316,6 +1385,10 @@ void R_RenderPlayerView(player_t *player)
 		Z_Free(portal->frontscale);
 		Z_Free(portal);
 	}
+#ifdef SOFTPOLY
+	if (rsp_portalrender)
+		RSP_RestoreViewpoint();
+#endif
 	// END PORTAL RENDERING
 
 	R_DrawPlanes();
@@ -1337,6 +1410,27 @@ void R_RenderPlayerView(player_t *player)
 		skyVisible1 = skyVisible;
 }
 
+// Jimita
+#ifdef HWRENDER
+void R_InitHardwareMode(void)
+{
+	HWR_AddCommands();
+	if (gamestate == GS_LEVEL)
+	{
+		HWR_SetupLevel();
+		HWR_PrepLevelCache(numtextures);
+	}
+}
+#endif
+
+void R_ReloadHUDGraphics(void)
+{
+	CONS_Debug(DBG_RENDER, "R_ReloadHUDGraphics()...\n");
+	ST_LoadGraphics();
+	HU_LoadGraphics();
+	ST_ReloadSkinFaceGraphics();
+}
+
 // =========================================================================
 //                    ENGINE COMMANDS & VARS
 // =========================================================================
@@ -1355,11 +1449,13 @@ void R_RegisterEngineStuff(void)
 	if (dedicated)
 		return;
 
-	CV_RegisterVar(&cv_precipdensity);
+	CV_RegisterVar(&cv_fovchange);
+	CV_RegisterVar(&cv_fov);
 	CV_RegisterVar(&cv_translucency);
 	CV_RegisterVar(&cv_drawdist);
 	CV_RegisterVar(&cv_drawdist_nights);
 	CV_RegisterVar(&cv_drawdist_precip);
+	CV_RegisterVar(&cv_precipdensity);
 
 	CV_RegisterVar(&cv_chasecam);
 	CV_RegisterVar(&cv_chasecam2);
@@ -1402,23 +1498,20 @@ void R_RegisterEngineStuff(void)
 	CV_RegisterVar(&cv_grgammablue);
 	CV_RegisterVar(&cv_grgammagreen);
 	CV_RegisterVar(&cv_grgammared);
-	CV_RegisterVar(&cv_grfovchange);
 	CV_RegisterVar(&cv_grfog);
-	CV_RegisterVar(&cv_voodoocompatibility);
 	CV_RegisterVar(&cv_grfogcolor);
 	CV_RegisterVar(&cv_grsoftwarefog);
+
 #ifdef ALAM_LIGHTING
 	CV_RegisterVar(&cv_grstaticlighting);
 	CV_RegisterVar(&cv_grdynamiclighting);
 	CV_RegisterVar(&cv_grcoronas);
 	CV_RegisterVar(&cv_grcoronasize);
 #endif
-	CV_RegisterVar(&cv_grmd2);
-	CV_RegisterVar(&cv_grspritebillboarding);
-#endif
 
-#ifdef HWRENDER
-	if (rendermode != render_soft && rendermode != render_none)
+	CV_RegisterVar(&cv_grspritebillboarding);
+
+	if (rendermode == render_opengl)
 		HWR_AddCommands();
 #endif
 }
