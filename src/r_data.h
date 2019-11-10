@@ -127,6 +127,8 @@ boolean R_IsLumpPNG(UINT8 *d, size_t s);
 UINT32 *PNG_RawConvert(UINT8 *png, UINT16 *w, UINT16 *h, size_t size, void *user);
 #endif
 
+UINT8 NearestColor(UINT8 r, UINT8 g, UINT8 b);
+
 extern INT32 numtextures;
 
 #endif
