@@ -241,43 +241,6 @@ static void HWR_ResizeBlock(INT32 originalwidth, INT32 originalheight,
 		if (blockheight < 1)
 			I_Error("3D GenerateTexture : too small");
 	}
-	else if (cv_voodoocompatibility.value)
-	{
-		if (originalwidth > 256 || originalheight > 256)
-		{
-			blockwidth = 256;
-			while (originalwidth < blockwidth)
-				blockwidth >>= 1;
-			if (blockwidth < 1)
-				I_Error("3D GenerateTexture : too small");
-
-			blockheight = 256;
-			while (originalheight < blockheight)
-				blockheight >>= 1;
-			if (blockheight < 1)
-				I_Error("3D GenerateTexture : too small");
-		}
-		else
-		{
-			//size up to nearest power of 2
-			blockwidth = 1;
-			while (blockwidth < originalwidth)
-				blockwidth <<= 1;
-			// scale down the original graphics to fit in 256
-			if (blockwidth > 256)
-				blockwidth = 256;
-				//I_Error("3D GenerateTexture : too big");
-
-			//size up to nearest power of 2
-			blockheight = 1;
-			while (blockheight < originalheight)
-				blockheight <<= 1;
-			// scale down the original graphics to fit in 256
-			if (blockheight > 256)
-				blockheight = 255;
-				//I_Error("3D GenerateTexture : too big");
-		}
-	}
 	else
 	{
 		//size up to nearest power of 2
@@ -508,18 +471,6 @@ void HWR_MakePatch (const patch_t *patch, GLPatch_t *grPatch, GLMipmap_t *grMipm
 		newwidth = blockwidth;
 		newheight = blockheight;
 	}
-	else if (cv_voodoocompatibility.value) // Only scales down textures that exceed 256x256.
-	{
-		// no rounddown, do not size up patches, so they don't look 'scaled'
-		newwidth  = min(grPatch->width, blockwidth);
-		newheight = min(grPatch->height, blockheight);
-
-		if (newwidth > 256 || newheight > 256)
-		{
-			newwidth = blockwidth;
-			newheight = blockheight;
-		}
-	}
 	else
 	{
 		// no rounddown, do not size up patches, so they don't look 'scaled'
@@ -549,15 +500,13 @@ void HWR_MakePatch (const patch_t *patch, GLPatch_t *grPatch, GLMipmap_t *grMipm
 //             CACHING HANDLING
 // =================================================
 
-static size_t gr_numtextures;
+static size_t gr_numtextures = 0;
 static GLTexture_t *gr_textures; // for ALL Doom textures
 
 void HWR_InitTextureCache(void)
 {
-	gr_numtextures = 0;
 	gr_textures = NULL;
 }
-
 
 // Callback function for HWR_FreeTextureCache.
 static void FreeMipmapColormap(INT32 patchnum, void *patch)
@@ -573,9 +522,18 @@ static void FreeMipmapColormap(INT32 patchnum, void *patch)
 	}
 }
 
-void HWR_FreeTextureCache(void)
+void HWR_FreeColormaps(void)
 {
 	INT32 i;
+
+	// Alam: free the Z_Blocks before freeing it's users
+	// free all skin after each level: must be done after pfnClearMipMapCache!
+	for (i = 0; i < numwadfiles; i++)
+		M_AATreeIterate(wadfiles[i]->hwrcache, FreeMipmapColormap);
+}
+
+void HWR_FreeTextureCache(void)
+{
 	// free references to the textures
 	HWD.pfnClearMipMapCache();
 
@@ -584,18 +542,11 @@ void HWR_FreeTextureCache(void)
 	Z_FreeTags(PU_HWRCACHE, PU_HWRCACHE);
 	Z_FreeTags(PU_HWRCACHE_UNLOCKED, PU_HWRCACHE_UNLOCKED);
 
-	// Alam: free the Z_Blocks before freeing it's users
-
-	// free all skin after each level: must be done after pfnClearMipMapCache!
-	for (i = 0; i < numwadfiles; i++)
-		M_AATreeIterate(wadfiles[i]->hwrcache, FreeMipmapColormap);
-
 	// now the heap don't have any 'user' pointing to our
 	// texturecache info, we can free it
 	if (gr_textures)
 		free(gr_textures);
 	gr_textures = NULL;
-	gr_numtextures = 0;
 }
 
 void HWR_PrepLevelCache(size_t pnumtextures)
@@ -642,8 +593,12 @@ GLTexture_t *HWR_GetTexture(INT32 tex)
 	GLTexture_t *grtex;
 #ifdef PARANOIA
 	if ((unsigned)tex >= gr_numtextures)
-		I_Error(" HWR_GetTexture: tex >= numtextures\n");
+		I_Error("HWR_GetTexture: tex >= numtextures\n");
 #endif
+	// Jimita
+	if (needpatchrecache && (!gr_textures))
+		HWR_PrepLevelCache(gr_numtextures);
+
 	grtex = &gr_textures[tex];
 
 	if (!grtex->mipmap.grInfo.data && !grtex->mipmap.downloaded)
@@ -934,18 +889,6 @@ GLPatch_t *HWR_GetPic(lumpnum_t lumpnum)
 		{
 			newwidth = blockwidth;
 			newheight = blockheight;
-		}
-		else if (cv_voodoocompatibility.value) // Only scales down textures that exceed 256x256.
-		{
-			// no rounddown, do not size up patches, so they don't look 'scaled'
-			newwidth  = min(SHORT(pic->width),blockwidth);
-			newheight = min(SHORT(pic->height),blockheight);
-
-			if (newwidth > 256 || newheight > 256)
-			{
-				newwidth = blockwidth;
-				newheight = blockheight;
-			}
 		}
 		else
 		{

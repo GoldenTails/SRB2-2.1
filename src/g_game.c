@@ -99,7 +99,7 @@ UINT32 demoIdleTime  = 3*TICRATE;
 boolean timingdemo; // if true, exit with report on completion
 boolean nodrawers; // for comparative timing purposes
 boolean noblit; // for comparative timing purposes
-static tic_t demostarttime; // for comparative timing purposes
+tic_t demostarttime; // for comparative timing purposes
 
 boolean netgame; // only true if packets are broadcast
 boolean multiplayer;
@@ -798,12 +798,8 @@ const char *G_BuildMapName(INT32 map)
   * \param aiming Pointer to the vertical angle to clip.
   * \return Short version of the clipped angle for building a ticcmd.
   */
-INT16 G_ClipAimingPitch(INT32 *aiming)
+static INT16 G_ClipAimingPitchInternal(INT32 *aiming, INT32 limitangle)
 {
-	INT32 limitangle;
-
-	limitangle = ANGLE_90 - 1;
-
 	if (*aiming > limitangle)
 		*aiming = limitangle;
 	else if (*aiming < -limitangle)
@@ -812,19 +808,14 @@ INT16 G_ClipAimingPitch(INT32 *aiming)
 	return (INT16)((*aiming)>>16);
 }
 
+INT16 G_ClipAimingPitch(INT32 *aiming)
+{
+	return G_ClipAimingPitchInternal(aiming, ANGLE_90 - 1);
+}
+
 INT16 G_SoftwareClipAimingPitch(INT32 *aiming)
 {
-	INT32 limitangle;
-
-	// note: the current software mode implementation doesn't have true perspective
-	limitangle = ANGLE_90 - ANG10; // Some viewing fun, but not too far down...
-
-	if (*aiming > limitangle)
-		*aiming = limitangle;
-	else if (*aiming < -limitangle)
-		*aiming = -limitangle;
-
-	return (INT16)((*aiming)>>16);
+	return G_ClipAimingPitchInternal(aiming, ANGLE_90 - ANG10); // Some viewing fun, but not too far down...
 }
 
 static INT32 JoyAxis(axis_input_e axissel)
@@ -5706,7 +5697,46 @@ boolean G_CheckDemoStatus(void)
 		timingdemo = false;
 		f1 = (double)demotime;
 		f2 = (double)framecount*TICRATE;
-		CONS_Printf(M_GetText("timed %u gametics in %d realtics\n%f seconds, %f avg fps\n"), leveltime,demotime,f1/TICRATE,f2/f1);
+
+		CONS_Printf(M_GetText("timed %u gametics in %d realtics - %u frames\n%f seconds, %f avg fps\n"),
+			leveltime,demotime,(UINT32)framecount,f1/TICRATE,f2/f1);
+
+		// CSV-readable timedemo results, for external parsing
+		if (timedemo_csv)
+		{
+			FILE *f;
+			const char *csvpath = va("%s"PATHSEP"%s", srb2home, "timedemo.csv");
+			const char *header = "id,demoname,seconds,avgfps,leveltime,demotime,framecount,ticrate,rendermode,vidmode,vidwidth,vidheight,procbits\n";
+			const char *rowformat = "\"%s\",\"%s\",%f,%f,%u,%d,%u,%u,%u,%u,%u,%u,%u\n";
+			boolean headerrow = !FIL_FileExists(csvpath);
+			UINT8 procbits = 0;
+
+			// Bitness
+			if (sizeof(void*) == 4)
+				procbits = 32;
+			else if (sizeof(void*) == 8)
+				procbits = 64;
+
+			f = fopen(csvpath, "a+");
+
+			if (f)
+			{
+				if (headerrow)
+					fputs(header, f);
+				fprintf(f, rowformat,
+					timedemo_csv_id,timedemo_name,f1/TICRATE,f2/f1,leveltime,demotime,(UINT32)framecount,TICRATE,rendermode,vid.modenum,vid.width,vid.height,procbits);
+				fclose(f);
+				CONS_Printf("Timedemo results saved to '%s'\n", csvpath);
+			}
+			else
+			{
+				// Just print the CSV output to console
+				CON_LogMessage(header);
+				CONS_Printf(rowformat,
+					timedemo_csv_id,timedemo_name,f1/TICRATE,f2/f1,leveltime,demotime,(UINT32)framecount,TICRATE,rendermode,vid.modenum,vid.width,vid.height,procbits);
+			}
+		}
+
 		if (restorecv_vidwait != cv_vidwait.value)
 			CV_SetValue(&cv_vidwait, restorecv_vidwait);
 		D_AdvanceDemo();

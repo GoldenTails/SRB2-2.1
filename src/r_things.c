@@ -21,6 +21,7 @@
 #include "m_misc.h"
 #include "i_video.h" // rendermode
 #include "r_things.h"
+#include "r_model.h"
 #include "r_plane.h"
 #include "p_tick.h"
 #include "p_local.h"
@@ -28,8 +29,13 @@
 #include "dehacked.h" // get_number (for thok)
 #include "d_netfil.h" // blargh. for nameonly().
 #include "m_cheat.h" // objectplace
+
 #ifdef HWRENDER
 #include "hardware/hw_md2.h"
+#endif
+
+#ifdef SOFTPOLY
+#include "polyrenderer/r_softpoly.h"
 #endif
 
 #ifdef PC_DOS
@@ -106,6 +112,41 @@ static void R_InstallSpriteLump(UINT16 wad,            // graphics patch
 	if (maxframe ==(size_t)-1 || frame > maxframe)
 		maxframe = frame;
 
+#ifdef SOFTPOLY
+	{
+		UINT8 rot = (rotation != 0) ? (rotation-1) : 0;
+		patch_t *patch;
+		rsp_spritetexture_t *tex = &sprtemp[frame].rsp_texture[rot];
+		INT32 blockwidth, blockheight;
+
+		if (R_CheckIfPatch(lumppat))
+		{
+			patch = (patch_t *)W_CacheLumpNumPwad(wad, lump, PU_STATIC);
+
+			// size up to nearest power of 2
+			blockwidth = 1;
+			blockheight = 1;
+			while (blockwidth < SHORT(patch->width))
+				blockwidth <<= 1;
+			while (blockheight < SHORT(patch->height))
+				blockheight <<= 1;
+
+			tex->width = blockwidth;
+			tex->height = blockheight;
+			tex->lumpnum = lumppat;
+			tex->data = NULL;
+
+			Z_Free(patch);
+		}
+		else
+		{
+			// not even a patch
+			tex->width = -1;
+			tex->height = -1;
+		}
+	}
+#endif
+
 	if (rotation == 0)
 	{
 		// the lump should be used for all rotations
@@ -120,6 +161,10 @@ static void R_InstallSpriteLump(UINT16 wad,            // graphics patch
 		{
 			sprtemp[frame].lumppat[r] = lumppat;
 			sprtemp[frame].lumpid[r] = lumpid;
+#ifdef SOFTPOLY
+			if (r > 0)
+				sprtemp[frame].rsp_texture[r] = sprtemp[frame].rsp_texture[0];
+#endif
 		}
 		sprtemp[frame].flip = flipped ? UINT8_MAX : 0;
 		return;
@@ -370,6 +415,10 @@ void R_AddSpriteDefs(UINT16 wadnum)
 			if (rendermode == render_opengl)
 				HWR_AddSpriteMD2(i);
 #endif
+#ifdef SOFTPOLY
+			if (rendermode == render_soft)
+				RSP_AddSpriteModel(i);
+#endif // SOFTPOLY
 			// if a new sprite was added (not just replaced)
 			addsprites++;
 #ifndef ZDEBUG
@@ -539,6 +588,8 @@ void R_InitSprites(void)
 	for (i = 0; i < numwadfiles; i++)
 		R_AddSkins((UINT16)i);
 
+	R_CheckLoadModels();
+
 	//
 	// check if all sprites have frames
 	//
@@ -590,6 +641,10 @@ static vissprite_t *R_NewVisSprite(void)
 //
 INT16 *mfloorclip;
 INT16 *mceilingclip;
+#ifdef SOFTPOLY
+INT16 *rsp_mfloorclip;
+INT16 *rsp_mceilingclip;
+#endif
 
 fixed_t spryscale = 0, sprtopscreen = 0, sprbotscreen = 0;
 fixed_t windowtop = 0, windowbottom = 0;
@@ -754,6 +809,9 @@ static void R_DrawVisSprite(vissprite_t *vis)
 	INT64 overflow_test;
 
 	if (!patch)
+		return;
+
+	if (R_GetModelDefFlag(vis->mobj->sprite, MDF_REPLACESPRITES))
 		return;
 
 	// Check for overflow
@@ -1050,12 +1108,22 @@ static void R_SplitSprite(vissprite_t *sprite, mobj_t *thing)
 //
 static void R_ProjectSprite(mobj_t *thing)
 {
+	fixed_t thing_x, thing_y;
 	fixed_t tr_x, tr_y;
 	fixed_t gxt, gyt;
 	fixed_t tx, tz;
 	fixed_t xscale, yscale; //added : 02-02-98 : aaargll..if I were a math-guy!!!
 
+#ifdef SOFTPOLY
+	boolean model;
+	skin_t *skin;
+	rsp_md2_t *md2;
+#endif
+
 	INT32 x1, x2;
+	boolean checkvisible = true;
+	boolean checkzvisible = true;
+	boolean checksides = true;
 
 	spritedef_t *sprdef;
 	spriteframe_t *sprframe;
@@ -1077,9 +1145,42 @@ static void R_ProjectSprite(mobj_t *thing)
 	INT32 light = 0;
 	fixed_t this_scale = thing->scale;
 
+	thing_x = thing->x;
+	thing_y = thing->y;
+
+#ifdef SOFTPOLY
+	skin = (skin_t *)thing->skin;
+	md2 = RSP_ModelAvailable(thing->sprite, skin);
+
+	model = ((cv_models.value || R_GetModelDefFlag(thing->sprite, MDF_REPLACESPRITES)) && md2);
+	frustumclipping = false;
+
+	// skin model render flag
+	if ((skin != NULL) && (skin->flags & SF_RENDERMODEL))
+		model = true;
+
+	if (model)
+	{
+		checkvisible = false;
+		if (R_GetModelDefFlag(thing->sprite, MDF_DONOTCULL))
+		{
+			frustumclipping = true;
+			checkzvisible = checksides = false;
+		}
+	}
+
+	if (md2)
+	{
+		float ox = md2->xoffset;
+		float oy = md2->yoffset;
+		thing_x += FLOAT_TO_FIXED(ox);
+		thing_y += FLOAT_TO_FIXED(oy);
+	}
+#endif
+
 	// transform the origin point
-	tr_x = thing->x - viewx;
-	tr_y = thing->y - viewy;
+	tr_x = thing_x - viewx;
+	tr_y = thing_y - viewy;
 
 	gxt = FixedMul(tr_x, viewcos);
 	gyt = -FixedMul(tr_y, viewsin);
@@ -1088,14 +1189,19 @@ static void R_ProjectSprite(mobj_t *thing)
 
 	// thing is behind view plane?
 	if (tz < FixedMul(MINZ, this_scale))
-		return;
+	{
+		if (checkzvisible)
+			return;
+		else
+			tz = FixedMul(MINZ, this_scale);
+	}
 
 	gxt = -FixedMul(tr_x, viewsin);
 	gyt = FixedMul(tr_y, viewcos);
 	tx = -(gyt + gxt);
 
 	// too far off the side?
-	if (abs(tx) > tz<<2)
+	if (checksides && (abs(tx) > tz<<2))
 		return;
 
 	// aspect ratio stuff
@@ -1169,17 +1275,17 @@ static void R_ProjectSprite(mobj_t *thing)
 		tx -= FixedMul(spritecachedinfo[lump].width-spritecachedinfo[lump].offset, this_scale);
 	else
 		tx -= FixedMul(spritecachedinfo[lump].offset, this_scale);
-	x1 = (centerxfrac + FixedMul (tx,xscale)) >>FRACBITS;
+	x1 = (centerxfrac + FixedMul (tx,xscale))>>FRACBITS;
 
 	// off the right side?
-	if (x1 > viewwidth)
+	if (checkvisible && (x1 > viewwidth))
 		return;
 
 	tx += FixedMul(spritecachedinfo[lump].width, this_scale);
 	x2 = ((centerxfrac + FixedMul (tx,xscale)) >>FRACBITS) - 1;
 
 	// off the left side
-	if (x2 < 0)
+	if (checkvisible && (x2 < 0))
 		return;
 
 	// PORTAL SPRITE CLIPPING
@@ -1274,6 +1380,13 @@ static void R_ProjectSprite(mobj_t *thing)
 	vis->texturemid = vis->gzt - viewz;
 
 	vis->mobj = thing; // Easy access! Tails 06-07-2002
+#ifdef SOFTPOLY
+	vis->spritenum = thing->sprite;
+	vis->skin = thing->skin;
+	vis->model = model;
+	if (model)
+		modelinview = true;
+#endif
 
 	vis->x1 = x1 < 0 ? 0 : x1;
 	vis->x2 = x2 >= viewwidth ? viewwidth-1 : x2;
@@ -1310,7 +1423,7 @@ static void R_ProjectSprite(mobj_t *thing)
 		vis->xiscale = iscale;
 	}
 
-	if (vis->x1 > x1)
+	if (checksides && (vis->x1 > x1))
 		vis->startfrac += FixedDiv(vis->xiscale, this_scale)*(vis->x1-x1);
 
 	//Fab: lumppat is the lump number of the patch to use, this is different
@@ -1358,6 +1471,10 @@ static void R_ProjectSprite(mobj_t *thing)
 
 	if (thing->subsector->sector->numlights)
 		R_SplitSprite(vis, thing);
+
+#ifdef SOFTPOLY
+	RSP_StoreSpriteViewpoint(vis);
+#endif // SOFTPOLY
 
 	// Debug
 	++objectsdrawn;
@@ -1818,7 +1935,10 @@ static void R_CreateDrawNodes(void)
 	for (rover = vsprsortedhead.prev; rover != &vsprsortedhead; rover = rover->prev)
 	{
 		if (rover->szt > vid.height || rover->sz < 0)
-			continue;
+#ifdef SOFTPOLY
+			if (!rover->model)
+#endif
+				continue;
 
 		sintersect = (rover->x1 + rover->x2) / 2;
 
@@ -1959,11 +2079,18 @@ static void R_CreateDrawNodes(void)
 			}
 			else if (r2->sprite)
 			{
+#ifdef SOFTPOLY
+				if (r2->sprite->model || rover->model)
+					goto skip;
+#endif
 				if (r2->sprite->x1 > rover->x2 || r2->sprite->x2 < rover->x1)
 					continue;
 				if (r2->sprite->szt > rover->sz || r2->sprite->sz < rover->szt)
 					continue;
 
+#ifdef SOFTPOLY
+				skip:
+#endif
 				if (r2->sprite->scale > rover->scale
 				 || (r2->sprite->scale == rover->scale && r2->sprite->dispoffset > rover->dispoffset))
 				{
@@ -2050,7 +2177,18 @@ static void R_DrawSprite(vissprite_t *spr)
 {
 	mfloorclip = spr->clipbot;
 	mceilingclip = spr->cliptop;
+#ifdef SOFTPOLY
+	rsp_mfloorclip = mfloorclip;
+	rsp_mceilingclip = mceilingclip;
+	if (!spr->model)
+		R_DrawVisSprite(spr);
+	else if (!RSP_RenderModel(spr))
+#endif // SOFTPOLY
 	R_DrawVisSprite(spr);
+#ifdef SOFTPOLY
+	rsp_mfloorclip = NULL;
+	rsp_mceilingclip = NULL;
+#endif // SOFTPOLY
 }
 
 // Special drawer for precipitation sprites Tails 08-18-2002
@@ -2075,8 +2213,23 @@ void R_ClipSprites(void)
 		fixed_t		scale;
 		fixed_t		lowscale;
 		INT32		silhouette;
+#ifdef SOFTPOLY
+		boolean model = false;
+		INT32 ox1 = 0, ox2 = 0;
+#endif // SOFTPOLY
 
 		spr = R_GetVisSprite(clippedvissprites);
+
+#ifdef SOFTPOLY
+		// Arkus: Yes, clip against the ENTIRE viewport.
+		// You don't know how big the model is!
+		if (spr->model)
+		{
+			model = true;
+			ox1 = spr->x1, ox2 = spr->x2;
+			spr->x1 = 0, spr->x2 = viewwidth;
+		}
+#endif // SOFTPOLY
 
 		for (x = spr->x1; x <= spr->x2; x++)
 			spr->clipbot[x] = spr->cliptop[x] = -2;
@@ -2245,6 +2398,12 @@ void R_ClipSprites(void)
 				//Fab : 26-04-98: was -1, now clips against console bottom
 				spr->cliptop[x] = (INT16)con_clipviewtop;
 		}
+
+#ifdef SOFTPOLY
+		// Arkus: Restore column positions.
+		if (model)
+			spr->x1 = ox1, spr->x2 = ox2;
+#endif // SOFTPOLY
 	}
 }
 
@@ -2414,6 +2573,10 @@ void R_InitSkins(void)
 	if (rendermode == render_opengl)
 		HWR_AddPlayerMD2(0);
 #endif
+#ifdef SOFTPOLY
+	if (rendermode == render_soft)
+		RSP_AddPlayerModel(0);
+#endif // SOFTPOLY
 }
 
 // returns true if the skin name is found (loaded from pwad)
@@ -2549,6 +2712,10 @@ void R_AddSkins(UINT16 wadnum)
 	size_t size;
 	skin_t *skin;
 	boolean hudname, realname, superface;
+	boolean playermodel = false;
+	float playermodelscale = 1.0f;
+	float playermodelxoffset = 0.0;
+	float playermodelyoffset = 0.0;
 
 	//
 	// search for all skin markers in pwad
@@ -2681,6 +2848,18 @@ void R_AddSkins(UINT16 wadnum)
 				strupr(value);
 				strncpy(skin->superface, value, sizeof skin->superface);
 			}
+			else if (!stricmp(stoken, "model"))
+			{
+				strupr(value);
+				strncpy(skin->model, value, sizeof skin->model);
+				playermodel = true;
+			}
+			else if (!stricmp(stoken, "modelscale"))
+				playermodelscale = atof(value);
+			else if (!stricmp(stoken, "modelxoffset"))
+				playermodelxoffset = atof(value);
+			else if (!stricmp(stoken, "modelyoffset"))
+				playermodelyoffset = atof(value);
 
 #define FULLPROCESS(field) else if (!stricmp(stoken, #field)) skin->field = get_number(value);
 			// character type identification
@@ -2744,17 +2923,17 @@ next_token:
 		}
 		free(buf2);
 
-		lump++; // if no sprite defined use spirte just after this one
+		lump++; // if no sprite defined use sprite just after this one
 		if (skin->sprite[0] == '\0')
 		{
 			const char *csprname = W_CheckNameForNumPwad(wadnum, lump);
-
 			// skip to end of this skin's frames
 			lastlump = lump;
 			while (W_CheckNameForNumPwad(wadnum,lastlump) && memcmp(W_CheckNameForNumPwad(wadnum, lastlump),csprname,4)==0)
 				lastlump++;
 			// allocate (or replace) sprite frames, and set spritedef
 			R_AddSingleSpriteDef(csprname, &skin->spritedef, wadnum, lump, lastlump);
+			M_Memcpy(skin->sprite, csprname, 4); // make sure to copy exactly four chars
 		}
 		else
 		{
@@ -2810,6 +2989,16 @@ next_token:
 
 		R_FlushTranslationColormapCache();
 
+		if (playermodel)
+		{
+#ifdef SOFTPOLY
+			RSP_AddInternalPlayerModel(W_GetNumForName(skin->model), numskins, playermodelscale, playermodelxoffset, playermodelyoffset);
+#endif
+#ifdef HWRENDER
+			HWR_AddInternalPlayerMD2(W_GetNumForName(skin->model), numskins, playermodelscale, playermodelxoffset, playermodelyoffset);
+#endif
+		}
+
 		CONS_Printf(M_GetText("Added skin '%s'\n"), skin->name);
 #ifdef SKINVALUES
 		skin_cons_t[numskins].value = numskins;
@@ -2823,6 +3012,10 @@ next_token:
 		if (rendermode == render_opengl)
 			HWR_AddPlayerMD2(numskins);
 #endif
+#ifdef SOFTPOLY
+		if (rendermode == render_soft)
+			RSP_AddPlayerModel(numskins);
+#endif // SOFTPOLY
 
 		numskins++;
 	}

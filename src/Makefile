@@ -270,6 +270,14 @@ ifdef NO_IPV6
 endif
 endif
 
+ifdef NO_POLYRENDERER
+	OPTS+=-DNO_POLYRENDERER
+else
+	OPTS+=-DSOFTPOLY
+	OBJS+=$(OBJDIR)/r_softpoly.o $(OBJDIR)/rsp_spans.o $(OBJDIR)/rsp_draw.o \
+		 $(OBJDIR)/rsp_math.o $(OBJDIR)/rsp_tris.o $(OBJDIR)/rsp_model.o
+endif
+
 ifdef NOHW
 	OPTS+=-DNOHW
 else
@@ -515,6 +523,9 @@ OBJS:=$(i_main_o) \
 		$(OBJDIR)/r_data.o   \
 		$(OBJDIR)/r_draw.o   \
 		$(OBJDIR)/r_main.o   \
+		$(OBJDIR)/r_md2load.o \
+		$(OBJDIR)/r_md3load.o \
+		$(OBJDIR)/r_model.o \
 		$(OBJDIR)/r_plane.o  \
 		$(OBJDIR)/r_segs.o   \
 		$(OBJDIR)/r_sky.o    \
@@ -531,6 +542,7 @@ OBJS:=$(i_main_o) \
 		$(OBJDIR)/lzf.o	     \
 		$(OBJDIR)/vid_copy.o \
 		$(OBJDIR)/b_bot.o \
+		$(OBJDIR)/u_list.o \
 		$(i_cdmus_o)    \
 		$(i_net_o)      \
 		$(i_system_o)   \
@@ -732,16 +744,16 @@ ifdef MINGW
 $(OBJDIR)/r_opengl.o: hardware/r_opengl/r_opengl.c hardware/r_opengl/r_opengl.h \
  doomdef.h doomtype.h g_state.h m_swap.h hardware/hw_drv.h screen.h \
  command.h hardware/hw_data.h hardware/hw_glide.h hardware/hw_defs.h \
- hardware/hw_md2.h hardware/hw_glob.h hardware/hw_main.h hardware/hw_clip.h am_map.h \
- d_event.h d_player.h p_pspr.h m_fixed.h tables.h info.h d_think.h \
+ hardware/hw_md2.h hardware/hw_glob.h hardware/hw_main.h hardware/hw_clip.h \
+ am_map.h d_event.h d_player.h p_pspr.h m_fixed.h tables.h info.h d_think.h \
  p_mobj.h doomdata.h d_ticcmd.h r_defs.h hardware/hw_dll.h
 	$(CC) $(CFLAGS) $(WFLAGS) -c $< -o $@
 else
 $(OBJDIR)/r_opengl.o: hardware/r_opengl/r_opengl.c hardware/r_opengl/r_opengl.h \
  doomdef.h doomtype.h g_state.h m_swap.h hardware/hw_drv.h screen.h \
  command.h hardware/hw_data.h hardware/hw_glide.h hardware/hw_defs.h \
- hardware/hw_md2.h hardware/hw_glob.h hardware/hw_main.h hardware/hw_clip.h am_map.h \
- d_event.h d_player.h p_pspr.h m_fixed.h tables.h info.h d_think.h \
+ hardware/hw_md2.h hardware/hw_glob.h hardware/hw_main.h hardware/hw_clip.h \
+ am_map.h d_event.h d_player.h p_pspr.h m_fixed.h tables.h info.h d_think.h \
  p_mobj.h doomdata.h d_ticcmd.h r_defs.h hardware/hw_dll.h
 	$(CC) $(CFLAGS) $(WFLAGS) -I/usr/X11R6/include -c $< -o $@
 endif
@@ -761,6 +773,9 @@ $(OBJDIR)/depend.dep:
 	-$(MKDIR) $(OBJDIR)
 	$(CC) $(CFLAGS) -MM *.c > $(OBJDIR)/depend.ped
 	$(CC) $(CFLAGS) -MM $(INTERFACE)/*.c >> $(OBJDIR)/depend.ped
+ifndef NO_POLYRENDERER
+	$(CC) $(CFLAGS) -MM polyrenderer/*.c >> $(OBJDIR)/depend.ped
+endif
 ifndef NOHW
 	$(CC) $(CFLAGS) -MM hardware/*.c >> $(OBJDIR)/depend.ped
 endif
@@ -803,6 +818,9 @@ ifdef MACOSX
 $(OBJDIR)/%.o: sdl/macosx/%.c
 	$(CC) $(CFLAGS) $(WFLAGS) -c $< -o $@
 endif
+
+$(OBJDIR)/%.o: polyrenderer/%.c
+	$(CC) $(CFLAGS) $(WFLAGS) -c $< -o $@
 
 $(OBJDIR)/%.o: hardware/%.c
 	$(CC) $(CFLAGS) $(WFLAGS) -c $< -o $@
@@ -893,24 +911,24 @@ ifndef NOHW
 $(OBJDIR)/r_opengl.o: hardware/r_opengl/r_opengl.c hardware/r_opengl/r_opengl.h \
  doomdef.h doomtype.h g_state.h m_swap.h hardware/hw_drv.h screen.h \
  command.h hardware/hw_data.h hardware/hw_glide.h hardware/hw_defs.h \
- hardware/hw_md2.h hardware/hw_glob.h hardware/hw_main.h hardware/hw_clip.h am_map.h \
- d_event.h d_player.h p_pspr.h m_fixed.h tables.h info.h d_think.h \
+ hardware/hw_md2.h hardware/hw_glob.h hardware/hw_main.h hardware/hw_clip.h \
+ am_map.h d_event.h d_player.h p_pspr.h m_fixed.h tables.h info.h d_think.h \
  p_mobj.h doomdata.h d_ticcmd.h r_defs.h hardware/hw_dll.h
 	$(CC) $(CFLAGS) $(WFLAGS) -D_WINDOWS -mwindows -c $< -o $@
 
 $(OBJDIR)/ogl_win.o: hardware/r_opengl/ogl_win.c hardware/r_opengl/r_opengl.h \
  doomdef.h doomtype.h g_state.h m_swap.h hardware/hw_drv.h screen.h \
  command.h hardware/hw_data.h hardware/hw_glide.h hardware/hw_defs.h \
- hardware/hw_md2.h hardware/hw_glob.h hardware/hw_main.h hardware/hw_clip.h am_map.h \
- d_event.h d_player.h p_pspr.h m_fixed.h tables.h info.h d_think.h \
+ hardware/hw_md2.h hardware/hw_glob.h hardware/hw_main.h hardware/hw_clip.h \
+ am_map.h d_event.h d_player.h p_pspr.h m_fixed.h tables.h info.h d_think.h \
  p_mobj.h doomdata.h d_ticcmd.h r_defs.h hardware/hw_dll.h
 	$(CC) $(CFLAGS) $(WFLAGS) -D_WINDOWS -mwindows -c $< -o $@
 
 $(OBJDIR)/r_minigl.o: hardware/r_minigl/r_minigl.c hardware/r_opengl/r_opengl.h \
  doomdef.h doomtype.h g_state.h m_swap.h hardware/hw_drv.h screen.h \
  command.h hardware/hw_data.h hardware/hw_glide.h hardware/hw_defs.h \
- hardware/hw_md2.h hardware/hw_glob.h hardware/hw_main.h hardware/hw_clip.h am_map.h \
- d_event.h d_player.h p_pspr.h m_fixed.h tables.h info.h d_think.h \
+ hardware/hw_md2.h hardware/hw_glob.h hardware/hw_main.h hardware/hw_clip.h \
+ am_map.h d_event.h d_player.h p_pspr.h m_fixed.h tables.h info.h d_think.h \
  p_mobj.h doomdata.h d_ticcmd.h r_defs.h hardware/hw_dll.h
 	$(CC) $(CFLAGS) $(WFLAGS) -D_WINDOWS -mwindows -c $< -o $@
 endif
