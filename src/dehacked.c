@@ -339,11 +339,11 @@ static void readAnimTex(MYFILE *f, INT32 num)
 static boolean findFreeSlot(INT32 *num)
 {
 	// Send the character select entry to a free slot.
-	while (*num < 32 && PlayerMenu[*num].status != IT_DISABLED)
+	while (*num < MAXSKINS && PlayerMenu[*num].status != IT_DISABLED)
 		*num = *num+1;
 
 	// No more free slots. :(
-	if (*num >= 32)
+	if (*num >= MAXSKINS)
 		return false;
 
 	// Found one! ^_^
@@ -976,6 +976,13 @@ static void readlevelheader(MYFILE *f, INT32 num)
 #endif
 			else if (fastcmp(word, "MUSICTRACK"))
 				mapheaderinfo[num-1]->mustrack = ((UINT16)i - 1);
+			else if (fastcmp(word, "MUSICPOS"))
+				mapheaderinfo[num-1]->muspos = (UINT32)get_number(word2);
+			else if (fastcmp(word, "MUSICINTERFADEOUT"))
+				mapheaderinfo[num-1]->musinterfadeout = (UINT32)get_number(word2);
+			else if (fastcmp(word, "MUSICINTER"))
+				deh_strlcpy(mapheaderinfo[num-1]->musintername, word2,
+					sizeof(mapheaderinfo[num-1]->musintername), va("Level header %d: intermission music", num));
 			else if (fastcmp(word, "FORCECHARACTER"))
 			{
 				strlcpy(mapheaderinfo[num-1]->forcecharacter, word2, SKINNAMESIZE+1);
@@ -1026,6 +1033,18 @@ static void readlevelheader(MYFILE *f, INT32 num)
 					mapheaderinfo[num-1]->bonustype = (SINT8)i;
 				else
 					deh_warning("Level header %d: invalid bonus type number %d", num, i);
+			}
+
+			else if (fastcmp(word, "SAVEOVERRIDE"))
+			{
+				if      (fastcmp(word2, "DEFAULT")) i = SAVE_DEFAULT;
+				else if (fastcmp(word2, "ALWAYS"))  i = SAVE_ALWAYS;
+				else if (fastcmp(word2, "NEVER"))   i = SAVE_NEVER;
+
+				if (i >= SAVE_NEVER && i <= SAVE_ALWAYS)
+					mapheaderinfo[num-1]->saveoverride = (SINT8)i;
+				else
+					deh_warning("Level header %d: invalid save override number %d", num, i);
 			}
 
 			else if (fastcmp(word, "LEVELFLAGS"))
@@ -1242,6 +1261,8 @@ static void readcutscenescene(MYFILE *f, INT32 num, INT32 scenenum)
 #endif
 			else if (fastcmp(word, "MUSICTRACK"))
 				cutscenes[num]->scene[scenenum].musswitchflags = ((UINT16)i) & MUSIC_TRACKMASK;
+			else if (fastcmp(word, "MUSICPOS"))
+				cutscenes[num]->scene[scenenum].musswitchposition = (UINT32)get_number(word2);
 			else if (fastcmp(word, "MUSICLOOP"))
 				cutscenes[num]->scene[scenenum].musicloop = (UINT8)(i || word2[0] == 'T' || word2[0] == 'Y');
 			else if (fastcmp(word, "TEXTXPOS"))
@@ -2563,7 +2584,7 @@ static void readmaincfg(MYFILE *f)
 				sstage_end = (INT16)(sstage_start+6); // 7 special stages total
 			}
 			else if (fastcmp(word, "USENIGHTSSS"))
-				useNightsSS = (UINT8)(value || word2[0] == 'T' || word2[0] == 'Y');
+				useNightsSS = (value || word2[0] == 'T' || word2[0] == 'Y');
 			else if (fastcmp(word, "REDTEAM"))
 				skincolor_redteam = (UINT8)get_number(word2);
 			else if (fastcmp(word, "BLUETEAM"))
@@ -2596,7 +2617,7 @@ static void readmaincfg(MYFILE *f)
 					introtoplay = 128;
 			}
 			else if (fastcmp(word, "LOOPTITLE"))
-				looptitle = (boolean)(value || word2[0] == 'T' || word2[0] == 'Y');
+				looptitle = (value || word2[0] == 'T' || word2[0] == 'Y');
 			else if (fastcmp(word, "TITLESCROLLSPEED"))
 				titlescrollspeed = get_number(word2);
 			else if (fastcmp(word, "CREDITSCUTSCENE"))
@@ -2607,7 +2628,7 @@ static void readmaincfg(MYFILE *f)
 					creditscutscene = 128;
 			}
 			else if (fastcmp(word, "DISABLESPEEDADJUST"))
-				disableSpeedAdjust = (UINT8)get_number(word2);
+				disableSpeedAdjust = (value || word2[0] == 'T' || word2[0] == 'Y');
 			else if (fastcmp(word, "NUMDEMOS"))
 				numDemos = (UINT8)get_number(word2);
 			else if (fastcmp(word, "DEMODELAYTIME"))
@@ -2638,7 +2659,7 @@ static void readmaincfg(MYFILE *f)
 				strncpy(timeattackfolder, gamedatafilename, min(filenamelen, sizeof (timeattackfolder)));
 				timeattackfolder[min(filenamelen, sizeof (timeattackfolder) - 1)] = '\0';
 
-				strncpy(savegamename, timeattackfolder, strlen(timeattackfolder));
+				strcpy(savegamename, timeattackfolder);
 				strlcat(savegamename, "%u.ssg", sizeof(savegamename));
 				// can't use sprintf since there is %u in savegamename
 				strcatbf(savegamename, srb2home, PATHSEP);
@@ -6401,6 +6422,7 @@ struct {
 
 	// doomdef.h constants
 	{"TICRATE",TICRATE},
+	{"MUSICRATE",MUSICRATE},
 	{"RING_DIST",RING_DIST},
 	{"PUSHACCEL",PUSHACCEL},
 	{"MODID",MODID}, // I don't know, I just thought it would be cool for a wad to potentially know what mod it was loaded into.
@@ -6483,6 +6505,11 @@ struct {
 	{"LF2_RECORDATTACK",LF2_RECORDATTACK},
 	{"LF2_NIGHTSATTACK",LF2_NIGHTSATTACK},
 	{"LF2_NOVISITNEEDED",LF2_NOVISITNEEDED},
+
+	// Save override
+	{"SAVE_NEVER",SAVE_NEVER},
+	{"SAVE_DEFAULT",SAVE_DEFAULT},
+	{"SAVE_ALWAYS",SAVE_ALWAYS},
 
 	// NiGHTS grades
 	{"GRADE_F",GRADE_F},
@@ -7707,12 +7734,16 @@ static inline int lib_getenum(lua_State *L)
 	} else if (fastcmp(word,"mapmusflags")) {
 		lua_pushinteger(L, mapmusflags);
 		return 1;
+	} else if (fastcmp(word,"mapmusposition")) {
+		lua_pushinteger(L, mapmusposition);
+		return 1;
 	} else if (fastcmp(word,"server")) {
 		if ((!multiplayer || !netgame) && !playeringame[serverplayer])
 			return 0;
 		LUA_PushUserdata(L, &players[serverplayer], META_PLAYER);
 		return 1;
 	} else if (fastcmp(word,"admin")) { // BACKWARDS COMPATIBILITY HACK: This was replaced with IsPlayerAdmin(), but some 2.1 Lua scripts still use the admin variable. It now points to the first admin player in the array.
+		LUA_Deprecated(L, "admin", "IsPlayerAdmin(player)");
 		if (!playeringame[adminplayers[0]] || IsPlayerAdmin(serverplayer))
 			return 0;
 		LUA_PushUserdata(L, &players[adminplayers[0]], META_PLAYER);
@@ -7730,7 +7761,6 @@ static inline int lib_getenum(lua_State *L)
 		lua_pushinteger(L, token);
 		return 1;
 	}
-
 	return 0;
 }
 

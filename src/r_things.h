@@ -176,7 +176,7 @@ typedef struct drawnode_s
 } drawnode_t;
 
 extern INT32 numskins;
-extern skin_t skins[MAXSKINS + 1];
+extern skin_t skins[MAXSKINS];
 
 void SetPlayerSkin(INT32 playernum,const char *skinname);
 void SetPlayerSkinByNum(INT32 playernum,INT32 skinnum); // Tails 03-16-2002
@@ -215,6 +215,7 @@ FUNCMATH FUNCINLINE static ATTRINLINE char R_Frame2Char(UINT8 frame)
 FUNCMATH FUNCINLINE static ATTRINLINE UINT8 R_Char2Frame(char cn)
 {
 #if 1 // 2.1 compat
+	if (cn == '+') return '\\' - 'A'; // PK3 can't use backslash, so use + instead
 	return cn - 'A';
 #else
 	if (cn >= 'A' && cn <= 'Z') return cn - 'A';

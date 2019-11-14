@@ -74,6 +74,7 @@ int	snprintf(char *str, size_t n, const char *fmt, ...);
 #include "m_cond.h" // condition initialization
 #include "fastcmp.h"
 #include "keys.h"
+#include "filesrch.h" // refreshdirmenu, mainwadstally
 
 #ifdef CMAKECONFIG
 #include "config.h"
@@ -175,36 +176,11 @@ void D_PostEvent_end(void) {};
 #endif
 
 // modifier keys
+// Now handled in I_OsPolling
 UINT8 shiftdown = 0; // 0x1 left, 0x2 right
 UINT8 ctrldown = 0; // 0x1 left, 0x2 right
 UINT8 altdown = 0; // 0x1 left, 0x2 right
-//
-// D_ModifierKeyResponder
-// Sets global shift/ctrl/alt variables, never actually eats events
-//
-static inline void D_ModifierKeyResponder(event_t *ev)
-{
-	if (ev->type == ev_keydown || ev->type == ev_console) switch (ev->data1)
-	{
-		case KEY_LSHIFT: shiftdown |= 0x1; return;
-		case KEY_RSHIFT: shiftdown |= 0x2; return;
-		case KEY_LCTRL: ctrldown |= 0x1; return;
-		case KEY_RCTRL: ctrldown |= 0x2; return;
-		case KEY_LALT: altdown |= 0x1; return;
-		case KEY_RALT: altdown |= 0x2; return;
-		default: return;
-	}
-	else if (ev->type == ev_keyup) switch (ev->data1)
-	{
-		case KEY_LSHIFT: shiftdown &= ~0x1; return;
-		case KEY_RSHIFT: shiftdown &= ~0x2; return;
-		case KEY_LCTRL: ctrldown &= ~0x1; return;
-		case KEY_RCTRL: ctrldown &= ~0x2; return;
-		case KEY_LALT: altdown &= ~0x1; return;
-		case KEY_RALT: altdown &= ~0x2; return;
-		default: return;
-	}
-}
+boolean capslock = 0;	// gee i wonder what this does.
 
 //
 // D_ProcessEvents
@@ -217,9 +193,6 @@ void D_ProcessEvents(void)
 	for (; eventtail != eventhead; eventtail = (eventtail+1) & (MAXEVENTS-1))
 	{
 		ev = &events[eventtail];
-
-		// Set global shift/ctrl/alt down variables
-		D_ModifierKeyResponder(ev); // never eats events
 
 		// Screenshots over everything so that they can be taken anywhere.
 		if (M_ScreenshotResponder(ev))
@@ -319,8 +292,7 @@ static void D_Display(void)
 			if (!gametic)
 				break;
 			HU_Erase();
-			if (automapactive)
-				AM_Drawer();
+			AM_Drawer();
 			break;
 
 		case GS_INTERMISSION:
@@ -374,12 +346,10 @@ static void D_Display(void)
 			break;
 	}
 
-	// clean up border stuff
-	// see if the border needs to be initially drawn
 	if (gamestate == GS_LEVEL)
 	{
 		// draw the view directly
-		if (!automapactive && !dedicated && cv_renderview.value)
+		if (cv_renderview.value && !automapactive)
 		{
 			if (players[displayplayer].mo || players[displayplayer].playerstate == PST_DEAD)
 			{
@@ -437,7 +407,6 @@ static void D_Display(void)
 		}
 
 		ST_Drawer();
-
 		HU_Drawer();
 	}
 
@@ -586,6 +555,8 @@ void D_SRB2Loop(void)
 		realtics = entertic - oldentertics;
 		oldentertics = entertic;
 
+		refreshdirmenu = 0; // not sure where to put this, here as good as any?
+
 #ifdef DEBUGFILE
 		if (!realtics)
 			if (debugload)
@@ -726,7 +697,6 @@ void D_StartTitle(void)
 	paused = false;
 	advancedemo = false;
 	F_StartTitleScreen();
-	CON_ToggleOff();
 
 	// Reset the palette
 	if (rendermode != render_none)
@@ -850,17 +820,21 @@ static void IdentifyVersion(void)
 
 #if !defined (HAVE_SDL) || defined (HAVE_MIXER)
 	{
+#define MUSICTEST(str) \
+		{\
+			const char *musicpath = va(pandf,srb2waddir,str);\
+			int ms = W_VerifyNMUSlumps(musicpath); \
+			if (ms == 1) \
+				D_AddFile(musicpath); \
+			else if (ms == 0) \
+				I_Error("File "str" has been modified with non-music/sound lumps"); \
+		}
+
 #if defined (DC) && 0
-		const char *musicfile = "music_dc.dta";
+		MUSICTEST("music_dc.dta")
 #else
-		const char *musicfile = "music.dta";
+		MUSICTEST("music.dta")
 #endif
-		const char *musicpath = va(pandf,srb2waddir,musicfile);
-		int ms = W_VerifyNMUSlumps(musicpath); // Don't forget the music!
-		if (ms == 1)
-			D_AddFile(musicpath);
-		else if (ms == 0)
-			I_Error("File %s has been modified with non-music lumps",musicfile);
 	}
 #endif
 }
@@ -1126,6 +1100,10 @@ void D_SRB2Main(void)
 	// Setup default unlockable conditions
 	M_SetupDefaultConditionSets();
 
+	// Setup character tables
+	// Have to be done here before files are loaded
+	M_InitCharacterTables();
+
 	// load wad, including the main wad file
 	CONS_Printf("W_InitMultipleFiles(): Adding IWAD and main PWADs.\n");
 	if (!W_InitMultipleFiles(startupwadfiles))
@@ -1136,25 +1114,36 @@ void D_SRB2Main(void)
 #endif
 	D_CleanFile();
 
+	mainwads = 0;
+
 #ifndef DEVELOP // md5s last updated 12/14/14
 
 	// Check MD5s of autoloaded files
-	W_VerifyFileMD5(0, ASSET_HASH_SRB2_SRB); // srb2.srb/srb2.wad
-	W_VerifyFileMD5(1, ASSET_HASH_ZONES_DTA); // zones.dta
-	W_VerifyFileMD5(2, ASSET_HASH_PLAYER_DTA); // player.dta
-	W_VerifyFileMD5(3, ASSET_HASH_RINGS_DTA); // rings.dta
+	W_VerifyFileMD5(mainwads++, ASSET_HASH_SRB2_SRB); // srb2.srb/srb2.wad
+	W_VerifyFileMD5(mainwads++, ASSET_HASH_ZONES_DTA); // zones.dta
+	W_VerifyFileMD5(mainwads++, ASSET_HASH_PLAYER_DTA); // player.dta
+	W_VerifyFileMD5(mainwads++, ASSET_HASH_RINGS_DTA); // rings.dta
 #ifdef USE_PATCH_DTA
-	W_VerifyFileMD5(4, ASSET_HASH_PATCH_DTA); // patch.dta
+	W_VerifyFileMD5(mainwads++, ASSET_HASH_PATCH_DTA); // patch.dta
 #endif
-
 	// don't check music.dta because people like to modify it, and it doesn't matter if they do
 	// ...except it does if they slip maps in there, and that's what W_VerifyNMUSlumps is for.
+	//mainwads++; // music.dta does not increment mainwads (see <= 2.1.21)
+
+#else
+
+	mainwads++;	// srb2.srb/srb2.wad
+	mainwads++; // zones.dta
+	mainwads++; // player.dta
+	mainwads++; // rings.dta
+#ifdef USE_PATCH_DTA
+	mainwads++; // patch.dta
+#endif
+	//mainwads++; // music.dta does not increment mainwads (see <= 2.1.21)
+
 #endif //ifndef DEVELOP
 
-	mainwads = 4; // there are 4 wads not to unload
-#ifdef USE_PATCH_DTA
-	++mainwads; // patch.dta adds one more
-#endif
+	mainwadstally = packetsizetally;
 
 	cht_Init();
 
@@ -1343,13 +1332,9 @@ void D_SRB2Main(void)
 			INT16 newgametype = -1;
 			const char *sgametype = M_GetNextParm();
 
-			for (j = 0; gametype_cons_t[j].strvalue; j++)
-				if (!strcasecmp(gametype_cons_t[j].strvalue, sgametype))
-				{
-					newgametype = (INT16)gametype_cons_t[j].value;
-					break;
-				}
-			if (!gametype_cons_t[j].strvalue) // reached end of the list with no match
+			newgametype = G_GetGametypeByName(sgametype);
+
+			if (newgametype == -1) // reached end of the list with no match
 			{
 				j = atoi(sgametype); // assume they gave us a gametype number, which is okay too
 				if (j >= 0 && j < NUMGAMETYPES)
@@ -1381,12 +1366,12 @@ void D_SRB2Main(void)
 	}
 	else if (M_CheckParm("-skipintro"))
 	{
-		CON_ToggleOff();
-		CON_ClearHUD();
 		F_StartTitleScreen();
 	}
 	else
 		F_StartIntro(); // Tails 03-03-2002
+
+	CON_ToggleOff();
 
 	if (dedicated && server)
 	{

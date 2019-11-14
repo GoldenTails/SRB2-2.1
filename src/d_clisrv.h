@@ -70,6 +70,9 @@ typedef enum
 	PT_NODETIMEOUT,   // Packet sent to self if the connection times out.
 	PT_RESYNCHING,    // Packet sent to resync players.
 	                  // Blocks game advance until synched.
+
+	PT_LOGIN,         // Login attempt from the client.
+
 #ifdef NEWPING
 	PT_PING,          // Packet sent to tell clients the other client's latency to server.
 #endif
@@ -309,6 +312,7 @@ typedef struct
 } ATTRPACK clientconfig_pak;
 
 #define MAXSERVERNAME 32
+#define MAXFILENEEDED 915
 // This packet is too large
 typedef struct
 {
@@ -330,7 +334,7 @@ typedef struct
 	unsigned char mapmd5[16];
 	UINT8 actnum;
 	UINT8 iszone;
-	UINT8 fileneeded[915]; // is filled with writexxx (byteptr.h)
+	UINT8 fileneeded[MAXFILENEEDED]; // is filled with writexxx (byteptr.h)
 } ATTRPACK serverinfo_pak;
 
 typedef struct
@@ -397,6 +401,7 @@ typedef struct
 		UINT8 textcmd[MAXTEXTCMD+1];        //       66049 bytes (wut??? 64k??? More like 257 bytes...)
 		filetx_pak filetxpak;               //         139 bytes
 		clientconfig_pak clientcfg;         //         136 bytes
+		UINT8 md5sum[16];
 		serverinfo_pak serverinfo;          //        1024 bytes
 		serverrefuse_pak serverrefuse;      //       65025 bytes (somehow I feel like those values are garbage...)
 		askinfo_pak askinfo;                //          61 bytes
@@ -429,9 +434,9 @@ extern doomdata_t *netbuffer;
 
 extern consvar_t cv_playbackspeed;
 
-#define BASEPACKETSIZE ((size_t)&(((doomdata_t *)0)->u))
-#define FILETXHEADER ((size_t)((filetx_pak *)0)->data)
-#define BASESERVERTICSSIZE ((size_t)&(((doomdata_t *)0)->u.serverpak.cmds[0]))
+#define BASEPACKETSIZE      offsetof(doomdata_t, u)
+#define FILETXHEADER        offsetof(filetx_pak, data)
+#define BASESERVERTICSSIZE  offsetof(doomdata_t, u.serverpak.cmds[0])
 
 #define KICK_MSG_GO_AWAY     1
 #define KICK_MSG_CON_FAIL    2
@@ -525,5 +530,10 @@ void D_ResetTiccmds(void);
 tic_t GetLag(INT32 node);
 UINT8 GetFreeXCmdSize(void);
 
+void D_MD5PasswordPass(const UINT8 *buffer, size_t len, const char *salt, void *dest);
+
 extern UINT8 hu_resynching;
+
+extern UINT8 adminpassmd5[16];
+extern boolean adminpasswordset;
 #endif

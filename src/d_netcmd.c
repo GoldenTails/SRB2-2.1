@@ -34,17 +34,19 @@
 #include "p_spec.h"
 #include "m_cheat.h"
 #include "d_clisrv.h"
+#include "d_net.h"
 #include "v_video.h"
 #include "d_main.h"
 #include "m_random.h"
 #include "f_finale.h"
+#include "filesrch.h"
 #include "mserv.h"
-#include "md5.h"
 #include "z_zone.h"
 #include "lua_script.h"
 #include "lua_hook.h"
 #include "m_cond.h"
 #include "m_anigif.h"
+#include "md5.h"
 
 #ifdef NETGAME_DEVMODE
 #define CV_RESTRICT CV_NETVAR
@@ -142,7 +144,6 @@ static void Command_Clearscores_f(void);
 // Remote Administration
 static void Command_Changepassword_f(void);
 static void Command_Login_f(void);
-static void Got_Login(UINT8 **cp, INT32 playernum);
 static void Got_Verification(UINT8 **cp, INT32 playernum);
 static void Got_Removal(UINT8 **cp, INT32 playernum);
 static void Command_Verify_f(void);
@@ -408,6 +409,16 @@ const char *netxcmdnames[MAXNETXCMD - 1] =
   */
 void D_RegisterServerCommands(void)
 {
+	INT32 i;
+
+	for (i = 0; i < NUMGAMETYPES; i++)
+	{
+		gametype_cons_t[i].value = i;
+		gametype_cons_t[i].strvalue = Gametype_Names[i];
+	}
+	gametype_cons_t[NUMGAMETYPES].value = 0;
+	gametype_cons_t[NUMGAMETYPES].strvalue = NULL;
+
 	RegisterNetXCmd(XD_NAMEANDCOLOR, Got_NameAndColor);
 	RegisterNetXCmd(XD_WEAPONPREF, Got_WeaponPref);
 	RegisterNetXCmd(XD_MAP, Got_Mapcmd);
@@ -426,7 +437,6 @@ void D_RegisterServerCommands(void)
 
 	// Remote Administration
 	COM_AddCommand("password", Command_Changepassword_f);
-	RegisterNetXCmd(XD_LOGIN, Got_Login);
 	COM_AddCommand("login", Command_Login_f); // useful in dedicated to kick off remote admin
 	COM_AddCommand("promote", Command_Verify_f);
 	RegisterNetXCmd(XD_VERIFIED, Got_Verification);
@@ -673,6 +683,14 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_usegamma);
 
 	// m_menu.c
+	CV_RegisterVar(&cv_compactscoreboard);
+	CV_RegisterVar(&cv_chatheight);
+	CV_RegisterVar(&cv_chatwidth);
+	CV_RegisterVar(&cv_chattime);
+	CV_RegisterVar(&cv_chatspamprotection);
+	CV_RegisterVar(&cv_chatbacktint);
+	CV_RegisterVar(&cv_consolechat);
+	CV_RegisterVar(&cv_chatnotifications);
 	CV_RegisterVar(&cv_crosshair);
 	CV_RegisterVar(&cv_crosshair2);
 	CV_RegisterVar(&cv_alwaysfreelook);
@@ -689,10 +707,22 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_moveaxis2);
 	CV_RegisterVar(&cv_lookaxis);
 	CV_RegisterVar(&cv_lookaxis2);
+	CV_RegisterVar(&cv_jumpaxis);
+	CV_RegisterVar(&cv_jumpaxis2);
+	CV_RegisterVar(&cv_spinaxis);
+	CV_RegisterVar(&cv_spinaxis2);
 	CV_RegisterVar(&cv_fireaxis);
 	CV_RegisterVar(&cv_fireaxis2);
 	CV_RegisterVar(&cv_firenaxis);
 	CV_RegisterVar(&cv_firenaxis2);
+
+	// filesrch.c
+	CV_RegisterVar(&cv_addons_option);
+	CV_RegisterVar(&cv_addons_folder);
+	CV_RegisterVar(&cv_addons_md5);
+	CV_RegisterVar(&cv_addons_showall);
+	CV_RegisterVar(&cv_addons_search_type);
+	CV_RegisterVar(&cv_addons_search_case);
 
 	// WARNING: the order is important when initialising mouse2
 	// we need the mouse2port
@@ -984,8 +1014,8 @@ static void SetPlayerName(INT32 playernum, char *newname)
 		if (strcasecmp(newname, player_names[playernum]) != 0)
 		{
 			if (netgame)
-				CONS_Printf(M_GetText("%s renamed to %s\n"),
-					player_names[playernum], newname);
+				HU_AddChatText(va("\x82*%s renamed to %s", player_names[playernum], newname), false);
+
 			strcpy(player_names[playernum], newname);
 		}
 	}
@@ -1618,7 +1648,7 @@ static void Command_Map_f(void)
 {
 	const char *mapname;
 	size_t i;
-	INT32 j, newmapnum;
+	INT32 newmapnum;
 	boolean newresetplayers;
 	INT32 newgametype = gametype;
 
@@ -1686,27 +1716,13 @@ static void Command_Map_f(void)
 			return;
 		}
 
-		for (j = 0; gametype_cons_t[j].strvalue; j++)
-			if (!strcasecmp(gametype_cons_t[j].strvalue, COM_Argv(i+1)))
-			{
-				// Don't do any variable setting here. Wait until you get your
-				// map packet first to avoid sending the same info twice!
-				newgametype = gametype_cons_t[j].value;
+		newgametype = G_GetGametypeByName(COM_Argv(i+1));
 
-				break;
-			}
-
-		if (!gametype_cons_t[j].strvalue) // reached end of the list with no match
+		if (newgametype == -1) // reached end of the list with no match
 		{
-			// assume they gave us a gametype number, which is okay too
-			for (j = 0; gametype_cons_t[j].strvalue != NULL; j++)
-			{
-				if (atoi(COM_Argv(i+1)) == gametype_cons_t[j].value)
-				{
-					newgametype = gametype_cons_t[j].value;
-					break;
-				}
-			}
+			INT32 j = atoi(COM_Argv(i+1)); // assume they gave us a gametype number, which is okay too
+			if (j >= 0 && j < NUMGAMETYPES)
+				newgametype = (INT16)j;
 		}
 	}
 
@@ -1721,12 +1737,11 @@ static void Command_Map_f(void)
 		char gametypestring[32] = "Single Player";
 
 		if (multiplayer)
-			for (i = 0; gametype_cons_t[i].strvalue != NULL; i++)
-				if (gametype_cons_t[i].value == newgametype)
-				{
-					strcpy(gametypestring, gametype_cons_t[i].strvalue);
-					break;
-				}
+		{
+			if (newgametype >= 0 && newgametype < NUMGAMETYPES
+			&& Gametype_Names[newgametype])
+				strcpy(gametypestring, Gametype_Names[newgametype]);
+		}
 
 		CONS_Alert(CONS_WARNING, M_GetText("%s doesn't support %s mode!\n(Use -force to override)\n"), mapname, gametypestring);
 		return;
@@ -1809,9 +1824,6 @@ static void Got_Mapcmd(UINT8 **cp, INT32 playernum)
 			mapname, resetplayer, lastgametype, gametype, chmappending));
 		CONS_Printf(M_GetText("Speeding off to level...\n"));
 	}
-
-	CON_ToggleOff();
-	CON_ClearHUD();
 
 	if (demoplayback && !timingdemo)
 		precache = false;
@@ -2639,35 +2651,7 @@ static void Got_Teamchange(UINT8 **cp, INT32 playernum)
 // Attempts to make password system a little sane without
 // rewriting the entire goddamn XD_file system
 //
-#include "md5.h"
-static void D_MD5PasswordPass(const UINT8 *buffer, size_t len, const char *salt, void *dest)
-{
-#ifdef NOMD5
-	(void)buffer;
-	(void)len;
-	(void)salt;
-	memset(dest, 0, 16);
-#else
-	XBOXSTATIC char tmpbuf[256];
-	const size_t sl = strlen(salt);
-
-	if (len > 256-sl)
-		len = 256-sl;
-	memcpy(tmpbuf, buffer, len);
-	memmove(&tmpbuf[len], salt, sl);
-	//strcpy(&tmpbuf[len], salt);
-	len += strlen(salt);
-	if (len < 256)
-		memset(&tmpbuf[len],0,256-len);
-
-	// Yes, we intentionally md5 the ENTIRE buffer regardless of size...
-	md5_buffer(tmpbuf, 256, dest);
-#endif
-}
-
 #define BASESALT "basepasswordstorage"
-static UINT8 adminpassmd5[16];
-static boolean adminpasswordset = false;
 
 void D_SetPassword(const char *pw)
 {
@@ -2705,7 +2689,6 @@ static void Command_Login_f(void)
 	// If we have no MD5 support then completely disable XD_LOGIN responses for security.
 	CONS_Alert(CONS_NOTICE, "Remote administration commands are not supported in this build.\n");
 #else
-	XBOXSTATIC UINT8 finalmd5[16];
 	const char *pw;
 
 	if (!netgame)
@@ -2725,47 +2708,15 @@ static void Command_Login_f(void)
 	pw = COM_Argv(1);
 
 	// Do the base pass to get what the server has (or should?)
-	D_MD5PasswordPass((const UINT8 *)pw, strlen(pw), BASESALT, &finalmd5);
+	D_MD5PasswordPass((const UINT8 *)pw, strlen(pw), BASESALT, &netbuffer->u.md5sum);
 
 	// Do the final pass to get the comparison the server will come up with
-	D_MD5PasswordPass(finalmd5, 16, va("PNUM%02d", consoleplayer), &finalmd5);
+	D_MD5PasswordPass(netbuffer->u.md5sum, 16, va("PNUM%02d", consoleplayer), &netbuffer->u.md5sum);
 
 	CONS_Printf(M_GetText("Sending login... (Notice only given if password is correct.)\n"));
 
-	SendNetXCmd(XD_LOGIN, finalmd5, 16);
-#endif
-}
-
-static void Got_Login(UINT8 **cp, INT32 playernum)
-{
-#ifdef NOMD5
-	// If we have no MD5 support then completely disable XD_LOGIN responses for security.
-	(void)cp;
-	(void)playernum;
-#else
-	UINT8 sentmd5[16], finalmd5[16];
-
-	READMEM(*cp, sentmd5, 16);
-
-	if (client)
-		return;
-
-	if (!adminpasswordset)
-	{
-		CONS_Printf(M_GetText("Password from %s failed (no password set).\n"), player_names[playernum]);
-		return;
-	}
-
-	// Do the final pass to compare with the sent md5
-	D_MD5PasswordPass(adminpassmd5, 16, va("PNUM%02d", playernum), &finalmd5);
-
-	if (!memcmp(sentmd5, finalmd5, 16))
-	{
-		CONS_Printf(M_GetText("%s passed authentication.\n"), player_names[playernum]);
-		COM_BufInsertText(va("promote %d\n", playernum)); // do this immediately
-	}
-	else
-		CONS_Printf(M_GetText("Password from %s failed.\n"), player_names[playernum]);
+	netbuffer->packettype = PT_LOGIN;
+	HSendPacket(servernode, true, 0, 16);
 #endif
 }
 
@@ -3143,25 +3094,12 @@ static void Command_Addfile(void)
 			break;
 	++p;
 	// check total packet size and no of files currently loaded
+	// See W_LoadWadFile in w_wad.c
+	if ((numwadfiles >= MAX_WADFILES)
+	|| ((packetsizetally + nameonlylength(fn) + 22) > MAXFILENEEDED*sizeof(UINT8)))
 	{
-		size_t packetsize = 0;
-		serverinfo_pak *dummycheck = NULL;
-
-		// Shut the compiler up.
-		(void)dummycheck;
-
-		// See W_LoadWadFile in w_wad.c
-		for (i = 0; i < numwadfiles; i++)
-			packetsize += nameonlylength(wadfiles[i]->filename) + 22;
-
-		packetsize += nameonlylength(fn) + 22;
-
-		if ((numwadfiles >= MAX_WADFILES)
-		|| (packetsize > sizeof(dummycheck->fileneeded)))
-		{
-			CONS_Alert(CONS_ERROR, M_GetText("Too many files loaded to add %s\n"), fn);
-			return;
-		}
+		CONS_Alert(CONS_ERROR, M_GetText("Too many files loaded to add %s\n"), fn);
+		return;
 	}
 
 	WRITESTRINGN(buf_p,p,240);
@@ -3306,7 +3244,6 @@ static void Got_RequestAddfilecmd(UINT8 **cp, INT32 playernum)
 	boolean kick = false;
 	boolean toomany = false;
 	INT32 i,j;
-	size_t packetsize = 0;
 	serverinfo_pak *dummycheck = NULL;
 
 	// Shut the compiler up.
@@ -3337,13 +3274,8 @@ static void Got_RequestAddfilecmd(UINT8 **cp, INT32 playernum)
 	}
 
 	// See W_LoadWadFile in w_wad.c
-	for (i = 0; i < numwadfiles; i++)
-		packetsize += nameonlylength(wadfiles[i]->filename) + 22;
-
-	packetsize += nameonlylength(filename) + 22;
-
 	if ((numwadfiles >= MAX_WADFILES)
-	|| (packetsize > sizeof(dummycheck->fileneeded)))
+	|| ((packetsizetally + nameonlylength(filename) + 22) > MAXFILENEEDED*sizeof(UINT8)))
 		toomany = true;
 	else
 		ncs = findfile(filename,md5sum,true);
@@ -3519,7 +3451,7 @@ static void Command_Version_f(void)
 #elif defined(__linux__)
 	CONS_Printf("Linux ");
 #elif defined(MACOSX)
-	CONS_Printf("macOS" );
+	CONS_Printf("macOS ");
 #elif defined(UNIXCOMMON)
 	CONS_Printf("Unix (Common) ");
 #else
@@ -3544,6 +3476,11 @@ static void Command_Version_f(void)
 	CONS_Printf("\x85" "DEBUG " "\x80");
 #endif
 
+	// DEVELOP build
+#ifdef DEVELOP
+	CONS_Printf("\x87" "DEVELOP " "\x80");
+#endif
+
 	CONS_Printf("\n");
 }
 
@@ -3558,7 +3495,6 @@ static void Command_ModDetails_f(void)
 //
 static void Command_ShowGametype_f(void)
 {
-	INT32 j;
 	const char *gametypestr = NULL;
 
 	if (!(netgame || multiplayer)) // print "Single player" instead of "Co-op"
@@ -3566,15 +3502,11 @@ static void Command_ShowGametype_f(void)
 		CONS_Printf(M_GetText("Current gametype is %s\n"), M_GetText("Single player"));
 		return;
 	}
-	// find name string for current gametype
-	for (j = 0; gametype_cons_t[j].strvalue; j++)
-	{
-		if (gametype_cons_t[j].value == gametype)
-		{
-			gametypestr = gametype_cons_t[j].strvalue;
-			break;
-		}
-	}
+
+	// get name string for current gametype
+	if (gametype >= 0 && gametype < NUMGAMETYPES)
+		gametypestr = Gametype_Names[gametype];
+
 	if (gametypestr)
 		CONS_Printf(M_GetText("Current gametype is %s\n"), gametypestr);
 	else // string for current gametype was not found above (should never happen)
@@ -3587,6 +3519,9 @@ static void Command_Playintro_f(void)
 {
 	if (netgame)
 		return;
+
+	if (dirmenu)
+		closefilemenu(true);
 
 	F_StartIntro();
 }
@@ -3713,15 +3648,13 @@ void D_GameTypeChanged(INT32 lastgametype)
 {
 	if (netgame)
 	{
-		INT32 j;
 		const char *oldgt = NULL, *newgt = NULL;
-		for (j = 0; gametype_cons_t[j].strvalue; j++)
-		{
-			if (gametype_cons_t[j].value == lastgametype)
-				oldgt = gametype_cons_t[j].strvalue;
-			if (gametype_cons_t[j].value == gametype)
-				newgt = gametype_cons_t[j].strvalue;
-		}
+
+		if (lastgametype >= 0 && lastgametype < NUMGAMETYPES)
+			oldgt = Gametype_Names[lastgametype];
+		if (gametype >= 0 && lastgametype < NUMGAMETYPES)
+			newgt = Gametype_Names[gametype];
+
 		if (oldgt && newgt)
 			CONS_Printf(M_GetText("Gametype was changed from %s to %s\n"), oldgt, newgt);
 	}
@@ -4084,7 +4017,7 @@ static void Command_ExitLevel_f(void)
 		CONS_Printf(M_GetText("This only works in a netgame.\n"));
 	else if (!(server || (IsPlayerAdmin(consoleplayer))))
 		CONS_Printf(M_GetText("Only the server or a remote admin can use this.\n"));
-	else if (gamestate != GS_LEVEL || demoplayback)
+	else if (( gamestate != GS_LEVEL && gamestate != GS_CREDITS ) || demoplayback)
 		CONS_Printf(M_GetText("You must be in a level to use this.\n"));
 	else
 		SendNetXCmd(XD_EXITLEVEL, NULL, 0);
@@ -4144,6 +4077,9 @@ void Command_ExitGame_f(void)
 	botskin = 0;
 	cv_debug = 0;
 	emeralds = 0;
+
+	if (dirmenu)
+		closefilemenu(true);
 
 	if (!modeattacking)
 		D_StartTitle();

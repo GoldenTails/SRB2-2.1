@@ -15,6 +15,7 @@
 #include "console.h"
 #include "d_main.h"
 #include "d_player.h"
+#include "d_clisrv.h"
 #include "f_finale.h"
 #include "p_setup.h"
 #include "p_saveg.h"
@@ -71,6 +72,7 @@ static void G_DoWorldDone(void);
 
 char   mapmusname[7]; // Music name
 UINT16 mapmusflags; // Track and reset bit
+UINT32 mapmusposition; // Position to jump to
 
 INT16 gamemap = 1;
 INT16 maptol;
@@ -129,6 +131,7 @@ UINT8 skincolor_bluering = SKINCOLOR_STEELBLUE;
 
 tic_t countdowntimer = 0;
 boolean countdowntimeup = false;
+boolean exitfadestarted = false;
 
 cutscene_t *cutscenes[128];
 
@@ -347,6 +350,37 @@ static CV_PossibleValue_t joyaxis_cons_t[] = {{0, "None"},
 #endif
 #endif
 
+// don't mind me putting these here, I was lazy to figure out where else I could put those without blowing up the compiler.
+
+// it automatically becomes compact with 20+ players, but if you like it, I guess you can turn that on!
+consvar_t cv_compactscoreboard= {"compactscoreboard", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+// chat timer thingy
+static CV_PossibleValue_t chattime_cons_t[] = {{5, "MIN"}, {999, "MAX"}, {0, NULL}};
+consvar_t cv_chattime = {"chattime", "8", CV_SAVE, chattime_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+// chatwidth
+static CV_PossibleValue_t chatwidth_cons_t[] = {{64, "MIN"}, {150, "MAX"}, {0, NULL}};
+consvar_t cv_chatwidth = {"chatwidth", "128", CV_SAVE, chatwidth_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+// chatheight
+static CV_PossibleValue_t chatheight_cons_t[] = {{6, "MIN"}, {22, "MAX"}, {0, NULL}};
+consvar_t cv_chatheight= {"chatheight", "8", CV_SAVE, chatheight_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+// chat notifications (do you want to hear beeps? I'd understand if you didn't.)
+consvar_t cv_chatnotifications= {"chatnotifications", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+// chat spam protection (why would you want to disable that???)
+consvar_t cv_chatspamprotection= {"chatspamprotection", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+// minichat text background
+consvar_t cv_chatbacktint = {"chatbacktint", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+// old shit console chat. (mostly exists for stuff like terminal, not because I cared if anyone liked the old chat.)
+static CV_PossibleValue_t consolechat_cons_t[] = {{0, "Window"}, {1, "Console"}, {2, "Window (Hidden)"}, {0, NULL}};
+consvar_t cv_consolechat = {"chatmode", "Window", CV_SAVE, consolechat_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+
 consvar_t cv_crosshair = {"crosshair", "Cross", CV_SAVE, crosshair_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_crosshair2 = {"crosshair2", "Cross", CV_SAVE, crosshair_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_invertmouse = {"invertmouse", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -375,6 +409,8 @@ typedef enum
 	AXISLOOK,
 	AXISSTRAFE,
 	AXISDEAD, //Axises that don't want deadzones
+	AXISJUMP,
+	AXISSPIN,
 	AXISFIRE,
 	AXISFIRENORMAL,
 } axis_input_e;
@@ -384,6 +420,8 @@ consvar_t cv_turnaxis = {"joyaxis_turn", "LStick.X", CV_SAVE, joyaxis_cons_t, NU
 consvar_t cv_moveaxis = {"joyaxis_move", "LStick.Y", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_sideaxis = {"joyaxis_side", "RStick.X", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_lookaxis = {"joyaxis_look", "RStick.Y", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_jumpaxis = {"joyaxis_jump", "None", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_spinaxis = {"joyaxis_spin", "None", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_fireaxis = {"joyaxis_fire", "LAnalog", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_firenaxis = {"joyaxis_firenormal", "RAnalog", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 #else
@@ -410,6 +448,8 @@ consvar_t cv_lookaxis = {"joyaxis_look", "Y-Axis", CV_SAVE, joyaxis_cons_t, NULL
 consvar_t cv_lookaxis = {"joyaxis_look", "Y-Rudder-", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 #endif
 #endif
+consvar_t cv_jumpaxis = {"joyaxis_jump", "None", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_spinaxis = {"joyaxis_spin", "None", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_fireaxis = {"joyaxis_fire", "Z-Axis-", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_firenaxis = {"joyaxis_firenormal", "Z-Axis", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 #endif
@@ -419,6 +459,8 @@ consvar_t cv_turnaxis2 = {"joyaxis2_turn", "LStick.X", CV_SAVE, joyaxis_cons_t, 
 consvar_t cv_moveaxis2 = {"joyaxis2_move", "LStick.Y", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_sideaxis2 = {"joyaxis2_side", "RStick.X", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_lookaxis2 = {"joyaxis2_look", "RStick.Y", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_jumpaxis2 = {"joyaxis2_jump", "None", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_spinaxis2 = {"joyaxis2_spin", "None", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_fireaxis2 = {"joyaxis2_fire", "LAnalog", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_firenaxis2 = {"joyaxis2_firenormal", "RAnalog", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 #else
@@ -437,6 +479,8 @@ consvar_t cv_sideaxis2 = {"joyaxis2_side", "X-Axis", CV_SAVE, joyaxis_cons_t, NU
 #ifndef _XBOX
 consvar_t cv_lookaxis2 = {"joyaxis2_look", "Y-Rudder-", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 #endif
+consvar_t cv_jumpaxis2 = {"joyaxis2_jump", "None", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_spinaxis2 = {"joyaxis2_spin", "None", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_fireaxis2 = {"joyaxis2_fire", "Z-Axis-", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_firenaxis2 = {"joyaxis2_firenormal", "Z-Axis", CV_SAVE, joyaxis_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 #endif
@@ -804,6 +848,12 @@ static INT32 JoyAxis(axis_input_e axissel)
 		case AXISSTRAFE:
 			axisval = cv_sideaxis.value;
 			break;
+		case AXISJUMP:
+			axisval = cv_jumpaxis.value;
+			break;
+		case AXISSPIN:
+			axisval = cv_spinaxis.value;
+			break;
 		case AXISFIRE:
 			axisval = cv_fireaxis.value;
 			break;
@@ -881,6 +931,12 @@ static INT32 Joy2Axis(axis_input_e axissel)
 		case AXISSTRAFE:
 			axisval = cv_sideaxis2.value;
 			break;
+		case AXISJUMP:
+			axisval = cv_jumpaxis2.value;
+			break;
+		case AXISSPIN:
+			axisval = cv_spinaxis2.value;
+			break;
 		case AXISFIRE:
 			axisval = cv_fireaxis2.value;
 			break;
@@ -957,7 +1013,7 @@ static fixed_t angleturn[3] = {640, 1280, 320}; // + slow turn
 void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics)
 {
 	boolean forcestrafe = false;
-	INT32 tspeed, forward, side, axis, i;
+	INT32 tspeed, forward, side, axis, altaxis, i;
 	const INT32 speed = 1;
 	// these ones used for multiple conditions
 	boolean turnleft, turnright, mouseaiming, analogjoystickmove, gamepadjoystickmove, thisjoyaiming;
@@ -1072,9 +1128,14 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics)
 
 	// forward with key or button
 	axis = JoyAxis(AXISMOVE);
-	if (PLAYER1INPUTDOWN(gc_forward) || (gamepadjoystickmove && axis < 0))
+	altaxis = JoyAxis(AXISLOOK);
+	if (PLAYER1INPUTDOWN(gc_forward) || (gamepadjoystickmove && axis < 0)
+		|| ((player->pflags & PF_NIGHTSMODE)
+			&& (PLAYER1INPUTDOWN(gc_lookup) || (gamepadjoystickmove && altaxis < 0))))
 		forward = forwardmove[speed];
-	if (PLAYER1INPUTDOWN(gc_backward) || (gamepadjoystickmove && axis > 0))
+	if (PLAYER1INPUTDOWN(gc_backward) || (gamepadjoystickmove && axis > 0)
+		|| ((player->pflags & PF_NIGHTSMODE)
+			&& (PLAYER1INPUTDOWN(gc_lookdown) || (gamepadjoystickmove && altaxis > 0))))
 		forward -= forwardmove[speed];
 
 	if (analogjoystickmove && axis != 0)
@@ -1126,7 +1187,8 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics)
 		cmd->buttons |= BT_CUSTOM3;
 
 	// use with any button/key
-	if (PLAYER1INPUTDOWN(gc_use))
+	axis = JoyAxis(AXISSPIN);
+	if (PLAYER1INPUTDOWN(gc_use) || (cv_usejoystick.value && axis > 0))
 		cmd->buttons |= BT_USE;
 
 	// Camera Controls
@@ -1148,7 +1210,8 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics)
 		resetdown = false;
 
 	// jump button
-	if (PLAYER1INPUTDOWN(gc_jump))
+	axis = JoyAxis(AXISJUMP);
+	if (PLAYER1INPUTDOWN(gc_jump) || (cv_usejoystick.value && axis > 0))
 		cmd->buttons |= BT_JUMP;
 
 	// player aiming shit, ahhhh...
@@ -1176,18 +1239,21 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics)
 		if (!keyboard_look && cv_lookaxis.value == 0 && !joyaiming && !mouseaiming)
 			localaiming = 0;
 
-		if (PLAYER1INPUTDOWN(gc_lookup) || (gamepadjoystickmove && axis < 0))
+		if (!(player->pflags & PF_NIGHTSMODE))
 		{
-			localaiming += KB_LOOKSPEED * screen_invert;
-			keyboard_look = true;
+			if (PLAYER1INPUTDOWN(gc_lookup) || (gamepadjoystickmove && axis < 0))
+			{
+				localaiming += KB_LOOKSPEED * screen_invert;
+				keyboard_look = true;
+			}
+			else if (PLAYER1INPUTDOWN(gc_lookdown) || (gamepadjoystickmove && axis > 0))
+			{
+				localaiming -= KB_LOOKSPEED * screen_invert;
+				keyboard_look = true;
+			}
+			else if (PLAYER1INPUTDOWN(gc_centerview))
+				localaiming = 0;
 		}
-		else if (PLAYER1INPUTDOWN(gc_lookdown) || (gamepadjoystickmove && axis > 0))
-		{
-			localaiming -= KB_LOOKSPEED * screen_invert;
-			keyboard_look = true;
-		}
-		else if (PLAYER1INPUTDOWN(gc_centerview))
-			localaiming = 0;
 
 		// accept no mlook for network games
 		if (!cv_allowmlook.value)
@@ -1257,7 +1323,7 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics)
 void G_BuildTiccmd2(ticcmd_t *cmd, INT32 realtics)
 {
 	boolean forcestrafe = false;
-	INT32 tspeed, forward, side, axis, i;
+	INT32 tspeed, forward, side, axis, altaxis, i;
 	const INT32 speed = 1;
 	// these ones used for multiple conditions
 	boolean turnleft, turnright, mouseaiming, analogjoystickmove, gamepadjoystickmove, thisjoyaiming;
@@ -1372,9 +1438,14 @@ void G_BuildTiccmd2(ticcmd_t *cmd, INT32 realtics)
 
 	// forward with key or button
 	axis = Joy2Axis(AXISMOVE);
-	if (PLAYER2INPUTDOWN(gc_forward) || (gamepadjoystickmove && axis < 0))
+	altaxis = Joy2Axis(AXISLOOK);
+	if (PLAYER2INPUTDOWN(gc_forward) || (gamepadjoystickmove && axis < 0)
+		|| ((player->pflags & PF_NIGHTSMODE)
+			&& (PLAYER2INPUTDOWN(gc_lookup) || (gamepadjoystickmove && altaxis < 0))))
 		forward = forwardmove[speed];
-	if (PLAYER2INPUTDOWN(gc_backward) || (gamepadjoystickmove && axis > 0))
+	if (PLAYER2INPUTDOWN(gc_backward) || (gamepadjoystickmove && axis > 0)
+		|| ((player->pflags & PF_NIGHTSMODE)
+			&& (PLAYER2INPUTDOWN(gc_lookdown) || (gamepadjoystickmove && altaxis > 0))))
 		forward -= forwardmove[speed];
 
 	if (analogjoystickmove && axis != 0)
@@ -1423,7 +1494,8 @@ void G_BuildTiccmd2(ticcmd_t *cmd, INT32 realtics)
 		cmd->buttons |= BT_CUSTOM3;
 
 	// use with any button/key
-	if (PLAYER2INPUTDOWN(gc_use))
+	axis = Joy2Axis(AXISSPIN);
+	if (PLAYER2INPUTDOWN(gc_use) || (cv_usejoystick2.value && axis > 0))
 		cmd->buttons |= BT_USE;
 
 	// Camera Controls
@@ -1445,7 +1517,8 @@ void G_BuildTiccmd2(ticcmd_t *cmd, INT32 realtics)
 		resetdown = false;
 
 	// jump button
-	if (PLAYER2INPUTDOWN(gc_jump))
+	axis = Joy2Axis(AXISJUMP);
+	if (PLAYER2INPUTDOWN(gc_jump) || (cv_usejoystick2.value && axis > 0))
 		cmd->buttons |= BT_JUMP;
 
 	// player aiming shit, ahhhh...
@@ -1473,18 +1546,21 @@ void G_BuildTiccmd2(ticcmd_t *cmd, INT32 realtics)
 		if (!keyboard_look && cv_lookaxis2.value == 0 && !joyaiming && !mouseaiming)
 			localaiming2 = 0;
 
-		if (PLAYER2INPUTDOWN(gc_lookup) || (gamepadjoystickmove && axis < 0))
+		if (!(player->pflags & PF_NIGHTSMODE))
 		{
-			localaiming2 += KB_LOOKSPEED * screen_invert;
-			keyboard_look = true;
+			if (PLAYER2INPUTDOWN(gc_lookup) || (gamepadjoystickmove && axis < 0))
+			{
+				localaiming2 += KB_LOOKSPEED * screen_invert;
+				keyboard_look = true;
+			}
+			else if (PLAYER2INPUTDOWN(gc_lookdown) || (gamepadjoystickmove && axis > 0))
+			{
+				localaiming2 -= KB_LOOKSPEED * screen_invert;
+				keyboard_look = true;
+			}
+			else if (PLAYER2INPUTDOWN(gc_centerview))
+				localaiming2 = 0;
 		}
-		else if (PLAYER2INPUTDOWN(gc_lookdown) || (gamepadjoystickmove && axis > 0))
-		{
-			localaiming2 -= KB_LOOKSPEED * screen_invert;
-			keyboard_look = true;
-		}
-		else if (PLAYER2INPUTDOWN(gc_centerview))
-			localaiming2 = 0;
 
 		// accept no mlook for network games
 		if (!cv_allowmlook.value)
@@ -1585,11 +1661,6 @@ static void Analog_OnChange(void)
 
 	// cameras are not initialized at this point
 
-	if (leveltime > 1)
-		CV_SetValue(&cv_cam_dist, 128);
-	if (cv_analog.value || demoplayback)
-		CV_SetValue(&cv_cam_dist, 192);
-
 	if (!cv_chasecam.value && cv_analog.value) {
 		CV_SetValue(&cv_analog, 0);
 		return;
@@ -1604,11 +1675,6 @@ static void Analog2_OnChange(void)
 		return;
 
 	// cameras are not initialized at this point
-
-	if (leveltime > 1)
-		CV_SetValue(&cv_cam2_dist, 128);
-	if (cv_analog2.value)
-		CV_SetValue(&cv_cam2_dist, 192);
 
 	if (!cv_chasecam2.value && cv_analog2.value) {
 		CV_SetValue(&cv_analog2, 0);
@@ -1810,7 +1876,9 @@ boolean G_Responder(event_t *ev)
 
 		if (F_CreditResponder(ev))
 		{
-			F_StartGameEvaluation();
+			// Skip credits for everyone
+			if (!netgame || server || IsPlayerAdmin(consoleplayer))
+				SendNetXCmd(XD_EXITLEVEL, NULL, 0);
 			return true;
 		}
 	}
@@ -2205,9 +2273,14 @@ void G_PlayerReborn(INT32 player)
 		{
 			strncpy(mapmusname, mapheaderinfo[gamemap-1]->musname, 7);
 			mapmusname[6] = 0;
-			mapmusflags = mapheaderinfo[gamemap-1]->mustrack & MUSIC_TRACKMASK;
+			mapmusflags = (mapheaderinfo[gamemap-1]->mustrack & MUSIC_TRACKMASK);
+			mapmusposition = mapheaderinfo[gamemap-1]->muspos;
 		}
-		S_ChangeMusic(mapmusname, mapmusflags, true);
+
+		// This is in S_Start, but this was not here previously.
+		// if (cv_resetmusic.value)
+		// 	S_StopMusic();
+		S_ChangeMusicEx(mapmusname, mapmusflags, true, mapmusposition, 0, 0);
 	}
 
 	if (gametype == GT_COOP)
@@ -2627,6 +2700,42 @@ void G_ExitLevel(void)
 		// Remove CEcho text on round end.
 		HU_ClearCEcho();
 	}
+	else if (gamestate == GS_CREDITS)
+	{
+		F_StartGameEvaluation();
+	}
+}
+
+// See also the enum GameType in doomstat.h
+const char *Gametype_Names[NUMGAMETYPES] =
+{
+	"Co-op", // GT_COOP
+	"Competition", // GT_COMPETITION
+	"Race", // GT_RACE
+
+	"Match", // GT_MATCH
+	"Team Match", // GT_TEAMMATCH
+
+	"Tag", // GT_TAG
+	"Hide and Seek", // GT_HIDEANDSEEK
+
+	"CTF" // GT_CTF
+};
+
+//
+// G_GetGametypeByName
+//
+// Returns the number for the given gametype name string, or -1 if not valid.
+//
+INT32 G_GetGametypeByName(const char *gametypestr)
+{
+	INT32 i;
+
+	for (i = 0; i < NUMGAMETYPES; i++)
+		if (!stricmp(gametypestr, Gametype_Names[i]))
+			return i;
+
+	return -1; // unknown gametype
 }
 
 //
@@ -3593,7 +3702,7 @@ void G_InitNew(UINT8 pultmode, const char *mapname, boolean resetplayer, boolean
 	{
 		// Clear a bunch of variables
 		tokenlist = token = sstimer = redscore = bluescore = lastmap = 0;
-		countdown = countdown2 = 0;
+		countdown = countdown2 = exitfadestarted = 0;
 
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
@@ -3630,7 +3739,7 @@ void G_InitNew(UINT8 pultmode, const char *mapname, boolean resetplayer, boolean
 		unlocktriggers = 0;
 
 		// clear itemfinder, just in case
-		if (!dedicated) // except in dedicated servers, where it is not registered and can actually I_Error debug builds
+		if (!dedicated)	// except in dedicated servers, where it is not registered and can actually I_Error debug builds
 			CV_StealthSetValue(&cv_itemfinder, 0);
 	}
 

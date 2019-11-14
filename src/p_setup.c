@@ -54,6 +54,8 @@
 
 #include "v_video.h"
 
+#include "filesrch.h" // refreshdirmenu
+
 // wipes
 #include "f_finale.h"
 
@@ -177,6 +179,9 @@ void P_ClearSingleMapHeaderInfo(INT16 i)
 	mapheaderinfo[num]->typeoflevel = 0;
 	mapheaderinfo[num]->nextlevel = (INT16)(i + 1);
 	mapheaderinfo[num]->mustrack = 0;
+	mapheaderinfo[num]->muspos = 0;
+	mapheaderinfo[num]->musinterfadeout = 0;
+	mapheaderinfo[num]->musintername[0] = '\0';
 	mapheaderinfo[num]->forcecharacter[0] = '\0';
 	mapheaderinfo[num]->weather = 0;
 	mapheaderinfo[num]->skynum = 1;
@@ -194,6 +199,7 @@ void P_ClearSingleMapHeaderInfo(INT16 i)
 	mapheaderinfo[num]->unlockrequired = -1;
 	mapheaderinfo[num]->levelselect = 0;
 	mapheaderinfo[num]->bonustype = 0;
+	mapheaderinfo[num]->saveoverride = SAVE_DEFAULT;
 	mapheaderinfo[num]->levelflags = 0;
 	mapheaderinfo[num]->menuflags = 0;
 
@@ -353,30 +359,26 @@ static inline void P_LoadVertexes(lumpnum_t lumpnum)
 	Z_Free(data);
 }
 
-
-//
-// Computes the line length in fracunits, the OpenGL render needs this
-//
-
 /** Computes the length of a seg in fracunits.
-  * This is needed for splats.
   *
   * \param seg Seg to compute length for.
   * \return Length in fracunits.
   */
 fixed_t P_SegLength(seg_t *seg)
 {
-	fixed_t dx, dy;
-
-	// make a vector (start at origin)
-	dx = seg->v2->x - seg->v1->x;
-	dy = seg->v2->y - seg->v1->y;
-
-	return FixedHypot(dx, dy);
+	INT64 dx = (seg->v2->x - seg->v1->x)>>1;
+	INT64 dy = (seg->v2->y - seg->v1->y)>>1;
+	return FixedHypot(dx, dy)<<1;
 }
 
 #ifdef HWRENDER
-static inline float P_SegLengthf(seg_t *seg)
+/** Computes the length of a seg as a float.
+  * This is needed for OpenGL.
+  *
+  * \param seg Seg to compute length for.
+  * \return Length as a float.
+  */
+static inline float P_SegLengthFloat(seg_t *seg)
 {
 	float dx, dy;
 
@@ -412,11 +414,11 @@ static void P_LoadRawSegs(UINT8 *data, size_t i)
 		li->v1 = &vertexes[SHORT(ml->v1)];
 		li->v2 = &vertexes[SHORT(ml->v2)];
 
-#ifdef HWRENDER // not win32 only 19990829 by Kin
-		// used for the hardware render
-		if (rendermode != render_soft && rendermode != render_none)
+		li->length = P_SegLength(li);
+#ifdef HWRENDER
+		if (rendermode == render_opengl)
 		{
-			li->flength = P_SegLengthf(li);
+			li->flength = P_SegLengthFloat(li);
 			//Hurdler: 04/12/2000: for now, only used in hardware mode
 			li->lightmaps = NULL; // list of static lightmap for this seg
 		}
@@ -1500,19 +1502,33 @@ static void P_LoadRawSideDefs2(void *data)
 				{
 					M_Memcpy(process,msd->bottomtexture,8);
 					process[8] = '\0';
-					sd->bottomtexture = get_number(process)-1;
+					sd->bottomtexture = get_number(process);
 				}
-				M_Memcpy(process,msd->toptexture,8);
-				process[8] = '\0';
-				sd->text = Z_Malloc(7, PU_LEVEL, NULL);
 
-				// If they type in O_ or D_ and their music name, just shrug,
-				// then copy the rest instead.
-				if ((process[0] == 'O' || process[0] == 'D') && process[7])
-					M_Memcpy(sd->text, process+2, 6);
-				else // Assume it's a proper music name.
-					M_Memcpy(sd->text, process, 6);
-				sd->text[6] = 0;
+				if (!(msd->midtexture[0] == '-' && msd->midtexture[1] == '\0') || msd->midtexture[1] != '\0')
+				{
+					M_Memcpy(process,msd->midtexture,8);
+					process[8] = '\0';
+					sd->midtexture = get_number(process);
+				}
+
+				// always process if back sidedef, because we need that - symbol
+ 				sd->text = Z_Malloc(7, PU_LEVEL, NULL);
+				if (i == 1 || msd->toptexture[0] != '-' || msd->toptexture[1] != '\0')
+				{
+					M_Memcpy(process,msd->toptexture,8);
+					process[8] = '\0';
+
+					// If they type in O_ or D_ and their music name, just shrug,
+					// then copy the rest instead.
+					if ((process[0] == 'O' || process[0] == 'D') && process[7])
+						M_Memcpy(sd->text, process+2, 6);
+					else // Assume it's a proper music name.
+						M_Memcpy(sd->text, process, 6);
+					sd->text[6] = 0;
+				}
+				else
+					sd->text[0] = 0;
 				break;
 			}
 
@@ -1973,7 +1989,7 @@ static boolean P_LoadRawBlockMap(UINT8 *data, size_t count, const char *lumpname
 	if (!count || count >= 0x20000)
 		return false;
 
-	CONS_Printf("Reading blockmap lump for pk3...\n");
+	//CONS_Printf("Reading blockmap lump for pk3...\n");
 
 	// no need to malloc anything, assume the data is uncompressed for now
 	count /= 2;
@@ -2264,7 +2280,7 @@ static void P_LevelInitStuff(void)
 			players[i].lives = cv_startinglives.value;
 		}
 
-		players[i].realtime = countdown = countdown2 = 0;
+		players[i].realtime = countdown = countdown2 = exitfadestarted = 0;
 
 		players[i].gotcontinue = false;
 
@@ -2599,6 +2615,28 @@ static void P_SetupCamera(void)
 	}
 }
 
+static boolean P_CanSave(void)
+{
+	// Saving is completely ignored under these conditions:
+	if ((cursaveslot < 0) // Playing without saving
+		|| (modifiedgame && !savemoddata) // Game is modified
+		|| (netgame || multiplayer) // Not in single-player
+		|| (demoplayback || demorecording || metalrecording) // Currently in demo
+		|| (players[consoleplayer].lives <= 0) // Completely dead
+		|| (modeattacking || ultimatemode || G_IsSpecialStage(gamemap))) // Specialized instances
+		return false;
+
+	if (mapheaderinfo[gamemap-1]->saveoverride == SAVE_ALWAYS)
+		return true; // Saving should ALWAYS happen!
+	else if (mapheaderinfo[gamemap-1]->saveoverride == SAVE_NEVER)
+		return false; // Saving should NEVER happen!
+
+	// Default condition: In a non-hidden map, at the beginning of a zone or on a completed save-file, and not on save reload.
+	return (!(mapheaderinfo[gamemap-1]->menuflags & LF2_HIDEINMENU)
+			&& (mapheaderinfo[gamemap-1]->actnum < 2 || gamecomplete)
+			&& (gamemap != lastmapsaved));
+}
+
 /** Loads a level from a lump or external wad.
   *
   * \param skipprecip If true, don't spawn precipitation.
@@ -2662,8 +2700,9 @@ boolean P_SetupLevel(boolean skipprecip)
 
 	if (!dedicated)
 	{
-		if (!cv_cam_speed.changed)
-			CV_Set(&cv_cam_speed, cv_cam_speed.defaultvalue);
+		// Salt: CV_ClearChangedFlags() messes with your settings :(
+		/*if (!cv_cam_speed.changed)
+			CV_Set(&cv_cam_speed, cv_cam_speed.defaultvalue);*/
 
 		if (!cv_chasecam.changed)
 			CV_SetValue(&cv_chasecam, chase);
@@ -3008,20 +3047,22 @@ boolean P_SetupLevel(boolean skipprecip)
 	{
 		P_SetupCamera();
 
-		if (!cv_cam_height.changed)
+		// Salt: CV_ClearChangedFlags() messes with your settings :(
+		/*if (!cv_cam_height.changed)
 			CV_Set(&cv_cam_height, cv_cam_height.defaultvalue);
 
 		if (!cv_cam_dist.changed)
 			CV_Set(&cv_cam_dist, cv_cam_dist.defaultvalue);
 
-		if (!cv_cam_rotate.changed)
-			CV_Set(&cv_cam_rotate, cv_cam_rotate.defaultvalue);
-
 		if (!cv_cam2_height.changed)
 			CV_Set(&cv_cam2_height, cv_cam2_height.defaultvalue);
 
 		if (!cv_cam2_dist.changed)
-			CV_Set(&cv_cam2_dist, cv_cam2_dist.defaultvalue);
+			CV_Set(&cv_cam2_dist, cv_cam2_dist.defaultvalue);*/
+
+		// Though, I don't think anyone would care about cam_rotate being reset back to the only value that makes sense :P
+		if (!cv_cam_rotate.changed)
+			CV_Set(&cv_cam_rotate, cv_cam_rotate.defaultvalue);
 
 		if (!cv_cam2_rotate.changed)
 			CV_Set(&cv_cam2_rotate, cv_cam2_rotate.defaultvalue);
@@ -3081,10 +3122,7 @@ boolean P_SetupLevel(boolean skipprecip)
 
 	P_RunCachedActions();
 
-	if (!(netgame || multiplayer || demoplayback || demorecording || metalrecording || modeattacking || players[consoleplayer].lives <= 0)
-		&& (!modifiedgame || savemoddata) && cursaveslot >= 0 && !ultimatemode
-		&& !(mapheaderinfo[gamemap-1]->menuflags & LF2_HIDEINMENU)
-		&& (!G_IsSpecialStage(gamemap)) && gamemap != lastmapsaved && (mapheaderinfo[gamemap-1]->actnum < 2 || gamecomplete))
+	if (P_CanSave())
 		G_SaveGame((UINT32)cursaveslot);
 
 	if (savedata.lives > 0)
@@ -3154,6 +3192,7 @@ boolean P_AddWadFile(const char *wadfilename)
 
 	if ((numlumps = W_InitFile(wadfilename)) == INT16_MAX)
 	{
+		refreshdirmenu |= REFRESHDIR_NOTLOADED;
 		CONS_Printf(M_GetText("Errors occurred while loading %s; not added.\n"), wadfilename);
 		return false;
 	}
