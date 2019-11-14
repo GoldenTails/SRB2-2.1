@@ -167,69 +167,42 @@ FUNCNORETURN static ATTRNORETURN void CorruptMapError(const char *msg)
   * \param i Map number to clear header for.
   * \sa P_ClearMapHeaderInfo
   */
-static void P_ClearSingleMapHeaderInfo(INT16 i)
+void P_ClearSingleMapHeaderInfo(INT16 i)
 {
 	const INT16 num = (INT16)(i-1);
-	DEH_WriteUndoline("LEVELNAME", mapheaderinfo[num]->lvlttl, UNDO_NONE);
+	if (!mapheaderinfo[num]) return;
 	mapheaderinfo[num]->lvlttl[0] = '\0';
-	DEH_WriteUndoline("SUBTITLE", mapheaderinfo[num]->subttl, UNDO_NONE);
 	mapheaderinfo[num]->subttl[0] = '\0';
-	DEH_WriteUndoline("ACT", va("%d", mapheaderinfo[num]->actnum), UNDO_NONE);
 	mapheaderinfo[num]->actnum = 0;
-	DEH_WriteUndoline("TYPEOFLEVEL", va("%d", mapheaderinfo[num]->typeoflevel), UNDO_NONE);
 	mapheaderinfo[num]->typeoflevel = 0;
-	DEH_WriteUndoline("NEXTLEVEL", va("%d", mapheaderinfo[num]->nextlevel), UNDO_NONE);
 	mapheaderinfo[num]->nextlevel = (INT16)(i + 1);
-	DEH_WriteUndoline("MUSIC", mapheaderinfo[num]->musname, UNDO_NONE);
+	mapheaderinfo[num]->mustrack = 0;
+	mapheaderinfo[num]->forcecharacter[0] = '\0';
+	mapheaderinfo[num]->weather = 0;
+	mapheaderinfo[num]->skynum = 1;
+	mapheaderinfo[num]->skybox_scalex = 16;
+	mapheaderinfo[num]->skybox_scaley = 16;
+	mapheaderinfo[num]->skybox_scalez = 16;
+	mapheaderinfo[num]->interscreen[0] = '#';
+	mapheaderinfo[num]->runsoc[0] = '#';
+	mapheaderinfo[num]->scriptname[0] = '#';
+	mapheaderinfo[num]->precutscenenum = 0;
+	mapheaderinfo[num]->cutscenenum = 0;
+	mapheaderinfo[num]->countdown = 0;
+	mapheaderinfo[num]->palette = UINT16_MAX;
+	mapheaderinfo[num]->numlaps = NUMLAPS_DEFAULT;
+	mapheaderinfo[num]->unlockrequired = -1;
+	mapheaderinfo[num]->levelselect = 0;
+	mapheaderinfo[num]->bonustype = 0;
+	mapheaderinfo[num]->levelflags = 0;
+	mapheaderinfo[num]->menuflags = 0;
+
 	snprintf(mapheaderinfo[num]->musname, 7, "%sM", G_BuildMapName(i));
 	mapheaderinfo[num]->musname[6] = 0;
-	DEH_WriteUndoline("MUSICTRACK", va("%d", mapheaderinfo[num]->mustrack), UNDO_NONE);
-	mapheaderinfo[num]->mustrack = 0;
-	DEH_WriteUndoline("FORCECHARACTER", va("%d", mapheaderinfo[num]->forcecharacter), UNDO_NONE);
-	mapheaderinfo[num]->forcecharacter[0] = '\0';
-	DEH_WriteUndoline("WEATHER", va("%d", mapheaderinfo[num]->weather), UNDO_NONE);
-	mapheaderinfo[num]->weather = 0;
-	DEH_WriteUndoline("SKYNUM", va("%d", mapheaderinfo[num]->skynum), UNDO_NONE);
-	mapheaderinfo[num]->skynum = 1;
-	DEH_WriteUndoline("SKYBOXSCALEX", va("%d", mapheaderinfo[num]->skybox_scalex), UNDO_NONE);
-	mapheaderinfo[num]->skybox_scalex = 16;
-	DEH_WriteUndoline("SKYBOXSCALEY", va("%d", mapheaderinfo[num]->skybox_scaley), UNDO_NONE);
-	mapheaderinfo[num]->skybox_scaley = 16;
-	DEH_WriteUndoline("SKYBOXSCALEZ", va("%d", mapheaderinfo[num]->skybox_scalez), UNDO_NONE);
-	mapheaderinfo[num]->skybox_scalez = 16;
-	DEH_WriteUndoline("INTERSCREEN", mapheaderinfo[num]->interscreen, UNDO_NONE);
-	mapheaderinfo[num]->interscreen[0] = '#';
-	DEH_WriteUndoline("RUNSOC", mapheaderinfo[num]->runsoc, UNDO_NONE);
-	mapheaderinfo[num]->runsoc[0] = '#';
-	DEH_WriteUndoline("SCRIPTNAME", mapheaderinfo[num]->scriptname, UNDO_NONE);
-	mapheaderinfo[num]->scriptname[0] = '#';
-	DEH_WriteUndoline("PRECUTSCENENUM", va("%d", mapheaderinfo[num]->precutscenenum), UNDO_NONE);
-	mapheaderinfo[num]->precutscenenum = 0;
-	DEH_WriteUndoline("CUTSCENENUM", va("%d", mapheaderinfo[num]->cutscenenum), UNDO_NONE);
-	mapheaderinfo[num]->cutscenenum = 0;
-	DEH_WriteUndoline("COUNTDOWN", va("%d", mapheaderinfo[num]->countdown), UNDO_NONE);
-	mapheaderinfo[num]->countdown = 0;
-	DEH_WriteUndoline("PALLETE", va("%u", mapheaderinfo[num]->palette), UNDO_NONE);
-	mapheaderinfo[num]->palette = UINT16_MAX;
-	DEH_WriteUndoline("NUMLAPS", va("%u", mapheaderinfo[num]->numlaps), UNDO_NONE);
-	mapheaderinfo[num]->numlaps = NUMLAPS_DEFAULT;
-	DEH_WriteUndoline("UNLOCKABLE", va("%s", mapheaderinfo[num]->unlockrequired), UNDO_NONE);
-	mapheaderinfo[num]->unlockrequired = -1;
-	DEH_WriteUndoline("LEVELSELECT", va("%d", mapheaderinfo[num]->levelselect), UNDO_NONE);
-	mapheaderinfo[num]->levelselect = 0;
-	DEH_WriteUndoline("BONUSTYPE", va("%d", mapheaderinfo[num]->bonustype), UNDO_NONE);
-	mapheaderinfo[num]->bonustype = 0;
-	DEH_WriteUndoline("LEVELFLAGS", va("%d", mapheaderinfo[num]->levelflags), UNDO_NONE);
-	mapheaderinfo[num]->levelflags = 0;
-	DEH_WriteUndoline("MENUFLAGS", va("%d", mapheaderinfo[num]->menuflags), UNDO_NONE);
-	mapheaderinfo[num]->menuflags = 0;
-	// TODO grades support for delfile (pfft yeah right)
+
 	P_DeleteGrades(num);
-	// an even further impossibility, delfile custom opts support
 	mapheaderinfo[num]->customopts = NULL;
 	mapheaderinfo[num]->numCustomOptions = 0;
-
-	DEH_WriteUndoline(va("# uload for map %d", i), NULL, UNDO_DONE);
 }
 
 /** Allocates a new map-header structure.
@@ -2706,7 +2679,7 @@ boolean P_SetupLevel(boolean skipprecip)
 
 	// Special stage fade to white
 	// This is handled BEFORE sounds are stopped.
-	if (rendermode != render_none && G_IsSpecialStage(gamemap))
+	if (rendermode != render_none && G_IsSpecialStage(gamemap) && !unloading_file)
 	{
 		tic_t starttime = I_GetTime();
 		tic_t endtime = starttime + (3*TICRATE)/2;
@@ -2739,13 +2712,23 @@ boolean P_SetupLevel(boolean skipprecip)
 	S_StopSounds();
 	S_ClearSfx();
 
+	// load the map music name when unloading, always
+	if (unloading_file)
+	{
+		S_StopMusic();
+		strncpy(mapmusname, mapheaderinfo[gamemap-1]->musname, 7);
+		mapmusname[6] = 0;
+		mapmusflags = (mapheaderinfo[gamemap-1]->mustrack & MUSIC_TRACKMASK);
+		S_ChangeMusic(mapmusname, mapmusflags, true);
+	}
+	else
 	// As oddly named as this is, this handles music only.
 	// We should be fine starting it here.
-	S_Start();
+		S_Start();
 
 	// Let's fade to black here
 	// But only if we didn't do the special stage wipe
-	if (rendermode != render_none && !ranspecialwipe)
+	if (rendermode != render_none && !ranspecialwipe && !unloading_file)
 	{
 		F_WipeStartScreen();
 		V_DrawFill(0, 0, BASEVIDWIDTH, BASEVIDHEIGHT, 31);
@@ -2755,7 +2738,7 @@ boolean P_SetupLevel(boolean skipprecip)
 	}
 
 	// Print "SPEEDING OFF TO [ZONE] [ACT 1]..."
-	if (rendermode != render_none)
+	if (rendermode != render_none && !unloading_file)
 	{
 		// Don't include these in the fade!
 		char tx[64];
@@ -2801,9 +2784,7 @@ boolean P_SetupLevel(boolean skipprecip)
 
 	// internal game map
 	maplumpname = G_BuildMapName(gamemap);
-	//lastloadedmaplumpnum = LUMPERROR;
 	lastloadedmaplumpnum = W_CheckNumForName(maplumpname);
-
 	if (lastloadedmaplumpnum == INT16_MAX)
 		I_Error("Map %s not found.\n", maplumpname);
 
@@ -2823,7 +2804,6 @@ boolean P_SetupLevel(boolean skipprecip)
 	{
 		// Remember that we're assuming that the WAD will have a specific set of lumps in a specific order.
 		UINT8 *wadData = W_CacheLumpNum(lastloadedmaplumpnum, PU_STATIC);
-		//filelump_t *fileinfo = wadData + ((wadinfo_t *)wadData)->infotableofs;
 		filelump_t *fileinfo = (filelump_t *)(wadData + ((wadinfo_t *)wadData)->infotableofs);
 		UINT32 numlumps = ((wadinfo_t *)wadData)->numlumps;
 
@@ -2953,6 +2933,9 @@ boolean P_SetupLevel(boolean skipprecip)
 			// Start players with pity shields if possible
 			players[i].pity = -1;
 
+			if (unloading_file)
+				players[i].starposttime = 0;
+
 			if (!G_PlatformGametype())
 			{
 				players[i].mo = NULL;
@@ -2982,12 +2965,12 @@ boolean P_SetupLevel(boolean skipprecip)
 		INT32 realnumplayers = 0;
 		INT32 playersactive[MAXPLAYERS];
 
-		//I just realized how problematic this code can be.
-		//D_NumPlayers() will not always cover the scope of the netgame.
-		//What if one player is node 0 and the other node 31?
-		//The solution? Make a temp array of all players that are currently playing and pick from them.
-		//Future todo? When a player leaves, shift all nodes down so D_NumPlayers() can be used as intended?
-		//Also, you'd never have to loop through all 32 players slots to find anything ever again.
+		// I just realized how problematic this code can be.
+		// D_NumPlayers() will not always cover the scope of the netgame.
+		// What if one player is node 0 and the other node 31?
+		// The solution? Make a temp array of all players that are currently playing and pick from them.
+		// Future todo? When a player leaves, shift all nodes down so D_NumPlayers() can be used as intended?
+		// Also, you'd never have to loop through all 32 players slots to find anything ever again.
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
 			if (playeringame[i] && !players[i].spectator)
@@ -3073,15 +3056,10 @@ boolean P_SetupLevel(boolean skipprecip)
 	// clear special respawning que
 	iquehead = iquetail = 0;
 
-	// Fab : 19-07-98 : start cd music for this level (note: can be remapped)
-	I_PlayCD((UINT8)(gamemap), false);
-
 	// preload graphics
 #ifdef HWRENDER // not win32 only 19990829 by Kin
 	if (rendermode != render_soft && rendermode != render_none)
-	{
 		HWR_PrepLevelCache(numtextures);
-	}
 #endif
 
 	P_MapEnd();
@@ -3171,7 +3149,6 @@ boolean P_AddWadFile(const char *wadfilename)
 	UINT16 numlumps, wadnum;
 	char *name;
 	lumpinfo_t *lumpinfo;
-	boolean texturechange = false;
 	boolean mapsadded = false;
 	boolean replacedcurrentmap = false;
 
@@ -3215,14 +3192,6 @@ boolean P_AddWadFile(const char *wadfilename)
 			CONS_Debug(DBG_SETUP, "Music %.8s replaced\n", name);
 			digmreplaces++;
 		}
-#if 0
-		//
-		// search for texturechange replacements
-		//
-		else if (!memcmp(name, "TEXTURE1", 8) || !memcmp(name, "TEXTURE2", 8)
-			|| !memcmp(name, "PNAMES", 6))
-#endif
-			texturechange = true;
 	}
 	if (!devparm && sreplaces)
 		CONS_Printf(M_GetText("%s sounds replaced\n"), sizeu1(sreplaces));
@@ -3230,7 +3199,6 @@ boolean P_AddWadFile(const char *wadfilename)
 		CONS_Printf(M_GetText("%s midi musics replaced\n"), sizeu1(mreplaces));
 	if (!devparm && digmreplaces)
 		CONS_Printf(M_GetText("%s digital musics replaced\n"), sizeu1(digmreplaces));
-
 
 	//
 	// search for sprite replacements
@@ -3240,10 +3208,7 @@ boolean P_AddWadFile(const char *wadfilename)
 	// Reload it all anyway, just in case they
 	// added some textures but didn't insert a
 	// TEXTURE1/PNAMES/etc. list.
-	if (texturechange) // initialized in the sound check
-		R_LoadTextures(); // numtexture changes
-	else
-		R_FlushTextureCache(); // just reload it from file
+	R_LoadTextures();
 
 	// Reload ANIMATED / ANIMDEFS
 	P_InitPicAnims();
@@ -3304,29 +3269,34 @@ boolean P_AddWadFile(const char *wadfilename)
 }
 
 #ifdef DELFILE
-boolean P_DelWadFile(void)
+boolean P_DelWadFile(const UINT16 wadnum)
 {
-	sfxenum_t i;
-	const UINT16 wadnum = (UINT16)(numwadfiles - 1);
-	const lumpnum_t lumpnum = numwadfiles<<16;
-	//lumpinfo_t *lumpinfo = wadfiles[wadnum]->lumpinfo;
-	R_DelSkins(wadnum); // only used by DELFILE
-	R_DelSpriteDefs(wadnum); // only used by DELFILE
-	for (i = 0; i < NUMSFX; i++)
+	if (wadnum == 0)		// can't delete the IWAD
+		return false;
+
+	R_DelSkins(wadnum);		// delete skins
+
+	// stop all sound effects
 	{
-		if (S_sfx[i].lumpnum != LUMPERROR && S_sfx[i].lumpnum >= lumpnum)
+		sfxenum_t i;
+		const lumpnum_t lumpnum = numwadfiles<<16;
+		for (i = 0; i < NUMSFX; i++)
 		{
-			S_StopSoundByNum(i);
-			S_RemoveSoundFx(i);
-			if (S_sfx[i].lumpnum != LUMPERROR)
+			if (S_sfx[i].lumpnum != LUMPERROR && S_sfx[i].lumpnum >= lumpnum)
 			{
-				I_FreeSfx(&S_sfx[i]);
-				S_sfx[i].lumpnum = LUMPERROR;
+				S_StopSoundByNum(i);
+				S_RemoveSoundFx(i);
+				if (S_sfx[i].lumpnum != LUMPERROR)
+				{
+					I_FreeSfx(&S_sfx[i]);
+					S_sfx[i].lumpnum = LUMPERROR;
+				}
 			}
 		}
 	}
-	W_UnloadWadFile(wadnum); // only used by DELFILE
-	R_LoadTextures();
-	return false;
+
+	W_UnloadWadFile(wadnum);	// then do it for real
+
+	return true;
 }
 #endif

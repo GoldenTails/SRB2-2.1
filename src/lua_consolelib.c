@@ -410,6 +410,7 @@ static int lib_cvRegisterVar(lua_State *L)
 		return luaL_error(L, "failed to register cvar (probable conflict with internal variable/command names)");
 
 	// return cvar userdata
+	cvar->lua = true;
 	return 1;
 }
 

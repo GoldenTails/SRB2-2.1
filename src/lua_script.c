@@ -110,17 +110,25 @@ static int noglobals(lua_State *L)
 	return luaL_error(L, "Implicit global " LUA_QS " prevented. Create a local variable instead.", csname);
 }
 
-// Clear and create a new Lua state, laddo!
+// Clear the Lua state
+void LUA_Shutdown(void)
+{
+	if (gL)
+		lua_close(gL);
+	gL = NULL;
+
+	CONS_Printf("LUA_Shutdown()...\n");
+}
+
+// Create a new Lua state, laddo!
 // There's SCRIPTIN to be had!
-static void LUA_ClearState(void)
+void LUA_ClearState(void)
 {
 	lua_State *L;
 	int i;
 
 	// close previous state
-	if (gL)
-		lua_close(gL);
-	gL = NULL;
+	LUA_Shutdown();
 
 	CONS_Printf(M_GetText("Pardon me while I initialize the Lua scripting interface...\n"));
 
@@ -234,7 +242,7 @@ void LUA_DumpFile(const char *filename)
 	char filenamebuf[MAX_WADPATH];
 
 	if (!gL) // Lua needs to be initialized
-		LUA_ClearState(false);
+		LUA_ClearState();
 
 	// find the file the SRB2 way
 	strncpy(filenamebuf, filename, MAX_WADPATH);

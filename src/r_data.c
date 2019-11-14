@@ -1047,7 +1047,7 @@ static void R_InitSpriteLumps(void)
 //
 // R_InitColormaps
 //
-static void R_InitColormaps(void)
+void R_InitColormaps(void)
 {
 	lumpnum_t lump;
 

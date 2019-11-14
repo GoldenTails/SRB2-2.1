@@ -443,7 +443,7 @@ extern const char *compdate, *comptime, *comprevision, *compbranch;
 
 ///	Delete file while the game is running.
 ///	\note	EXTREMELY buggy, tends to crash game.
-//#define DELFILE
+#define DELFILE
 
 ///	Allows the use of devmode in multiplayer. AKA "fishcake"
 //#define NETGAME_DEVMODE
@@ -477,14 +477,8 @@ extern const char *compdate, *comptime, *comprevision, *compbranch;
 #define SHUFFLE // This has nothing to do with sorting, why was it disabled?
 #endif
 
-#if !defined (_NDS) && !defined (_PSP)
 ///	Allow the use of the SOC RESETINFO command.
-///	\note	Builds that are tight on memory should disable this.
-///	    	This stops the game from storing backups of the states, sprites, and mobjinfo tables.
-///	    	Though this info is compressed under normal circumstances, it's still a lot of extra
-///	    	memory that never gets touched.
 #define ALLOW_RESETDATA
-#endif
 
 #ifndef NONET
 ///	Display a connection screen on join attempts.

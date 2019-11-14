@@ -15,29 +15,11 @@
 
 #include "m_fixed.h" // for get_number
 
-typedef enum
-{
-	UNDO_NONE    = 0x00,
-	UNDO_NEWLINE = 0x01,
-	UNDO_SPACE   = 0x02,
-	UNDO_CUTLINE = 0x04,
-	UNDO_HEADER  = 0x07,
-	UNDO_ENDTEXT = 0x08,
-	UNDO_TODO = 0,
-	UNDO_DONE = 0,
-} undotype_f;
-
-#ifdef DELFILE
-void DEH_WriteUndoline(const char *value, const char *data, undotype_f flags);
-void DEH_UnloadDehackedWad(UINT16 wad);
-#else // null the undo lines
-#define DEH_WriteUndoline(a,b,c)
-#endif
-
 void DEH_LoadDehackedLump(lumpnum_t lumpnum);
 void DEH_LoadDehackedLumpPwad(UINT16 wad, UINT16 lump);
 
 void DEH_Check(void);
+void DEH_Init(void);
 
 fixed_t get_number(const char *word);
 

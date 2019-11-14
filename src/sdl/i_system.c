@@ -271,10 +271,10 @@ FUNCNORETURN static ATTRNORETURN void signal_handler(INT32 num)
 	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
 		"Signal caught",
 		sigmsg, NULL);
-	I_ShutdownSystem();
+	//I_ShutdownSystem();
 	signal(num, SIG_DFL);               //default signal action
 	raise(num);
-	I_Quit();
+	//I_Quit();
 }
 
 FUNCNORETURN static ATTRNORETURN void quit_handler(int num)

@@ -53,7 +53,7 @@ static boolean CV_FilterVarByVersion(consvar_t *v, const char *valstr);
 static boolean CV_Command(void);
 static consvar_t *CV_FindVar(const char *name);
 static const char *CV_StringValue(const char *var_name);
-static consvar_t *consvar_vars; // list of registered console variables
+consvar_t *consvar_vars; // list of registered console variables
 
 static char com_token[1024];
 static char *COM_Parse(char *data);
@@ -246,14 +246,7 @@ void COM_ImmedExecute(const char *ptext)
 //                            COMMAND EXECUTION
 // =========================================================================
 
-typedef struct xcommand_s
-{
-	const char *name;
-	struct xcommand_s *next;
-	com_func_t function;
-} xcommand_t;
-
-static xcommand_t *com_commands = NULL; // current commands
+xcommand_t *com_commands = NULL; // current commands
 
 #define MAX_ARGS 80
 static size_t com_argc;
@@ -408,7 +401,10 @@ void COM_AddCommand(const char *name, com_func_t func)
 	cmd = ZZ_Alloc(sizeof *cmd);
 	cmd->name = name;
 	cmd->function = func;
+	cmd->oldfunction = func;
 	cmd->next = com_commands;
+	cmd->lua = false;
+	cmd->replaced = false;
 	com_commands = cmd;
 }
 
@@ -433,6 +429,8 @@ int COM_AddLuaCommand(const char *name)
 		{
 			// replace the built in command.
 			cmd->function = COM_Lua_f;
+			cmd->replaced = true;
+			cmd->lua = true;
 			return 1;
 		}
 	}
@@ -442,6 +440,7 @@ int COM_AddLuaCommand(const char *name)
 	cmd->name = name;
 	cmd->function = COM_Lua_f;
 	cmd->next = com_commands;
+	cmd->lua = true;
 	com_commands = cmd;
 	return 0;
 }

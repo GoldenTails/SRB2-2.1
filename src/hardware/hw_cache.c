@@ -580,7 +580,7 @@ void HWR_FreeTextureCache(void)
 	HWD.pfnClearMipMapCache();
 
 	// free all hardware-converted graphics cached in the heap
-	// our gool is only the textures since user of the texture is the texture cache
+	// our goal is only the textures since user of the texture is the texture cache
 	Z_FreeTags(PU_HWRCACHE, PU_HWRCACHE);
 	Z_FreeTags(PU_HWRCACHE_UNLOCKED, PU_HWRCACHE_UNLOCKED);
 

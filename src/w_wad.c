@@ -34,6 +34,17 @@
 #include "z_zone.h"
 #include "fastcmp.h"
 
+#include "f_finale.h"
+#include "p_setup.h"
+#include "p_spec.h"
+#include "r_things.h"
+#include "m_menu.h"
+#include "m_cond.h"
+
+#include "hu_stuff.h"
+#include "st_stuff.h"
+
+#include "g_game.h"
 #include "i_video.h" // rendermode
 #include "d_netfil.h"
 #include "dehacked.h"
@@ -81,6 +92,10 @@ int	snprintf(char *str, size_t n, const char *fmt, ...);
 #include "zlib.h"
 #endif
 
+boolean unloading_file = false;
+#ifdef DELFILE
+#include "lua_script.h"
+#endif
 
 typedef struct
 {
@@ -789,35 +804,159 @@ UINT16 W_InitFile(const char *filename)
 	return wadfile->numlumps;
 }
 
+// Jimita (13-12-2018)
+// This method clears up almost everything,
+// only to reload it back without the deleted file.
 #ifdef DELFILE
 void W_UnloadWadFile(UINT16 num)
 {
 	INT32 i;
-	wadfile_t *delwad = wadfiles[num];
-	lumpcache_t *lumpcache;
-	if (num == 0)
-		return;
-	CONS_Printf(M_GetText("Removing WAD %s...\n"), wadfiles[num]->filename);
 
-	DEH_UnloadDehackedWad(num);
-	wadfiles[num] = NULL;
-	lumpcache = delwad->lumpcache;
+	unloading_file = true;
 	numwadfiles--;
+
+	CONS_Printf(M_GetText("Removing file %s...\n"), wadfiles[num]->filename);
+
+	// free opengl texture cache
 #ifdef HWRENDER
-	if (rendermode != render_soft && rendermode != render_none)
+	if (rendermode == render_opengl)
 		HWR_FreeTextureCache();
-	M_AATreeFree(delwad->hwrcache);
 #endif
-	if (*lumpcache)
+
+#ifdef HAVE_BLUA
+	// delete lua-added console commands and variables
+	M_SaveConfig(NULL);
 	{
-		for (i = 0;i < delwad->numlumps;i++)
-			Z_ChangeTag(lumpcache[i], PU_PURGELEVEL);
+		consvar_t *cvar, *lastvar = consvar_vars;
+		xcommand_t *cmd, *lastcmd = com_commands;
+
+		for (cvar = consvar_vars; cvar; cvar = cvar->next)
+		{
+			if (cvar->lua)
+				lastvar->next = cvar->next;
+			else
+				lastvar = cvar;
+		}
+
+		for (cmd = com_commands; cmd; cmd = cmd->next)
+		{
+			if (cmd->lua)
+			{
+				if (cmd->replaced)
+				{
+					cmd->function = cmd->oldfunction;
+					cmd->lua = false;
+					cmd->replaced = false;
+				}
+				else
+					lastcmd->next = cmd->next;
+			}
+			else
+				lastcmd = cmd;
+		}
 	}
-	Z_Free(lumpcache);
-	fclose(delwad->handle);
-	Z_Free(delwad->filename);
-	Z_Free(delwad);
-	CONS_Printf(M_GetText("Done unloading WAD.\n"));
+
+	// destroy lua
+	LUA_Shutdown();
+#endif
+
+	// clear level headers
+	for (i = 0; i < NUMMAPS; i++)
+		P_ClearSingleMapHeaderInfo(i);
+
+	// reload default dehacked-editable variables
+	G_LoadGameSettings();
+
+	// reload dehacked/lua
+	invulntics = 20*TICRATE;
+	sneakertics = 20*TICRATE;
+	flashingtics = 3*TICRATE;
+	tailsflytics = 8*TICRATE;
+	underwatertics = 30*TICRATE;
+	spacetimetics = 11*TICRATE + (TICRATE/2);
+	extralifetics = 4*TICRATE;
+
+	gameovertics = 15*TICRATE;
+
+	use1upSound = 0;
+	maxXtraLife = 2; // Max extra lives from rings
+
+	skincolor_redteam = SKINCOLOR_RED;
+	skincolor_blueteam = SKINCOLOR_BLUE;
+	skincolor_redring = SKINCOLOR_RED;
+	skincolor_bluering = SKINCOLOR_STEELBLUE;
+
+    introtoplay = 0;
+    creditscutscene = 0;
+
+    titlescrollspeed = 80;
+    looptitle = false;
+
+	numDemos = 3;
+	demoDelayTime = 15*TICRATE;
+	demoIdleTime = 3*TICRATE;
+
+	// clear game data stuff
+	G_SaveGameData();		// save it first
+	gamedataloaded = false;
+
+	G_ClearRecords();
+	M_ClearSecrets();
+
+	savemoddata = false;
+	modifiedgame = false;
+	ultimate_selectable = false;
+	strcpy(gamedatafilename, "gamedata.dat");
+	customversionstring[0] = 0;
+
+    // load the default game data
+    M_ReloadDefaultEmblemsAndUnlockables();
+	G_LoadGameData();
+
+	// load soc/lua lumps
+	DEH_Init();
+	P_ResetData(0xFF);
+	W_InvalidateLumpnumCache();
+	for (i = 0; i < numwadfiles; i++)
+		W_LoadDehackedLumps(i);
+
+	// reload textures etc
+	R_LoadTextures();
+	R_InitSprites();
+	R_ReInitColormaps(mapheaderinfo[gamemap-1]->palette);
+
+	// Reload ANIMATED / ANIMDEFS
+	P_InitPicAnims();
+
+	// Flush and reload HUD graphics
+	ST_UnloadGraphics();
+	HU_LoadGraphics();
+	ST_LoadGraphics();
+	ST_ReloadSkinFaceGraphics();
+
+	// finally just delete the wad
+	CONS_Printf(M_GetText("Done unloading %s.\n"), wadfiles[num]->filename);
+	while (wadfiles[num]->numlumps--)
+		Z_Free(wadfiles[num]->lumpinfo[wadfiles[num]->numlumps].name2);
+	/*Z_Free(wadfiles[num]->lumpinfo);
+	Z_Free(wadfiles[num]->filename);
+	fclose(wadfiles[num]->handle);
+	Z_Free(wadfiles[num]);*/
+	for (i = mainwads+1; i < numwadfiles; i++)
+		wadfiles[i] = wadfiles[i+1];
+
+	// reset the map
+	if (gamestate == GS_LEVEL)
+	{
+		ST_Start();
+		if (W_CheckNumForName(G_BuildMapName(gamemap)) == LUMPERROR)
+			gamemap = 1;		// load MAP01 if the current map doesn't exist anymore
+		P_SetupLevel(false);
+	}
+	else if (!(netgame || splitscreen))
+		F_StartIntro();
+
+	unloading_file = false;
 }
 #endif
 

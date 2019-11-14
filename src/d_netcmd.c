@@ -3204,18 +3204,18 @@ static void Command_Addfile(void)
 }
 
 #ifdef DELFILE
-/** removes the last added pwad at runtime.
-  * Searches for sounds, maps, music and images to remove
+/** Removes an added pwad at runtime.
+  * Searches for sounds, maps, music, graphics, SOC and Lua to remove
   */
 static void Command_Delfile(void)
 {
-	if (gamestate == GS_LEVEL)
-	{
-		CONS_Printf(M_GetText("You must NOT be in a level to use this.\n"));
-		return;
-	}
+	const char *fn, *p;
+	XBOXSTATIC char buf[256];
+	char *buf_p = buf;
+	INT32 i;
+	boolean found = false;
 
-	if (netgame && !(server || adminplayer == consoleplayer))
+	if (netgame && !(server || IsPlayerAdmin(consoleplayer)))
 	{
 		CONS_Printf(M_GetText("Only the server or a remote admin can use this.\n"));
 		return;
@@ -3227,15 +3227,74 @@ static void Command_Delfile(void)
 		return;
 	}
 
+	if (COM_Argc() != 2)
+	{
+		CONS_Printf(M_GetText("delfile <wadfile.wad>: delete wad file\n"));
+		return;
+	}
+	else
+		fn = COM_Argv(1);
+
+	// Disallow non-printing characters and semicolons.
+	for (i = 0; fn[i] != '\0'; i++)
+		if (!isprint(fn[i]) || fn[i] == ';')
+			return;
+
+	p = fn+strlen(fn);
+	while(--p >= fn)
+		if (*p == '\\' || *p == '/' || *p == ':')
+			break;
+	++p;
+
+	// Delete file on your client if you aren't in a netgame.
 	if (!(netgame || multiplayer))
 	{
-		P_DelWadFile();
-		if (mainwads == numwadfiles && modifiedgame)
-			modifiedgame = false;
+		for (i = 0; i < numwadfiles; i++)
+		{
+			// found the file we want to delete
+			if (!stricmp(getFilenameFromPath(wadfiles[i]->filename), p))
+			{
+				found = true;
+				// WADs added at game setup (srb2.srb, zones.dta, etc.)
+				if (i <= mainwads)
+					CONS_Alert(CONS_ERROR, M_GetText("Can't delete %s\n"), p);
+				else
+				{
+					P_DelWadFile(i);
+					break;
+				}
+			}
+		}
+		if (!found)
+			CONS_Alert(CONS_ERROR, M_GetText("File %s is not added\n"), p);
 		return;
 	}
 
-	SendNetXCmd(XD_DELFILE, NULL, 0);
+	WRITESTRINGN(buf_p,p,240);
+
+	// calculate and check md5
+	{
+		UINT8 md5sum[16];
+#ifdef NOMD5
+		memset(md5sum,0,16);
+#else
+		FILE *fhandle;
+
+		if ((fhandle = W_OpenWadFile(&fn, true)) != NULL)
+		{
+			tic_t t = I_GetTime();
+			CONS_Debug(DBG_SETUP, "Making MD5 for %s\n",fn);
+			md5_stream(fhandle, md5sum);
+			CONS_Debug(DBG_SETUP, "MD5 calc for %s took %f second\n", fn, (float)(I_GetTime() - t)/TICRATE);
+			fclose(fhandle);
+		}
+		else // file not found (??????????????)
+			return;
+#endif
+		WRITEMEM(buf_p, md5sum, 16);
+	}
+
+	SendNetXCmd(XD_DELFILE, buf, buf_p - buf);
 }
 #endif
 
@@ -3317,7 +3376,15 @@ static void Got_RequestAddfilecmd(UINT8 **cp, INT32 playernum)
 #ifdef DELFILE
 static void Got_Delfilecmd(UINT8 **cp, INT32 playernum)
 {
-	if (playernum != serverplayer && playernum != adminplayer)
+	char filename[241];
+	UINT8 md5sum[16];
+	size_t i;
+	boolean found = false;
+
+	READSTRINGN(*cp, filename, 240);
+	READMEM(*cp, md5sum, 16);
+
+	if (playernum != serverplayer)
 	{
 		CONS_Alert(CONS_WARNING, M_GetText("Illegal delfile command received from %s\n"), player_names[playernum]);
 		if (server)
@@ -3330,14 +3397,26 @@ static void Got_Delfilecmd(UINT8 **cp, INT32 playernum)
 		}
 		return;
 	}
-	(void)cp;
 
-	if (numwadfiles <= mainwads) //sanity
-		return;
+	for (i = 0; i < numwadfiles; i++)
+	{
+		// found the file we want to delete
+		if ((!stricmp(getFilenameFromPath(wadfiles[i]->filename), filename)) && (!memcmp(wadfiles[i]->md5sum, md5sum, 16)))
+		{
+			found = true;
+			// WADs added at game setup (srb2.srb, zones.dta, etc.)
+			if (i <= mainwads)
+				CONS_Alert(CONS_ERROR, M_GetText("Can't delete %s\n"), filename);
+			else
+			{
+				P_DelWadFile(i);
+				break;
+			}
+		}
+	}
 
-	P_DelWadFile();
-	if (mainwads == numwadfiles && modifiedgame)
-		modifiedgame = false;
+	if (!found)
+		CONS_Alert(CONS_ERROR, M_GetText("File %s is not added\n"), filename);
 }
 #endif
 

@@ -18,6 +18,7 @@
 #include "st_stuff.h"
 #include "w_wad.h"
 #include "z_zone.h"
+#include "m_menu.h"
 #include "m_misc.h"
 #include "i_video.h" // rendermode
 #include "r_things.h"
@@ -382,117 +383,6 @@ void R_AddSpriteDefs(UINT16 wadnum)
 	CONS_Printf(M_GetText("%s added %d frames in %s sprites\n"), wadname, end-start, sizeu1(addsprites));
 }
 
-#ifdef DELFILE
-static void R_RemoveSpriteLump(UINT16 wad,            // graphics patch
-                               UINT16 lump,
-                               size_t lumpid,      // identifier
-                               UINT8 frame,
-                               UINT8 rotation,
-                               UINT8 flipped)
-{
-	(void)wad; /// \todo: how do I remove sprites?
-	(void)lump;
-	(void)lumpid;
-	(void)frame;
-	(void)rotation;
-	(void)flipped;
-}
-
-static boolean R_DelSingleSpriteDef(const char *sprname, spritedef_t *spritedef, UINT16 wadnum, UINT16 startlump, UINT16 endlump)
-{
-	UINT16 l;
-	UINT8 frame;
-	UINT8 rotation;
-	lumpinfo_t *lumpinfo;
-
-	maxframe = (size_t)-1;
-
-	// scan the lumps,
-	//  filling in the frames for whatever is found
-	lumpinfo = wadfiles[wadnum]->lumpinfo;
-	if (endlump > wadfiles[wadnum]->numlumps)
-		endlump = wadfiles[wadnum]->numlumps;
-
-	for (l = startlump; l < endlump; l++)
-	{
-		if (memcmp(lumpinfo[l].name,sprname,4)==0)
-		{
-			frame = (UINT8)(lumpinfo[l].name[4] - 'A');
-			rotation = (UINT8)(lumpinfo[l].name[5] - '0');
-
-			// skip NULL sprites from very old dmadds pwads
-			if (W_LumpLengthPwad(wadnum,l)<=8)
-				continue;
-
-			//----------------------------------------------------
-
-			R_RemoveSpriteLump(wadnum, l, numspritelumps, frame, rotation, 0);
-
-			if (lumpinfo[l].name[6])
-			{
-				frame = (UINT8)(lumpinfo[l].name[6] - 'A');
-				rotation = (UINT8)(lumpinfo[l].name[7] - '0');
-				R_RemoveSpriteLump(wadnum, l, numspritelumps, frame, rotation, 1);
-			}
-		}
-	}
-
-	if (maxframe == (size_t)-1)
-		return false;
-
-	spritedef->numframes = 0;
-	Z_Free(spritedef->spriteframes);
-	spritedef->spriteframes = NULL;
-	return true;
-}
-
-void R_DelSpriteDefs(UINT16 wadnum)
-{
-	size_t i, delsprites = 0;
-	UINT16 start, end;
-
-	// find the sprites section in this pwad
-	// we need at least the S_END
-	// (not really, but for speedup)
-
-	start = W_CheckNumForNamePwad("S_START", wadnum, 0);
-	if (start == INT16_MAX)
-		start = W_CheckNumForNamePwad("SS_START", wadnum, 0); //deutex compatib.
-	if (start == INT16_MAX)
-		start = 0; //let say S_START is lump 0
-	else
-		start++;   // just after S_START
-
-	end = W_CheckNumForNamePwad("S_END",wadnum,start);
-	if (end == INT16_MAX)
-		end = W_CheckNumForNamePwad("SS_END",wadnum,start);     //deutex compatib.
-	if (end == INT16_MAX)
-	{
-		CONS_Debug(DBG_SETUP, "no sprites in pwad %d\n", wadnum);
-		return;
-		//I_Error("R_DelSpriteDefs: S_END, or SS_END missing for sprites "
-		//         "in pwad %d\n",wadnum);
-	}
-
-	//
-	// scan through lumps, for each sprite, find all the sprite frames
-	//
-	for (i = 0; i < numsprites; i++)
-	{
-		spritename = sprnames[i];
-
-		if (R_DelSingleSpriteDef(spritename, &sprites[i], wadnum, start, end))
-		{
-			// if a new sprite was removed (not just replaced)
-			delsprites++;
-			CONS_Debug(DBG_SETUP, "sprite %s set in pwad %d\n", spritename, wadnum);
-		}
-	}
-
-	CONS_Printf(M_GetText("%s sprites removed from file %s\n"), sizeu1(delsprites), wadfiles[wadnum]->filename);
-}
-#endif
-
 //
 // GAME FUNCTIONS
 //
@@ -565,13 +455,13 @@ static vissprite_t overflowsprite;
 
 static vissprite_t *R_GetVisSprite(UINT32 num)
 {
-		UINT32 chunk = num >> VISSPRITECHUNKBITS;
+	UINT32 chunk = num >> VISSPRITECHUNKBITS;
 
-		// Allocate chunk if necessary
-		if (!visspritechunks[chunk])
-			Z_Malloc(sizeof(vissprite_t) * VISSPRITESPERCHUNK, PU_LEVEL, &visspritechunks[chunk]);
+	// Allocate chunk if necessary
+	if (!visspritechunks[chunk])
+		Z_Malloc(sizeof(vissprite_t) * VISSPRITESPERCHUNK, PU_LEVEL, &visspritechunks[chunk]);
 
-		return visspritechunks[chunk] + (num & VISSPRITEINDEXMASK);
+	return visspritechunks[chunk] + (num & VISSPRITEINDEXMASK);
 }
 
 static vissprite_t *R_NewVisSprite(void)
@@ -2307,11 +2197,6 @@ void R_DrawMasked(void)
 
 INT32 numskins = 0;
 skin_t skins[MAXSKINS+1];
-// FIXTHIS: don't work because it must be inistilised before the config load
-//#define SKINVALUES
-#ifdef SKINVALUES
-CV_PossibleValue_t skin_cons_t[MAXSKINS+1];
-#endif
 
 static void Sk_SetDefaultValue(skin_t *skin)
 {
@@ -2367,15 +2252,6 @@ static void Sk_SetDefaultValue(skin_t *skin)
 void R_InitSkins(void)
 {
 	skin_t *skin;
-#ifdef SKINVALUES
-	INT32 i;
-
-	for (i = 0; i <= MAXSKINS; i++)
-	{
-		skin_cons_t[i].value = 0;
-		skin_cons_t[i].strvalue = NULL;
-	}
-#endif
 
 	// skin[0] = Sonic skin
 	skin = &skins[0];
@@ -2384,9 +2260,6 @@ void R_InitSkins(void)
 
 	// Hardcoded S_SKIN customizations for Sonic.
 	strcpy(skin->name,       DEFAULTSKIN);
-#ifdef SKINVALUES
-	skin_cons_t[0].strvalue = skins[0].name;
-#endif
 	skin->flags = SF_SUPER|SF_SUPERANIMS|SF_SUPERSPIN;
 	strcpy(skin->realname,   "Sonic");
 	strcpy(skin->hudname,    "SONIC");
@@ -2811,10 +2684,6 @@ next_token:
 		R_FlushTranslationColormapCache();
 
 		CONS_Printf(M_GetText("Added skin '%s'\n"), skin->name);
-#ifdef SKINVALUES
-		skin_cons_t[numskins].value = numskins;
-		skin_cons_t[numskins].strvalue = skin->name;
-#endif
 
 		// add face graphics
 		ST_LoadFaceGraphics(skin->face, skin->superface, numskins);
@@ -2832,45 +2701,38 @@ next_token:
 #ifdef DELFILE
 void R_DelSkins(UINT16 wadnum)
 {
-	UINT16 lump, lastlump = 0;
-	while ((lump = W_CheckForSkinMarkerInPwad(wadnum, lastlump)) != INT16_MAX)
+	size_t i, j;
+
+	for (i = 0; i < MAXSKINS; i++)
 	{
-		if (skins[numskins].wadnum != wadnum)
-			break;
+		if (skins[i].wadnum != wadnum)
+			continue;
+
+		ST_UnLoadFaceGraphics(i);
+
+		for (j = 0; j < 32; j++)
+		{
+			if (!stricmp(skins[i].name, description[j].skinname))
+			{
+				PlayerMenu[j].status = IT_DISABLED;
+				memset(description[j].skinname, 0, SKINNAMESIZE*2+2);
+				break;
+			}
+		}
+
+		for (j = 0; j < MAXPLAYERS; j++)
+		{
+			if (playeringame[j])
+			{
+				player_t *player = &players[j];
+				skin_t *skin = player->mo->skin;
+				if (!stricmp(skins[i].name, skin->name))
+					SetPlayerSkinByNum(j, 0);
+			}
+		}
+
 		numskins--;
-		ST_UnLoadFaceGraphics(numskins); // only used by DELFILE
-		if (skins[numskins].sprite[0] != '\0')
-		{
-			const char *csprname = W_CheckNameForNumPwad(wadnum, lump);
-
-			// skip to end of this skin's frames
-			lastlump = lump;
-			while (W_CheckNameForNumPwad(wadnum,lastlump) && memcmp(W_CheckNameForNumPwad(wadnum, lastlump),csprname,4)==0)
-				lastlump++;
-			// allocate (or replace) sprite frames, and set spritedef
-			R_DelSingleSpriteDef(csprname, &skins[numskins].spritedef, wadnum, lump, lastlump);
-		}
-		else
-		{
-			// search in the normal sprite tables
-			size_t name;
-			boolean found = false;
-			const char *sprname = skins[numskins].sprite;
-			for (name = 0;sprnames[name][0] != '\0';name++)
-				if (strcmp(sprnames[name], sprname) == 0)
-				{
-					found = true;
-					skins[numskins].spritedef = sprites[name];
-				}
-
-			// not found so make a new one
-			if (!found)
-				R_DelSingleSpriteDef(sprname, &skins[numskins].spritedef, wadnum, 0, INT16_MAX);
-
-			while (W_CheckNameForNumPwad(wadnum,lastlump) && memcmp(W_CheckNameForNumPwad(wadnum, lastlump),sprname,4)==0)
-				lastlump++;
-		}
-		CONS_Printf(M_GetText("Removed skin '%s'\n"), skins[numskins].name);
+		CONS_Printf(M_GetText("Removed skin '%s'\n"), skins[i].name);
 	}
 }
 #endif

@@ -2369,3 +2369,19 @@ void M_SetupMemcpy(void)
 	M_Memcpy = cpu_cpy;
 #endif
 }
+
+char *getFilenameFromPath(char *str)
+{
+	char *s1 = strrchr(str, '/');
+	char *s2 = strrchr(str, '\\');
+	if (s1==NULL) s1=" ";
+	if (s2==NULL) s2=" ";
+	s1++; s2++;
+	int slen=strlen(str), s1len=strlen(s1), s2len=strlen(s2);
+	if (s1len<slen && (s2len>1 ? s1len<s2len : 1) && s1len>1)
+		return s1;
+	else if (s2len<slen && (s1len>1 ? s2len<s1len : 1) && s2len>1)
+		return s2;
+	else
+		return str;
+}

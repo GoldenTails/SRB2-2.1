@@ -22,6 +22,18 @@
 
 typedef void (*com_func_t)(void);
 
+typedef struct xcommand_s
+{
+	const char *name;
+	struct xcommand_s *next;
+	com_func_t function;
+	com_func_t oldfunction;
+	boolean lua;
+	boolean replaced;
+} xcommand_t;
+
+extern xcommand_t *com_commands; // current commands
+
 void COM_AddCommand(const char *name, com_func_t func);
 int COM_AddLuaCommand(const char *name);
 
@@ -119,7 +131,9 @@ typedef struct consvar_s //NULL, NULL, 0, NULL, NULL |, 0, NULL, NULL, 0, 0, NUL
 	                      // used only with CV_NETVAR
 	char changed;         // has variable been changed by the user? 0 = no, 1 = yes
 	struct consvar_s *next;
+	boolean lua;
 } consvar_t;
+extern consvar_t *consvar_vars; // list of registered console variables
 
 extern CV_PossibleValue_t CV_OnOff[];
 extern CV_PossibleValue_t CV_YesNo[];

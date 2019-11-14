@@ -59,14 +59,16 @@ void P_ScanThings(INT16 mapnum, INT16 wadnum, INT16 lumpnum);
 #endif
 void P_LoadThingsOnly(void);
 boolean P_SetupLevel(boolean skipprecip);
+boolean P_SetupLevelClean(void);
 boolean P_AddWadFile(const char *wadfilename);
 #ifdef DELFILE
-boolean P_DelWadFile(void);
+boolean P_DelWadFile(const UINT16 wadnum);
 #endif
 boolean P_RunSOC(const char *socfilename);
 void P_WriteThings(lumpnum_t lump);
 size_t P_PrecacheLevelFlats(void);
 void P_AllocMapHeader(INT16 i);
+void P_ClearSingleMapHeaderInfo(INT16 i);
 
 // Needed for NiGHTS
 void P_ReloadRings(void);

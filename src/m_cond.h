@@ -154,6 +154,8 @@ UINT8 M_UpdateUnlockablesAndExtraEmblems(void);
 void M_SilentUpdateUnlockablesAndEmblems(void);
 UINT8 M_CheckLevelEmblems(void);
 
+void M_ReloadDefaultEmblemsAndUnlockables(void);
+
 // Checking unlockable status
 UINT8 M_AnySecretUnlocked(void);
 UINT8 M_SecretUnlocked(INT32 type);

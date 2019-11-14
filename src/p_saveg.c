@@ -513,9 +513,9 @@ static void P_NetArchiveWorld(void)
 	}
 	else // phew it's just a WAD
 	{
-			ms = W_CacheLumpNum(lastloadedmaplumpnum+ML_SECTORS, PU_CACHE);
-			mld = W_CacheLumpNum(lastloadedmaplumpnum+ML_LINEDEFS, PU_CACHE);
-			msd = W_CacheLumpNum(lastloadedmaplumpnum+ML_SIDEDEFS, PU_CACHE);
+		ms = W_CacheLumpNum(lastloadedmaplumpnum+ML_SECTORS, PU_CACHE);
+		mld = W_CacheLumpNum(lastloadedmaplumpnum+ML_LINEDEFS, PU_CACHE);
+		msd = W_CacheLumpNum(lastloadedmaplumpnum+ML_SIDEDEFS, PU_CACHE);
 	}
 
 	for (i = 0; i < numsectors; i++, ss++, ms++)

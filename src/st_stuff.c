@@ -123,8 +123,6 @@ static patch_t *minicaps;
 static patch_t *gotrflag;
 static patch_t *gotbflag;
 
-static boolean facefreed[MAXPLAYERS];
-
 hudinfo_t hudinfo[NUMHUDITEMS] =
 {
 	{  34, 176}, // HUD_LIVESNAME
@@ -344,15 +342,13 @@ void ST_LoadFaceGraphics(char *facestr, char *superstr, INT32 skinnum)
 {
 	faceprefix[skinnum] = W_CachePatchName(facestr, PU_HUDGFX);
 	superprefix[skinnum] = W_CachePatchName(superstr, PU_HUDGFX);
-	facefreed[skinnum] = false;
 }
 
 #ifdef DELFILE
 void ST_UnLoadFaceGraphics(INT32 skinnum)
 {
-	Z_Free(faceprefix[skinnum]);
-	Z_Free(superprefix[skinnum]);
-	facefreed[skinnum] = true;
+	W_UnlockCachedPatch(faceprefix[skinnum]);
+	W_UnlockCachedPatch(superprefix[skinnum]);
 }
 #endif
 
@@ -402,14 +398,7 @@ lumpnum_t st_borderpatchnum;
 
 void ST_Init(void)
 {
-	INT32 i;
-
-	for (i = 0; i < MAXPLAYERS; i++)
-		facefreed[i] = true;
-
-	if (dedicated)
-		return;
-
+	if (dedicated) return;
 	ST_LoadGraphics();
 }
 
