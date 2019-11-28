@@ -841,12 +841,14 @@ UINT16 W_InitFile(const char *filename)
 #ifdef DELFILE
 void W_UnloadWadFile(UINT16 num)
 {
+	char wadname[MAX_WADPATH];
 	INT32 i;
 
 	delfile = true;
 	numwadfiles--;
 
-	CONS_Printf(M_GetText("Removing file %s...\n"), wadfiles[num]->filename);
+	nameonly(strcpy(wadname, wadfiles[num]->filename));
+	CONS_Printf(M_GetText("Removing file %s...\n"), wadname);
 
 	W_InvalidateLumpnumCache(); // ??
 
