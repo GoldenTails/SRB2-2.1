@@ -92,9 +92,9 @@ boolean imcontinuing = false;
 boolean runemeraldmanager = false;
 
 // menu demo things
-UINT8  numDemos      = 3;
-UINT32 demoDelayTime = 15*TICRATE;
-UINT32 demoIdleTime  = 3*TICRATE;
+UINT8 numDemos;
+UINT32 demoDelayTime;
+UINT32 demoIdleTime;
 
 boolean timingdemo; // if true, exit with report on completion
 boolean nodrawers; // for comparative timing purposes
@@ -121,13 +121,13 @@ INT16 spstage_start;
 INT16 sstage_start;
 INT16 sstage_end;
 
-boolean looptitle = false;
-boolean useNightsSS = false;
+boolean looptitle;
+boolean useNightsSS;
 
-UINT8 skincolor_redteam = SKINCOLOR_RED;
-UINT8 skincolor_blueteam = SKINCOLOR_BLUE;
-UINT8 skincolor_redring = SKINCOLOR_RED;
-UINT8 skincolor_bluering = SKINCOLOR_STEELBLUE;
+UINT8 skincolor_redteam;
+UINT8 skincolor_blueteam;
+UINT8 skincolor_redring;
+UINT8 skincolor_bluering;
 
 tic_t countdowntimer = 0;
 boolean countdowntimeup = false;
@@ -189,18 +189,18 @@ boolean CheckForFloatBob;
 boolean CheckForReverseGravity;
 
 // Powerup durations
-UINT16 invulntics = 20*TICRATE;
-UINT16 sneakertics = 20*TICRATE;
-UINT16 flashingtics = 3*TICRATE;
-UINT16 tailsflytics = 8*TICRATE;
-UINT16 underwatertics = 30*TICRATE;
-UINT16 spacetimetics = 11*TICRATE + (TICRATE/2);
-UINT16 extralifetics = 4*TICRATE;
+UINT16 invulntics;
+UINT16 sneakertics;
+UINT16 flashingtics;
+UINT16 tailsflytics;
+UINT16 underwatertics;
+UINT16 spacetimetics;
+UINT16 extralifetics;
 
-INT32 gameovertics = 15*TICRATE;
+INT32 gameovertics;
 
-UINT8 use1upSound = 0;
-UINT8 maxXtraLife = 2; // Max extra lives from rings
+UINT8 use1upSound;
+UINT8 maxXtraLife; // Max extra lives from rings
 
 UINT8 introtoplay;
 UINT8 creditscutscene;
@@ -3158,7 +3158,35 @@ void G_LoadGameSettings(void)
 	spstage_start = 1;
 	sstage_start = 50;
 	sstage_end = 57; // 8 special stages in vanilla SRB2
-	useNightsSS = false; //true;
+	useNightsSS = false;
+
+	invulntics = 20*TICRATE;
+	sneakertics = 20*TICRATE;
+	flashingtics = 3*TICRATE;
+	tailsflytics = 8*TICRATE;
+	underwatertics = 30*TICRATE;
+	spacetimetics = 11*TICRATE + (TICRATE/2);
+	extralifetics = 4*TICRATE;
+
+	gameovertics = 15*TICRATE;
+
+	use1upSound = 0;
+	maxXtraLife = 2; // Max extra lives from rings
+
+	skincolor_redteam = SKINCOLOR_RED;
+	skincolor_blueteam = SKINCOLOR_BLUE;
+	skincolor_redring = SKINCOLOR_RED;
+	skincolor_bluering = SKINCOLOR_STEELBLUE;
+
+	introtoplay = 0;
+	creditscutscene = 0;
+
+	titlescrollspeed = 80;
+	looptitle = false;
+
+	numDemos = 3;
+	demoDelayTime = 15*TICRATE;
+	demoIdleTime = 3*TICRATE;
 
 	// initialize free sfx slots for skin sounds
 	S_InitRuntimeSounds();

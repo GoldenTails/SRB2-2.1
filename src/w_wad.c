@@ -894,35 +894,6 @@ void W_UnloadWadFile(UINT16 num)
 	// reload default dehacked-editable variables
 	G_LoadGameSettings();
 
-	// reload dehacked/lua
-	invulntics = 20*TICRATE;
-	sneakertics = 20*TICRATE;
-	flashingtics = 3*TICRATE;
-	tailsflytics = 8*TICRATE;
-	underwatertics = 30*TICRATE;
-	spacetimetics = 11*TICRATE + (TICRATE/2);
-	extralifetics = 4*TICRATE;
-
-	gameovertics = 15*TICRATE;
-
-	use1upSound = 0;
-	maxXtraLife = 2; // Max extra lives from rings
-
-	skincolor_redteam = SKINCOLOR_RED;
-	skincolor_blueteam = SKINCOLOR_BLUE;
-	skincolor_redring = SKINCOLOR_RED;
-	skincolor_bluering = SKINCOLOR_STEELBLUE;
-
-    introtoplay = 0;
-    creditscutscene = 0;
-
-    titlescrollspeed = 80;
-    looptitle = false;
-
-	numDemos = 3;
-	demoDelayTime = 15*TICRATE;
-	demoIdleTime = 3*TICRATE;
-
 	// clear game data stuff
 	G_SaveGameData();		// save it first
 	gamedataloaded = false;
