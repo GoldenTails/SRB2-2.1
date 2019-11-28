@@ -2718,7 +2718,7 @@ boolean P_SetupLevel(boolean skipprecip)
 
 	// Special stage fade to white
 	// This is handled BEFORE sounds are stopped.
-	if (rendermode != render_none && G_IsSpecialStage(gamemap) && !unloading_file)
+	if (rendermode != render_none && G_IsSpecialStage(gamemap) && !delfile)
 	{
 		tic_t starttime = I_GetTime();
 		tic_t endtime = starttime + (3*TICRATE)/2;
@@ -2752,7 +2752,7 @@ boolean P_SetupLevel(boolean skipprecip)
 	S_ClearSfx();
 
 	// load the map music name when unloading, always
-	if (unloading_file)
+	if (delfile)
 	{
 		S_StopMusic();
 		strncpy(mapmusname, mapheaderinfo[gamemap-1]->musname, 7);
@@ -2761,13 +2761,15 @@ boolean P_SetupLevel(boolean skipprecip)
 		S_ChangeMusic(mapmusname, mapmusflags, true);
 	}
 	else
-	// As oddly named as this is, this handles music only.
-	// We should be fine starting it here.
+	{
+		// As oddly named as this is, this handles music only.
+		// We should be fine starting it here.
 		S_Start();
+	}
 
 	// Let's fade to black here
 	// But only if we didn't do the special stage wipe
-	if (rendermode != render_none && !ranspecialwipe && !unloading_file)
+	if (rendermode != render_none && !ranspecialwipe && !delfile)
 	{
 		F_WipeStartScreen();
 		V_DrawFill(0, 0, BASEVIDWIDTH, BASEVIDHEIGHT, 31);
@@ -2777,7 +2779,7 @@ boolean P_SetupLevel(boolean skipprecip)
 	}
 
 	// Print "SPEEDING OFF TO [ZONE] [ACT 1]..."
-	if (rendermode != render_none && !unloading_file)
+	if (rendermode != render_none && !delfile)
 	{
 		// Don't include these in the fade!
 		char tx[64];
@@ -2972,7 +2974,7 @@ boolean P_SetupLevel(boolean skipprecip)
 			// Start players with pity shields if possible
 			players[i].pity = -1;
 
-			if (unloading_file)
+			if (delfile)
 				players[i].starposttime = 0;
 
 			if (!G_PlatformGametype())

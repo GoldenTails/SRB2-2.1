@@ -96,7 +96,7 @@ int	snprintf(char *str, size_t n, const char *fmt, ...);
 #include "zlib.h"
 #endif
 
-boolean unloading_file = false;
+boolean delfile = false;
 #ifdef DELFILE
 #include "lua_script.h"
 #endif
@@ -839,7 +839,7 @@ void W_UnloadWadFile(UINT16 num)
 {
 	INT32 i;
 
-	unloading_file = true;
+	delfile = true;
 	numwadfiles--;
 
 	CONS_Printf(M_GetText("Removing file %s...\n"), wadfiles[num]->filename);
@@ -954,7 +954,7 @@ void W_UnloadWadFile(UINT16 num)
 	else if (!(netgame || splitscreen))
 		F_StartIntro();
 
-	unloading_file = false;
+	delfile = false;
 }
 #endif
 

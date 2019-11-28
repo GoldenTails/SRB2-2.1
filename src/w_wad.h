@@ -128,7 +128,7 @@ FILE *W_OpenWadFile(const char **filename, boolean useerrors);
 // Load and add a wadfile to the active wad files, returns numbers of lumps, INT16_MAX on error
 UINT16 W_InitFile(const char *filename);
 
-extern boolean unloading_file;
+extern boolean delfile;
 #ifdef DELFILE
 void W_UnloadWadFile(UINT16 num);
 #endif
