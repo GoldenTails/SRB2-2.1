@@ -114,9 +114,12 @@ static void Command_ResetCamera_f(void);
 
 static void Command_Addfile(void);
 static void Command_ListWADS_f(void);
+
 #ifdef DELFILE
 static void Command_Delfile(void);
+static void Command_Resetgame(void);
 #endif
+
 static void Command_RunSOC(void);
 static void Command_Pause(void);
 static void Command_Suicide(void);
@@ -464,7 +467,9 @@ void D_RegisterServerCommands(void)
 
 #ifdef DELFILE
 	COM_AddCommand("delfile", Command_Delfile);
+	COM_AddCommand("resetgame", Command_Resetgame);
 #endif
+
 	COM_AddCommand("runsoc", Command_RunSOC);
 	COM_AddCommand("pause", Command_Pause);
 	COM_AddCommand("suicide", Command_Suicide);
@@ -3242,6 +3247,11 @@ static void Command_Delfile(void)
 	}
 
 	SendNetXCmd(XD_DELFILE, buf, buf_p - buf);
+}
+
+static void Command_Resetgame(void)
+{
+	D_ResetSRB2();
 }
 #endif
 

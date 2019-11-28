@@ -34,6 +34,7 @@
 #include "z_zone.h"
 #include "fastcmp.h"
 
+#include "d_main.h"
 #include "f_finale.h"
 #include "p_setup.h"
 #include "p_spec.h"
@@ -125,6 +126,18 @@ static UINT16 lumpnumcacheindex = 0;
 UINT16 numwadfiles; // number of active wadfiles
 wadfile_t *wadfiles[MAX_WADFILES]; // 0 to numwadfiles-1 are valid
 
+// W_ShutdownSingleFile
+// Closes a single WAD file
+void W_ShutdownSingleFile(UINT16 wadnum)
+{
+	fclose(wadfiles[wadnum]->handle);
+	Z_Free(wadfiles[wadnum]->filename);
+	while (wadfiles[wadnum]->numlumps--)
+		Z_Free(wadfiles[wadnum]->lumpinfo[wadfiles[wadnum]->numlumps].name2);
+	Z_Free(wadfiles[wadnum]->lumpinfo);
+	Z_Free(wadfiles[wadnum]);
+}
+
 // W_Shutdown
 // Closes all of the WAD files before quitting
 // If not done on a Mac then open wad files
@@ -133,14 +146,7 @@ wadfile_t *wadfiles[MAX_WADFILES]; // 0 to numwadfiles-1 are valid
 void W_Shutdown(void)
 {
 	while (numwadfiles--)
-	{
-		fclose(wadfiles[numwadfiles]->handle);
-		Z_Free(wadfiles[numwadfiles]->filename);
-		while (wadfiles[numwadfiles]->numlumps--)
-			Z_Free(wadfiles[numwadfiles]->lumpinfo[wadfiles[numwadfiles]->numlumps].name2);
-		Z_Free(wadfiles[numwadfiles]->lumpinfo);
-		Z_Free(wadfiles[numwadfiles]);
-	}
+		W_ShutdownSingleFile(numwadfiles);
 }
 
 //===========================================================================
@@ -336,7 +342,7 @@ static inline INT32 W_MakeFileMD5(const char *filename, void *resblock)
 }
 
 // Invalidates the cache of lump numbers. Call this whenever a wad is added.
-static void W_InvalidateLumpnumCache(void)
+void W_InvalidateLumpnumCache(void)
 {
 	memset(lumpnumcache, 0, sizeof (lumpnumcache));
 }
@@ -835,91 +841,11 @@ UINT16 W_InitFile(const char *filename)
 	return wadfile->numlumps;
 }
 
-// Jimita (13-12-2018)
-// This method clears up almost everything,
-// only to reload it back without the deleted file.
 #ifdef DELFILE
-void W_UnloadWadFile(UINT16 num)
+// for W_UnloadWadFile and D_ResetSRB2
+void W_ReloadFiles(void)
 {
-	char wadname[MAX_WADPATH];
 	INT32 i;
-
-	delfile = true;
-	numwadfiles--;
-
-	nameonly(strcpy(wadname, wadfiles[num]->filename));
-	CONS_Printf(M_GetText("Removing file %s...\n"), wadname);
-
-	W_InvalidateLumpnumCache(); // ??
-
-	// Save the current configuration file.
-	M_SaveConfig(NULL);
-	G_SaveGameData();	// Also save the gamedata.
-
-	// Delete all skins.
-	R_DelSkins();
-
-	// Stop all sound effects.
-	{
-		sfxenum_t i;
-		const lumpnum_t lumpnum = numwadfiles<<16;
-		for (i = 0; i < NUMSFX; i++)
-		{
-			if (S_sfx[i].lumpnum != LUMPERROR && S_sfx[i].lumpnum >= lumpnum)
-			{
-				S_StopSoundByNum(i);
-				S_RemoveSoundFx(i);
-				if (S_sfx[i].lumpnum != LUMPERROR)
-				{
-					I_FreeSfx(&S_sfx[i]);
-					S_sfx[i].lumpnum = LUMPERROR;
-				}
-			}
-		}
-	}
-
-#ifdef HWRENDER
-	// free OpenGL's texture cache
-	if (rendermode == render_opengl)
-		HWR_FreeTextureCache();
-#endif
-
-#ifdef HAVE_BLUA
-	// Lua stuff here
-	// delete lua-added console commands and variables
-	COM_DeleteLuaCommands();
-
-	// shutdown Lua
-	LUA_Shutdown();
-#endif
-
-	// clear level headers
-	for (i = 0; i < NUMMAPS; i++)
-		P_ClearSingleMapHeaderInfo(i);
-
-	// reload default dehacked-editable variables
-	G_LoadGameSettings();
-
-	// clear game data stuff
-	gamedataloaded = false;
-	G_ClearRecords();
-	M_ClearSecrets();
-
-	savemoddata = false;
-	modifiedgame = false;
-	ultimate_selectable = false;
-	strcpy(gamedatafilename, "gamedata.dat");
-	customversionstring[0] = 0;
-
-	// load the default game data
-	M_ReloadDefaultEmblemsAndUnlockables();
-	M_InitCharacterTables(); // character select
-	G_LoadGameData();
-
-	// Reset DeHackEd (SOC)
-	DEH_Init();
-	P_ResetData(0xFF);
-
 	// Load all SOC?
 	for (i = 0; i < numwadfiles; i++)
 	{
@@ -958,6 +884,21 @@ void W_UnloadWadFile(UINT16 num)
 	HU_LoadGraphics();
 	ST_LoadGraphics();
 	ST_ReloadSkinFaceGraphics();
+}
+
+void W_UnloadWadFile(UINT16 num)
+{
+	char wadname[MAX_WADPATH];
+
+	delfile = true;
+	numwadfiles--;
+
+	nameonly(strcpy(wadname, wadfiles[num]->filename));
+	CONS_Printf(M_GetText("Removing file %s...\n"), wadname);
+
+	// Put everything back on its place
+	D_InitialState();
+	W_ReloadFiles();
 
 	// finally just delete the wad
 	//CONS_Printf(M_GetText("Done unloading %s.\n"), wadfiles[num]->filename);
@@ -974,12 +915,16 @@ void W_UnloadWadFile(UINT16 num)
 		ST_Start();
 		if (W_CheckNumForName(G_BuildMapName(gamemap)) == LUMPERROR)
 			gamemap = 1;		// load MAP01 if the current map doesn't exist anymore
-		P_SetupLevel(false);
+		G_DoLoadLevel(true);
+		return;
 	}
-	else if (!(netgame || splitscreen))
-		F_StartIntro();
 
 	delfile = false;
+
+	if (!(netgame || splitscreen))
+		F_StartIntro();
+	else if (server)
+		SendNetXCmd(XD_EXITLEVEL, NULL, 0);
 }
 #endif
 

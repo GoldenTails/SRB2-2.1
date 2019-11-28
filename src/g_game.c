@@ -3177,6 +3177,7 @@ void G_LoadGameSettings(void)
 	skincolor_blueteam = SKINCOLOR_BLUE;
 	skincolor_redring = SKINCOLOR_RED;
 	skincolor_bluering = SKINCOLOR_STEELBLUE;
+	disableSpeedAdjust = false;
 
 	introtoplay = 0;
 	creditscutscene = 0;
@@ -3187,6 +3188,13 @@ void G_LoadGameSettings(void)
 	numDemos = 3;
 	demoDelayTime = 15*TICRATE;
 	demoIdleTime = 3*TICRATE;
+
+	savemoddata = false;
+	modifiedgame = false;
+	ultimate_selectable = false;
+	strcpy(gamedatafilename, "gamedata.dat");
+	strcpy(timeattackfolder, "main");
+	customversionstring[0] = 0;
 
 	// initialize free sfx slots for skin sounds
 	S_InitRuntimeSounds();

@@ -38,6 +38,10 @@ void D_SRB2Loop(void) FUNCNORETURN;
 //
 void D_SRB2Main(void);
 
+// Restart the game
+void D_InitialState(void);
+void D_ResetSRB2(void);
+
 // Called by IO functions when input is detected.
 void D_PostEvent(const event_t *ev);
 #if defined (PC_DOS) && !defined (DOXYGEN)

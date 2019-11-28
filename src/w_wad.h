@@ -122,6 +122,8 @@ extern wadfile_t *wadfiles[MAX_WADFILES];
 // =========================================================================
 
 void W_Shutdown(void);
+void W_ShutdownSingleFile(UINT16 wadnum);
+void W_InvalidateLumpnumCache(void);
 
 // Opens a WAD file. Returns the FILE * handle for the file, or NULL if not found or could not be opened
 FILE *W_OpenWadFile(const char **filename, boolean useerrors);
@@ -132,6 +134,8 @@ extern boolean delfile;
 #ifdef DELFILE
 void W_UnloadWadFile(UINT16 num);
 #endif
+
+void W_ReloadFiles(void);
 
 // W_InitMultipleFiles returns 1 if all is okay, 0 otherwise,
 // so that it stops with a message if a file was not found, but not if all is okay.

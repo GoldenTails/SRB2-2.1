@@ -88,6 +88,7 @@ int	snprintf(char *str, size_t n, const char *fmt, ...);
 
 #ifdef HWRENDER
 #include "hardware/hw_main.h" // 3D View Rendering
+#include "hardware/hw_glob.h" // HWR_FreeTextureCache
 #endif
 
 #ifdef _WINDOWS
@@ -1381,6 +1382,103 @@ void D_SRB2Main(void)
 		if (!P_SetupLevel(false))
 			I_Quit(); // fail so reset game stuff
 	}
+}
+
+void D_InitialState(void)
+{
+	INT32 i;
+
+	// Save the current configuration file.
+	M_SaveConfig(NULL);
+	G_SaveGameData();	// Also save the gamedata.
+
+	W_InvalidateLumpnumCache(); // ??
+
+#ifdef DELFILE
+	// Delete all skins.
+	R_DelSkins();
+#endif
+
+	// Stop all sound effects.
+	{
+		sfxenum_t i;
+		for (i = 0; i < NUMSFX; i++)
+		{
+			if (S_sfx[i].lumpnum != LUMPERROR)
+			{
+				S_StopSoundByNum(i);
+				S_RemoveSoundFx(i);
+				if (S_sfx[i].lumpnum != LUMPERROR)
+				{
+					I_FreeSfx(&S_sfx[i]);
+					S_sfx[i].lumpnum = LUMPERROR;
+				}
+			}
+		}
+	}
+
+#ifdef HWRENDER
+	// free OpenGL's texture cache
+	if (rendermode == render_opengl)
+		HWR_FreeTextureCache();
+#endif
+
+#ifdef HAVE_BLUA
+	// Lua stuff here
+#ifdef DELFILE
+	// delete lua-added console commands and variables
+	COM_DeleteLuaCommands();
+#endif
+
+	// shutdown Lua
+	LUA_Shutdown();
+#endif
+
+	// clear level headers
+	for (i = 0; i < NUMMAPS; i++)
+		P_ClearSingleMapHeaderInfo(i);
+
+	// reload default dehacked-editable variables
+	G_LoadGameSettings();
+
+	// clear game data stuff
+	gamedataloaded = false;
+	G_ClearRecords();
+	M_ClearSecrets();
+
+	// load the default game data
+	M_ReloadDefaultEmblemsAndUnlockables();
+	M_InitCharacterTables(); // character select
+	G_LoadGameData();
+
+	// Reset DeHackEd (SOC)
+	DEH_Init();
+	P_ResetData(0xFF);
+}
+
+void D_ResetSRB2(void)
+{
+	if (netgame)
+	{
+		CONS_Printf(M_GetText("You can't restart the game while in a netgame.\n"));
+		return;
+	}
+
+	// We're deleting some files
+	delfile = true;
+	while (numwadfiles > mainwads + 1) // don't delete music.dta
+	{
+		W_ShutdownSingleFile(numwadfiles - 1);
+		numwadfiles--;
+	}
+
+	// Put everything back on its place
+	D_InitialState();
+	W_ReloadFiles();
+
+	// Done. Start the intro.
+	delfile = false;
+	F_StartIntro();
 }
 
 const char *D_Home(void)
