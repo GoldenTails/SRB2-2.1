@@ -117,7 +117,7 @@ void LUA_Shutdown(void)
 		lua_close(gL);
 	gL = NULL;
 
-	CONS_Printf("LUA_Shutdown()...\n");
+	//CONS_Printf("LUA_Shutdown()...\n");
 }
 
 // Create a new Lua state, laddo!
@@ -130,7 +130,8 @@ void LUA_ClearState(void)
 	// close previous state
 	LUA_Shutdown();
 
-	CONS_Printf(M_GetText("Pardon me while I initialize the Lua scripting interface...\n"));
+	if (delfile)
+		CONS_Printf(M_GetText("Pardon me while I initialize the Lua scripting interface...\n"));
 
 	// allocate state
 	L = lua_newstate(LUA_Alloc, NULL);

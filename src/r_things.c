@@ -379,8 +379,11 @@ void R_AddSpriteDefs(UINT16 wadnum)
 		}
 	}
 
-	nameonly(strcpy(wadname, wadfiles[wadnum]->filename));
-	CONS_Printf(M_GetText("%s added %d frames in %s sprites\n"), wadname, end-start, sizeu1(addsprites));
+	if (!delfile)
+	{
+		nameonly(strcpy(wadname, wadfiles[wadnum]->filename));
+		CONS_Printf(M_GetText("%s added %d frames in %s sprites\n"), wadname, end-start, sizeu1(addsprites));
+	}
 }
 
 //
@@ -2683,7 +2686,8 @@ next_token:
 
 		R_FlushTranslationColormapCache();
 
-		CONS_Printf(M_GetText("Added skin '%s'\n"), skin->name);
+		if (!delfile)
+			CONS_Printf(M_GetText("Added skin '%s'\n"), skin->name);
 
 		// add face graphics
 		ST_LoadFaceGraphics(skin->face, skin->superface, numskins);
