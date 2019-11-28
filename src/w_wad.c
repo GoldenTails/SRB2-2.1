@@ -911,9 +911,9 @@ void W_UnloadWadFile(UINT16 num)
 	strcpy(gamedatafilename, "gamedata.dat");
 	customversionstring[0] = 0;
 
-    // load the default game data
-    M_ReloadDefaultEmblemsAndUnlockables();
-    M_InitCharacterTables(); // character select
+	// load the default game data
+	M_ReloadDefaultEmblemsAndUnlockables();
+	M_InitCharacterTables(); // character select
 	G_LoadGameData();
 
 	// Reset DeHackEd (SOC)
