@@ -3098,7 +3098,7 @@ static void Command_Addfile(void)
 	{
 		P_AddWadFile(fn);
 		if (resetmap)
-			P_SetupLevel(false);
+			G_DoLoadLevel(true);
 		return;
 	}
 
