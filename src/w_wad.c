@@ -913,6 +913,7 @@ void W_UnloadWadFile(UINT16 num)
 
     // load the default game data
     M_ReloadDefaultEmblemsAndUnlockables();
+    M_InitCharacterTables(); // character select
 	G_LoadGameData();
 
 	// Reset DeHackEd (SOC)
