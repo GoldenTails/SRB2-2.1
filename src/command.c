@@ -467,18 +467,25 @@ void COM_DeleteLuaCommands(void)
 	consvar_t *cvar, *prevcvar = NULL;
 	xcommand_t *cmd, *prevcmd = NULL;
 
-	for (cvar = consvar_vars; cvar; prevcvar = cvar, cvar = cvar->next)
+	cvar = consvar_vars;
+	while (cvar)
 	{
-		while (cvar->lua)
+		if (cvar->lua)
 		{
-			prevcvar->next = cvar->next;
-			cvar = prevcvar;
+			// head
+			if (cvar == consvar_vars)
+				consvar_vars = cvar->next;
+			if (prevcvar && prevcvar->next == cvar)
+				prevcvar->next = cvar->next;
 		}
+		prevcvar = cvar;
+		cvar = cvar->next;
 	}
 
-	for (cmd = com_commands; cmd; prevcmd = cmd, cmd = cmd->next)
+	cmd = com_commands;
+	while (cmd)
 	{
-		while (cmd->lua)
+		if (cmd->lua)
 		{
 			if (cmd->replaced)
 			{
@@ -488,10 +495,15 @@ void COM_DeleteLuaCommands(void)
 			}
 			else
 			{
-				prevcmd->next = cmd->next;
-				cmd = prevcmd;
+				// head
+				if (cmd == com_commands)
+					com_commands = cmd->next;
+				if (prevcmd && prevcmd->next == cmd)
+					prevcmd->next = cmd->next;
 			}
 		}
+		prevcmd = cmd;
+		cmd = cmd->next;
 	}
 }
 #endif
