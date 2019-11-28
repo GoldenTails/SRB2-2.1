@@ -464,20 +464,21 @@ int COM_AddLuaCommand(const char *name)
 #if defined(DELFILE) && defined(HAVE_BLUA)
 void COM_DeleteLuaCommands(void)
 {
-	consvar_t *cvar, *lastvar = consvar_vars;
-	xcommand_t *cmd, *lastcmd = com_commands;
+	consvar_t *cvar, *prevcvar = NULL;
+	xcommand_t *cmd, *prevcmd = NULL;
 
-	for (cvar = consvar_vars; cvar; cvar = cvar->next)
+	for (cvar = consvar_vars; cvar; prevcvar = cvar, cvar = cvar->next)
 	{
-		if (cvar->lua)
-			lastvar->next = cvar->next;
-		else
-			lastvar = cvar;
+		while (cvar->lua)
+		{
+			prevcvar->next = cvar->next;
+			cvar = prevcvar;
+		}
 	}
 
-	for (cmd = com_commands; cmd; cmd = cmd->next)
+	for (cmd = com_commands; cmd; prevcmd = cmd, cmd = cmd->next)
 	{
-		if (cmd->lua)
+		while (cmd->lua)
 		{
 			if (cmd->replaced)
 			{
@@ -486,10 +487,11 @@ void COM_DeleteLuaCommands(void)
 				cmd->replaced = false;
 			}
 			else
-				lastcmd->next = cmd->next;
+			{
+				prevcmd->next = cmd->next;
+				cmd = prevcmd;
+			}
 		}
-		else
-			lastcmd = cmd;
 	}
 }
 #endif
