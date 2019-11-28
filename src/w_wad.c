@@ -933,15 +933,13 @@ void W_UnloadWadFile(UINT16 num)
 	ST_ReloadSkinFaceGraphics();
 
 	// finally just delete the wad
-	CONS_Printf(M_GetText("Done unloading %s.\n"), wadfiles[num]->filename);
+	//CONS_Printf(M_GetText("Done unloading %s.\n"), wadfiles[num]->filename);
 	while (wadfiles[num]->numlumps--)
 		Z_Free(wadfiles[num]->lumpinfo[wadfiles[num]->numlumps].name2);
-	/*Z_Free(wadfiles[num]->lumpinfo);
+	Z_Free(wadfiles[num]->lumpinfo);
 	Z_Free(wadfiles[num]->filename);
 	fclose(wadfiles[num]->handle);
-	Z_Free(wadfiles[num]);*/
-	for (i = mainwads+1; i < numwadfiles; i++)
-		wadfiles[i] = wadfiles[i+1];
+	Z_Free(wadfiles[num]);
 
 	// reset the map
 	if (gamestate == GS_LEVEL)
