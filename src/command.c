@@ -412,7 +412,9 @@ void COM_AddCommand(const char *name, com_func_t func)
 	cmd = ZZ_Alloc(sizeof *cmd);
 	cmd->name = name;
 	cmd->function = func;
-	cmd->oldfunction = func;
+#ifdef DELFILE
+	cmd->basefunction = func;
+#endif
 	cmd->next = com_commands;
 	cmd->lua = false;
 	cmd->replaced = false;
@@ -454,6 +456,41 @@ int COM_AddLuaCommand(const char *name)
 	cmd->lua = true;
 	com_commands = cmd;
 	return 0;
+}
+#endif
+
+/** Delete Lua-defined ccmds and cvars.
+  */
+#if defined(DELFILE) && defined(HAVE_BLUA)
+void COM_DeleteLuaCommands(void)
+{
+	consvar_t *cvar, *lastvar = consvar_vars;
+	xcommand_t *cmd, *lastcmd = com_commands;
+
+	for (cvar = consvar_vars; cvar; cvar = cvar->next)
+	{
+		if (cvar->lua)
+			lastvar->next = cvar->next;
+		else
+			lastvar = cvar;
+	}
+
+	for (cmd = com_commands; cmd; cmd = cmd->next)
+	{
+		if (cmd->lua)
+		{
+			if (cmd->replaced)
+			{
+				cmd->function = cmd->basefunction;
+				cmd->lua = false;
+				cmd->replaced = false;
+			}
+			else
+				lastcmd->next = cmd->next;
+		}
+		else
+			lastcmd = cmd;
+	}
 }
 #endif
 

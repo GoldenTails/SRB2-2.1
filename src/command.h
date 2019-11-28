@@ -27,7 +27,9 @@ typedef struct xcommand_s
 	const char *name;
 	struct xcommand_s *next;
 	com_func_t function;
-	com_func_t oldfunction;
+#ifdef DELFILE
+	com_func_t basefunction;
+#endif
 	boolean lua;
 	boolean replaced;
 } xcommand_t;
@@ -35,7 +37,13 @@ typedef struct xcommand_s
 extern xcommand_t *com_commands; // current commands
 
 void COM_AddCommand(const char *name, com_func_t func);
+#ifdef HAVE_BLUA
 int COM_AddLuaCommand(const char *name);
+#endif
+
+#if defined(DELFILE) && defined(HAVE_BLUA)
+void COM_DeleteLuaCommands(void);
+#endif
 
 size_t COM_Argc(void);
 const char *COM_Argv(size_t arg); // if argv > argc, returns empty string

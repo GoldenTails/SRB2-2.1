@@ -3314,30 +3314,7 @@ boolean P_DelWadFile(const UINT16 wadnum)
 {
 	if (wadnum == 0)		// can't delete the IWAD
 		return false;
-
-	R_DelSkins(wadnum);		// delete skins
-
-	// stop all sound effects
-	{
-		sfxenum_t i;
-		const lumpnum_t lumpnum = numwadfiles<<16;
-		for (i = 0; i < NUMSFX; i++)
-		{
-			if (S_sfx[i].lumpnum != LUMPERROR && S_sfx[i].lumpnum >= lumpnum)
-			{
-				S_StopSoundByNum(i);
-				S_RemoveSoundFx(i);
-				if (S_sfx[i].lumpnum != LUMPERROR)
-				{
-					I_FreeSfx(&S_sfx[i]);
-					S_sfx[i].lumpnum = LUMPERROR;
-				}
-			}
-		}
-	}
-
-	W_UnloadWadFile(wadnum);	// then do it for real
-
+	W_UnloadWadFile(wadnum);
 	return true;
 }
 #endif

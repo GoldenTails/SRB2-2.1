@@ -2703,15 +2703,12 @@ next_token:
 }
 
 #ifdef DELFILE
-void R_DelSkins(UINT16 wadnum)
+void R_DelSkins(void)
 {
 	size_t i, j;
 
 	for (i = 0; i < MAXSKINS; i++)
 	{
-		if (skins[i].wadnum != wadnum)
-			continue;
-
 		ST_UnLoadFaceGraphics(i);
 
 		for (j = 0; j < 32; j++)
@@ -2736,7 +2733,7 @@ void R_DelSkins(UINT16 wadnum)
 		}
 
 		numskins--;
-		CONS_Printf(M_GetText("Removed skin '%s'\n"), skins[i].name);
+		//CONS_Printf(M_GetText("Removed skin '%s'\n"), skins[i].name);
 	}
 }
 #endif

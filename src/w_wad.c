@@ -848,46 +848,46 @@ void W_UnloadWadFile(UINT16 num)
 
 	CONS_Printf(M_GetText("Removing file %s...\n"), wadfiles[num]->filename);
 
-	// free opengl texture cache
+	W_InvalidateLumpnumCache(); // ??
+
+	// Save the current configuration file.
+	M_SaveConfig(NULL);
+	G_SaveGameData();	// Also save the gamedata.
+
+	// Delete all skins.
+	R_DelSkins();
+
+	// Stop all sound effects.
+	{
+		sfxenum_t i;
+		const lumpnum_t lumpnum = numwadfiles<<16;
+		for (i = 0; i < NUMSFX; i++)
+		{
+			if (S_sfx[i].lumpnum != LUMPERROR && S_sfx[i].lumpnum >= lumpnum)
+			{
+				S_StopSoundByNum(i);
+				S_RemoveSoundFx(i);
+				if (S_sfx[i].lumpnum != LUMPERROR)
+				{
+					I_FreeSfx(&S_sfx[i]);
+					S_sfx[i].lumpnum = LUMPERROR;
+				}
+			}
+		}
+	}
+
 #ifdef HWRENDER
+	// free OpenGL's texture cache
 	if (rendermode == render_opengl)
 		HWR_FreeTextureCache();
 #endif
 
 #ifdef HAVE_BLUA
+	// Lua stuff here
 	// delete lua-added console commands and variables
-	M_SaveConfig(NULL);
-	{
-		consvar_t *cvar, *lastvar = consvar_vars;
-		xcommand_t *cmd, *lastcmd = com_commands;
+	COM_DeleteLuaCommands();
 
-		for (cvar = consvar_vars; cvar; cvar = cvar->next)
-		{
-			if (cvar->lua)
-				lastvar->next = cvar->next;
-			else
-				lastvar = cvar;
-		}
-
-		for (cmd = com_commands; cmd; cmd = cmd->next)
-		{
-			if (cmd->lua)
-			{
-				if (cmd->replaced)
-				{
-					cmd->function = cmd->oldfunction;
-					cmd->lua = false;
-					cmd->replaced = false;
-				}
-				else
-					lastcmd->next = cmd->next;
-			}
-			else
-				lastcmd = cmd;
-		}
-	}
-
-	// destroy lua
+	// shutdown Lua
 	LUA_Shutdown();
 #endif
 
@@ -899,9 +899,7 @@ void W_UnloadWadFile(UINT16 num)
 	G_LoadGameSettings();
 
 	// clear game data stuff
-	G_SaveGameData();		// save it first
 	gamedataloaded = false;
-
 	G_ClearRecords();
 	M_ClearSecrets();
 
@@ -915,14 +913,36 @@ void W_UnloadWadFile(UINT16 num)
     M_ReloadDefaultEmblemsAndUnlockables();
 	G_LoadGameData();
 
-	// load soc/lua lumps
+	// Reset DeHackEd (SOC)
 	DEH_Init();
 	P_ResetData(0xFF);
-	W_InvalidateLumpnumCache();
-	for (i = 0; i < numwadfiles; i++)
-		W_LoadDehackedLumps(i);
 
-	// reload textures etc
+	// Load all SOC?
+	for (i = 0; i < numwadfiles; i++)
+	{
+		// TODO: HACK ALERT - Load Lua & SOC stuff right here. I feel like this should be out of this place, but... Let's stick with this for now.
+		switch (wadfiles[i]->type)
+		{
+		case RET_WAD:
+			W_LoadDehackedLumps(i);
+			break;
+		case RET_PK3:
+			W_LoadDehackedLumpsPK3(i);
+			break;
+		case RET_SOC:
+			DEH_LoadDehackedLumpPwad(i, 0);
+			break;
+#ifdef HAVE_BLUA
+		case RET_LUA:
+			LUA_LoadLump(i, 0);
+			break;
+#endif
+		default:
+			break;
+		}
+	}
+
+	// Reload textures and sprites.
 	R_LoadTextures();
 	R_InitSprites();
 	R_ReInitColormaps(mapheaderinfo[gamemap-1]->palette);

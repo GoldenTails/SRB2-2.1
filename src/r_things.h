@@ -184,7 +184,7 @@ INT32 R_SkinAvailable(const char *name);
 void R_AddSkins(UINT16 wadnum);
 
 #ifdef DELFILE
-void R_DelSkins(UINT16 wadnum);
+void R_DelSkins(void);
 #endif
 
 void R_InitDrawNodes(void);

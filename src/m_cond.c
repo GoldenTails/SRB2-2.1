@@ -600,9 +600,11 @@ unlockable_t unlockables[MAXUNLOCKABLES] =
 	/* 17 */ {"Level Select",  "Collect All Emblems", 20, 45, SECRET_LEVELSELECT, 1, false,  true, 0},
 };
 
+#ifdef DELFILE
 static emblem_t emblemlocations_backup[MAXEMBLEMS];
 static extraemblem_t extraemblems_backup[MAXEXTRAEMBLEMS];
 static unlockable_t unlockables_backup[MAXUNLOCKABLES];
+#endif
 
 // Default number of emblems and extra emblems
 INT32 numemblems = 155;
@@ -610,20 +612,24 @@ INT32 numextraemblems = 5;
 
 void M_ReloadDefaultEmblemsAndUnlockables(void)
 {
+#ifdef DELFILE
 	// Jimita
 	memcpy(emblemlocations, emblemlocations_backup, sizeof(emblem_t) * MAXEMBLEMS);
 	memcpy(extraemblems, extraemblems_backup, sizeof(extraemblem_t) * MAXEMBLEMS);
 	memcpy(unlockables, unlockables_backup, sizeof(unlockable_t) * MAXEMBLEMS);
+#endif
 	M_SetupDefaultConditionSets();
 }
 
 // DEFAULT CONDITION SETS FOR SRB2 2.1:
 void M_SetupDefaultConditionSets(void)
 {
+#ifdef DELFILE
 	// Jimita
 	memcpy(emblemlocations_backup, emblemlocations, sizeof(emblem_t) * MAXEMBLEMS);
 	memcpy(extraemblems_backup, extraemblems, sizeof(extraemblem_t) * MAXEMBLEMS);
 	memcpy(unlockables_backup, unlockables, sizeof(unlockable_t) * MAXEMBLEMS);
+#endif
 
 	memset(conditionSets, 0, sizeof(conditionSets));
 
