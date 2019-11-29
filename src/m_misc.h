@@ -103,8 +103,6 @@ void M_SetupMemcpy(void);
 // counting bits, for weapon ammo code, usually
 FUNCMATH UINT8 M_CountBits(UINT32 num, UINT8 size);
 
-char *getFilenameFromPath(char *str);
-
 #include "w_wad.h"
 extern char configfile[MAX_WADPATH];
 

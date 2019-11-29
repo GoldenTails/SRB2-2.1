@@ -3204,7 +3204,9 @@ static void Command_Delfile(void)
 		for (i = 0; i < numwadfiles; i++)
 		{
 			// found the file we want to delete
-			if (!stricmp(getFilenameFromPath(wadfiles[i]->filename), p))
+			char *wadname = va("%s", wadfiles[i]->filename);
+			nameonly(wadname);
+			if (!stricmp(wadname, p))
 			{
 				found = true;
 				// WADs added at game setup (srb2.srb, zones.dta, etc.)
@@ -3352,7 +3354,9 @@ static void Got_Delfilecmd(UINT8 **cp, INT32 playernum)
 	for (i = 0; i < numwadfiles; i++)
 	{
 		// found the file we want to delete
-		if ((!stricmp(getFilenameFromPath(wadfiles[i]->filename), filename)) && (!memcmp(wadfiles[i]->md5sum, md5sum, 16)))
+		char *wadname = va("%s", wadfiles[i]->filename);
+		nameonly(wadname);
+		if ((!stricmp(wadname, filename)) && (!memcmp(wadfiles[i]->md5sum, md5sum, 16)))
 		{
 			found = true;
 			// WADs added at game setup (srb2.srb, zones.dta, etc.)
