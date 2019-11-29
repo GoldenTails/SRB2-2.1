@@ -133,7 +133,10 @@ void W_ShutdownSingleFile(UINT16 wadnum)
 	fclose(wadfiles[wadnum]->handle);
 	Z_Free(wadfiles[wadnum]->filename);
 	while (wadfiles[wadnum]->numlumps--)
+	{
+		Z_Free(wadfiles[wadnum]->lumpcache[wadfiles[wadnum]->numlumps]);
 		Z_Free(wadfiles[wadnum]->lumpinfo[wadfiles[wadnum]->numlumps].name2);
+	}
 	Z_Free(wadfiles[wadnum]->lumpinfo);
 	Z_Free(wadfiles[wadnum]->lumpcache);
 	Z_Free(wadfiles[wadnum]);
