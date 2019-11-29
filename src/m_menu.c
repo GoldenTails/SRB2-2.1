@@ -4913,7 +4913,7 @@ static void M_SecretsMenu(INT32 choice)
 // NEW GAME FUNCTIONS
 // ==================
 
-INT32 ultimate_selectable = false;
+INT32 ultimate_selectable;
 
 static void M_NewGame(void)
 {
