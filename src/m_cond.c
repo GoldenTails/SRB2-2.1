@@ -614,8 +614,8 @@ void M_ReloadDefaultEmblemsAndUnlockables(void)
 {
 #ifdef DELFILE
 	memcpy(emblemlocations, emblemlocations_backup, sizeof(emblem_t) * MAXEMBLEMS);
-	memcpy(extraemblems, extraemblems_backup, sizeof(extraemblem_t) * MAXEMBLEMS);
-	memcpy(unlockables, unlockables_backup, sizeof(unlockable_t) * MAXEMBLEMS);
+	memcpy(extraemblems, extraemblems_backup, sizeof(extraemblem_t) * MAXEXTRAEMBLEMS);
+	memcpy(unlockables, unlockables_backup, sizeof(unlockable_t) * MAXUNLOCKABLES);
 #endif
 	M_SetupDefaultConditionSets();
 }
@@ -625,8 +625,8 @@ void M_SetupDefaultConditionSets(void)
 {
 #ifdef DELFILE
 	memcpy(emblemlocations_backup, emblemlocations, sizeof(emblem_t) * MAXEMBLEMS);
-	memcpy(extraemblems_backup, extraemblems, sizeof(extraemblem_t) * MAXEMBLEMS);
-	memcpy(unlockables_backup, unlockables, sizeof(unlockable_t) * MAXEMBLEMS);
+	memcpy(extraemblems_backup, extraemblems, sizeof(extraemblem_t) * MAXEXTRAEMBLEMS);
+	memcpy(unlockables_backup, unlockables, sizeof(unlockable_t) * MAXUNLOCKABLES);
 #endif
 
 	memset(conditionSets, 0, sizeof(conditionSets));
