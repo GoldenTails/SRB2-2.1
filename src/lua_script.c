@@ -185,7 +185,8 @@ static inline void LUA_LoadFile(MYFILE *f, char *name)
 	lua_setfield(gL, LUA_REGISTRYINDEX, "WAD");
 
 	if (luaL_loadbuffer(gL, f->data, f->size, va("@%s",name)) || lua_pcall(gL, 0, 0, 0)) {
-		CONS_Alert(CONS_WARNING,"%s\n",lua_tostring(gL,-1));
+		if (!delfile)
+			CONS_Alert(CONS_WARNING,"%s\n",lua_tostring(gL,-1));
 		lua_pop(gL,1);
 	}
 	lua_gc(gL, LUA_GCCOLLECT, 0);

@@ -15,6 +15,7 @@
 #include "m_fixed.h"
 #include "doomtype.h"
 #include "d_player.h"
+#include "w_wad.h"
 
 #include "blua/lua.h"
 #include "blua/lualib.h"
@@ -66,7 +67,8 @@ void COM_Lua_f(void);
 #define LUA_Call(L,a)\
 {\
 	if (lua_pcall(L, a, 0, 0)) {\
-		CONS_Alert(CONS_WARNING,"%s\n",lua_tostring(L,-1));\
+		if (!delfile) \
+			CONS_Alert(CONS_WARNING,"%s\n",lua_tostring(L,-1));\
 		lua_pop(L, 1);\
 	}\
 }
