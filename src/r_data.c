@@ -212,6 +212,9 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 		patch = texture->patches;
 		realpatch = W_CacheLumpNumPwad(patch->wad, patch->lump, PU_CACHE);
 
+		if (!W_IsFilePresent(patch->wad))
+			goto done;
+
 		// Check the patch for holes.
 		if (texture->width > SHORT(realpatch->width) || texture->height > SHORT(realpatch->height))
 			holey = true;
@@ -276,6 +279,8 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 	for (i = 0, patch = texture->patches; i < texture->patchcount; i++, patch++)
 	{
 		realpatch = W_CacheLumpNumPwad(patch->wad, patch->lump, PU_CACHE);
+		if (!W_IsFilePresent(patch->wad))
+			continue;
 		x1 = patch->originx;
 		x2 = x1 + SHORT(realpatch->width);
 
@@ -404,6 +409,9 @@ void R_LoadTextures(void)
 	// but the alternative is to spend a ton of time checking and re-checking all previous entries just to skip any potentially patched textures.
 	for (w = 0, numtextures = 0; w < numwadfiles; w++)
 	{
+		if (!W_IsFilePresent(w))
+			continue;
+
 		// Count the textures from TEXTURES lumps
 
 		texturesLumpPos = W_CheckNumForNamePwad("TEXTURES", (UINT16)w, 0);
@@ -470,6 +478,9 @@ void R_LoadTextures(void)
 
 	for (i = 0, w = 0; w < numwadfiles; w++)
 	{
+		if (!W_IsFilePresent(w))
+			continue;
+
 		// Get the lump numbers for the markers in the WAD, if they exist.
 		if (wadfiles[w]->type == RET_PK3)
 		{
@@ -994,6 +1005,8 @@ lumpnum_t R_GetFlatNumForName(const char *name)
 	// Scan wad files backwards so patched flats take preference.
 	for (i = numwadfiles - 1; i >= 0; i--)
 	{
+		if (!W_IsFilePresent(i))
+			continue;
 		switch (wadfiles[i]->type)
 		{
 		case RET_WAD:

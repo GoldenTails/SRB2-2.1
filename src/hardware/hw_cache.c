@@ -440,6 +440,8 @@ static void HWR_GenerateTexture(INT32 texnum, GLTexture_t *grtex)
 	for (i = 0, patch = texture->patches; i < texture->patchcount; i++, patch++)
 	{
 		realpatch = W_CacheLumpNumPwad(patch->wad, patch->lump, PU_CACHE);
+		if (!W_IsFilePresent(patch->wad))
+			continue;
 		HWR_DrawPatchInCache(&grtex->mipmap,
 		                     blockwidth, blockheight,
 		                     blockwidth*format2bpp[grtex->mipmap.grInfo.format],
@@ -588,7 +590,11 @@ void HWR_FreeTextureCache(void)
 
 	// free all skin after each level: must be done after pfnClearMipMapCache!
 	for (i = 0; i < numwadfiles; i++)
+	{
+		if (!W_IsFilePresent(i))
+			continue;
 		M_AATreeIterate(wadfiles[i]->hwrcache, FreeMipmapColormap);
+	}
 
 	// now the heap don't have any 'user' pointing to our
 	// texturecache info, we can free it

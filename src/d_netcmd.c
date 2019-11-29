@@ -3130,6 +3130,8 @@ static void Command_Addfile(void)
 
 		for (i = 0; i < numwadfiles; i++)
 		{
+			if (!W_IsFilePresent(i))
+				continue;
 			if (!memcmp(wadfiles[i]->md5sum, md5sum, 16))
 			{
 				CONS_Alert(CONS_ERROR, M_GetText("%s is already loaded\n"), fn);
@@ -3192,7 +3194,10 @@ static void Command_Delfile(void)
 	for (i = 0; i < numwadfiles; i++)
 	{
 		// found the file we want to delete
-		char *wadname = va("%s", wadfiles[i]->filename);
+		char *wadname;
+		if (!W_IsFilePresent(i))
+			continue;
+		wadname = va("%s", wadfiles[i]->filename);
 		nameonly(wadname);
 		if (!stricmp(wadname, p))
 		{
@@ -3334,8 +3339,10 @@ static void Got_Delfilecmd(UINT8 **cp, INT32 playernum)
 	for (i = 0; i < numwadfiles; i++)
 	{
 		// found the file we want to delete
-		char *wadname = va("%s", wadfiles[i]->filename);
-		nameonly(wadname);
+		char *wadname;
+		if (!W_IsFilePresent(i))
+			continue;
+		wadname = va("%s", wadfiles[i]->filename);
 		if (!stricmp(wadname, filename))
 		{
 			found = true;

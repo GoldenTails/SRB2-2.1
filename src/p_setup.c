@@ -2192,6 +2192,8 @@ static inline boolean P_CheckLevel(lumpnum_t lumpnum)
 	{
 		file = WADFILENUM(lumpnum);
 		lump = LUMPNUM(lumpnum+1);
+		if (!W_IsFilePresent(file))
+			return false;
 		if (file > numwadfiles || lump < LUMPNUM(lumpnum) || lump > wadfiles[file]->numlumps ||
 			memcmp(wadfiles[file]->lumpinfo[lump].name, levellumps[i], 8) != 0)
 		return false;

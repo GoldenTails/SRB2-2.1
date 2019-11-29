@@ -328,6 +328,9 @@ void R_AddSpriteDefs(UINT16 wadnum)
 	UINT16 start, end;
 	char wadname[MAX_WADPATH];
 
+	if (!W_IsFilePresent(wadnum))
+		return;
+
 	switch (wadfiles[wadnum]->type)
 	{
 	case RET_WAD:
@@ -2400,6 +2403,9 @@ static UINT16 W_CheckForSkinMarkerInPwad(UINT16 wadid, UINT16 startlump)
 	UINT16 i;
 	const char *S_SKIN = "S_SKIN";
 	lumpinfo_t *lump_p;
+
+	if (!W_IsFilePresent(wadid))
+		return INT16_MAX;
 
 	// scan forward, start at <startlump>
 	if (startlump < wadfiles[wadid]->numlumps)

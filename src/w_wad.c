@@ -847,6 +847,11 @@ UINT16 W_InitFile(const char *filename)
 	return wadfile->numlumps;
 }
 
+boolean W_IsFilePresent(UINT16 wadnum)
+{
+	return (wadfiles[wadnum] != NULL);
+}
+
 #ifdef DELFILE
 // for W_UnloadWadFile and D_ResetSRB2
 void W_ReloadFiles(void)
@@ -1009,6 +1014,9 @@ static boolean TestValidLump(UINT16 wad, UINT16 lump)
 
 const char *W_CheckNameForNumPwad(UINT16 wad, UINT16 lump)
 {
+	if (!W_IsFilePresent(wad))
+		return NULL;
+
 	if (lump >= wadfiles[wad]->numlumps || !TestValidLump(wad, 0))
 		return NULL;
 
@@ -1063,7 +1071,10 @@ UINT16 W_CheckNumForNamePwad(const char *name, UINT16 wad, UINT16 startlump)
 UINT16 W_CheckNumForFolderStartPK3(const char *name, UINT16 wad, UINT16 startlump)
 {
 	INT32 i;
-	lumpinfo_t *lump_p = wadfiles[wad]->lumpinfo + startlump;
+	lumpinfo_t *lump_p;
+	if (!W_IsFilePresent(wad))
+		return UINT16_MAX;
+	lump_p = wadfiles[wad]->lumpinfo + startlump;
 	for (i = startlump; i < wadfiles[wad]->numlumps; i++, lump_p++)
 	{
 		if (strnicmp(name, lump_p->name2, strlen(name)) == 0)
@@ -1078,7 +1089,10 @@ UINT16 W_CheckNumForFolderStartPK3(const char *name, UINT16 wad, UINT16 startlum
 UINT16 W_CheckNumForFolderEndPK3(const char *name, UINT16 wad, UINT16 startlump)
 {
 	INT32 i;
-	lumpinfo_t *lump_p = wadfiles[wad]->lumpinfo + startlump;
+	lumpinfo_t *lump_p;
+	if (!W_IsFilePresent(wad))
+		return UINT16_MAX;
+	lump_p = wadfiles[wad]->lumpinfo + startlump;
 	for (i = startlump; i < wadfiles[wad]->numlumps; i++, lump_p++)
 	{
 		if (strnicmp(name, lump_p->name2, strlen(name)))
@@ -1092,7 +1106,10 @@ UINT16 W_CheckNumForFolderEndPK3(const char *name, UINT16 wad, UINT16 startlump)
 UINT16 W_CheckNumForFullNamePK3(const char *name, UINT16 wad, UINT16 startlump)
 {
 	INT32 i;
-	lumpinfo_t *lump_p = wadfiles[wad]->lumpinfo + startlump;
+	lumpinfo_t *lump_p;
+	if (!W_IsFilePresent(wad))
+		return INT16_MAX;
+	lump_p = wadfiles[wad]->lumpinfo + startlump;
 	for (i = startlump; i < wadfiles[wad]->numlumps; i++, lump_p++)
 	{
 		if (!strnicmp(name, lump_p->name2, strlen(name)))
@@ -1153,6 +1170,8 @@ lumpnum_t W_CheckNumForMap(const char *name)
 	UINT32 i;
 	for (i = numwadfiles - 1; i < numwadfiles; i--)
 	{
+		if (!W_IsFilePresent(i))
+			continue;
 		if (wadfiles[i]->type == RET_WAD)
 		{
 			for (lumpNum = 0; lumpNum < wadfiles[i]->numlumps; lumpNum++)
@@ -1205,6 +1224,8 @@ lumpnum_t W_CheckNumForNameInBlock(const char *name, const char *blockstart, con
 	// scan wad files backwards so patch lump files take precedence
 	for (i = numwadfiles - 1; i >= 0; i--)
 	{
+		if (!W_IsFilePresent(i))
+			continue;
 		if (wadfiles[i]->type == RET_WAD)
 		{
 			bsid = W_CheckNumForNamePwad(blockstart, (UINT16)i, 0);
@@ -1229,7 +1250,10 @@ UINT8 W_LumpExists(const char *name)
 	INT32 i,j;
 	for (i = numwadfiles - 1; i >= 0; i--)
 	{
-		lumpinfo_t *lump_p = wadfiles[i]->lumpinfo;
+		lumpinfo_t *lump_p;
+		if (!W_IsFilePresent(i))
+			continue;
+		lump_p = wadfiles[i]->lumpinfo;
 		for (j = 0; j < wadfiles[i]->numlumps; ++j, ++lump_p)
 			if (fastcmp(lump_p->name,name))
 				return true;
@@ -1260,10 +1284,12 @@ size_t W_LumpLength(lumpnum_t lumpnum)
 //
 boolean W_IsLumpWad(lumpnum_t lumpnum)
 {
+	if (!W_IsFilePresent(WADFILENUM(lumpnum)))
+		return false;
+
 	if (wadfiles[WADFILENUM(lumpnum)]->type == RET_PK3)
 	{
 		const char *lumpfullName = (wadfiles[WADFILENUM(lumpnum)]->lumpinfo + LUMPNUM(lumpnum))->name2;
-
 		if (strlen(lumpfullName) < 4)
 			return false; // can't possibly be a WAD can it?
 		return !strnicmp(lumpfullName + strlen(lumpfullName) - 4, ".wad", 4);
@@ -1278,10 +1304,12 @@ boolean W_IsLumpWad(lumpnum_t lumpnum)
 //
 boolean W_IsLumpFolder(UINT16 wad, UINT16 lump)
 {
+	if (!W_IsFilePresent(wad))
+		return false;
+
 	if (wadfiles[wad]->type == RET_PK3)
 	{
 		const char *name = wadfiles[wad]->lumpinfo[lump].name2;
-
 		return (name[strlen(name)-1] == '/'); // folders end in '/'
 	}
 
@@ -1722,8 +1750,12 @@ void W_VerifyFileMD5(UINT16 wadfilenum, const char *matchmd5)
 	UINT8 realmd5[MD5_LEN];
 	INT32 ix;
 
+	if (!W_IsFilePresent(wadfilenum))
+		return;
+
 	I_Assert(strlen(matchmd5) == 2*MD5_LEN);
 	I_Assert(wadfilenum < numwadfiles);
+
 	// Convert an md5 string like "7d355827fa8f981482246d6c95f9bd48"
 	// into a real md5.
 	for (ix = 0; ix < 2*MD5_LEN; ix++)

@@ -135,6 +135,7 @@ extern boolean delfile;
 void W_UnloadWadFile(UINT16 num);
 #endif
 
+boolean W_IsFilePresent(UINT16 wadnum);
 void W_ReloadFiles(void);
 
 // W_InitMultipleFiles returns 1 if all is okay, 0 otherwise,
