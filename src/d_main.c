@@ -1388,10 +1388,6 @@ void D_InitialState(void)
 {
 	INT32 i;
 
-	// Save the current configuration file.
-	M_SaveConfig(NULL);
-	G_SaveGameData();	// Also save the gamedata.
-
 	W_InvalidateLumpnumCache(); // ??
 
 #ifdef DELFILE
@@ -1459,6 +1455,10 @@ void D_ResetSRB2(void)
 		CONS_Printf(M_GetText("You can't restart the game while in a netgame.\n"));
 		return;
 	}
+
+	// Save the current configuration file.
+	M_SaveConfig(NULL);
+	G_SaveGameData();	// Also save the gamedata.
 
 	// We're deleting some files
 	delfile = true;

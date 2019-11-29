@@ -896,6 +896,10 @@ void W_UnloadWadFile(UINT16 num)
 	nameonly(strcpy(wadname, wadfiles[num]->filename));
 	CONS_Printf(M_GetText("Removing file %s...\n"), wadname);
 
+	// Save the current configuration file.
+	M_SaveConfig(NULL);
+	G_SaveGameData();	// Also save the gamedata.
+
 	// Put everything back on its place
 	D_InitialState();
 	W_ReloadFiles();
