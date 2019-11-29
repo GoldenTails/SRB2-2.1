@@ -1408,11 +1408,7 @@ void D_InitialState(void)
 			{
 				S_StopSoundByNum(i);
 				S_RemoveSoundFx(i);
-				if (S_sfx[i].lumpnum != LUMPERROR)
-				{
-					I_FreeSfx(&S_sfx[i]);
-					S_sfx[i].lumpnum = LUMPERROR;
-				}
+				I_FreeSfx(&S_sfx[i]);
 			}
 		}
 	}
