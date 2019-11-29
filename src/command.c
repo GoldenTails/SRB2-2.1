@@ -1309,7 +1309,8 @@ finish:
 
 	if (var->flags & CV_SHOWMODIFONETIME || var->flags & CV_SHOWMODIF)
 	{
-		CONS_Printf(M_GetText("%s set to %s\n"), var->name, var->string);
+		if (!delfile)
+			CONS_Printf(M_GetText("%s set to %s\n"), var->name, var->string);
 		var->flags &= ~CV_SHOWMODIFONETIME;
 	}
 	else // display message in debug file only

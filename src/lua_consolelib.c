@@ -217,12 +217,14 @@ static int lib_comAddCommand(lua_State *L)
 	}
 	else if (com_return == 1)
 	{ // command existed already -- free our name as the old string will continue to be used
-		CONS_Printf("Replaced command \"%s\"\n", name);
+		if (!delfile)
+			CONS_Printf("Replaced command \"%s\"\n", name);
 		Z_Free(name);
 	}
 	else
 	{ // new command was added -- do NOT free the string as it will forever be used by the console
-		CONS_Printf("Added command \"%s\"\n", name);
+		if (!delfile)
+			CONS_Printf("Added command \"%s\"\n", name);
 	}
 	return 0;
 }
