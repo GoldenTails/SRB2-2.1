@@ -927,8 +927,15 @@ void W_UnloadWadFile(UINT16 num)
 	if (gamestate == GS_LEVEL)
 	{
 		ST_Start();
+		// load MAP01 if the current map doesn't exist anymore
 		if (W_CheckNumForName(G_BuildMapName(gamemap)) == LUMPERROR)
-			gamemap = 1;		// load MAP01 if the current map doesn't exist anymore
+			gamemap = 1;
+		// same deal for nextmap
+		if (W_CheckNumForName(G_BuildMapName(nextmap+1)) == LUMPERROR)
+			nextmap = 0;
+		// ...and nextmapoverride
+		if (W_CheckNumForName(G_BuildMapName(nextmapoverride)) == LUMPERROR)
+			nextmapoverride = 1;
 		G_DoLoadLevel(true);
 		return;
 	}
