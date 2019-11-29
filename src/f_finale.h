@@ -38,6 +38,7 @@ void F_TitleDemoTicker(void);
 void F_GameEndDrawer(void);
 void F_IntroDrawer(void);
 void F_TitleScreenDrawer(void);
+void F_CacheTitleScreen(void);
 
 void F_GameEvaluationDrawer(void);
 void F_StartGameEvaluation(void);

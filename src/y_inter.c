@@ -156,7 +156,6 @@ static void Y_AwardSpecialStageBonus(void);
 static void Y_CalculateCompetitionWinners(void);
 static void Y_CalculateTimeRaceWinners(void);
 static void Y_CalculateMatchWinners(void);
-static void Y_FollowIntermission(void);
 static void Y_UnloadData(void);
 
 // Stuff copy+pasted from st_stuff.c
@@ -1821,7 +1820,7 @@ void Y_EndIntermission(void)
 //
 // Y_FollowIntermission
 //
-static void Y_FollowIntermission(void)
+void Y_FollowIntermission(void)
 {
 	if (modeattacking)
 	{

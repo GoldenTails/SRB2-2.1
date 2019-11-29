@@ -1466,6 +1466,11 @@ void F_StartTitleScreen(void)
 
 	animtimer = 0;
 
+	F_CacheTitleScreen();
+}
+
+void F_CacheTitleScreen(void)
+{
 	demoDelayLeft = demoDelayTime;
 	demoIdleLeft = demoIdleTime;
 

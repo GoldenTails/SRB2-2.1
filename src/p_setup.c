@@ -3306,6 +3306,9 @@ boolean P_AddWadFile(const char *wadfilename)
 			SendNetXCmd(XD_EXITLEVEL, NULL, 0);
 	}
 
+	if (gamestate == GS_TITLESCREEN)
+		F_CacheTitleScreen();
+
 	return true;
 }
 

@@ -36,6 +36,7 @@
 
 #include "d_main.h"
 #include "f_finale.h"
+#include "y_inter.h"
 #include "p_setup.h"
 #include "p_spec.h"
 #include "r_things.h"
@@ -919,12 +920,14 @@ void W_UnloadWadFile(UINT16 num)
 
 	if (!Playing())
 	{
+		if (gamestate == GS_TITLESCREEN)
+			F_CacheTitleScreen();
 		delfile = false;
 		return;
 	}
 
 	// reset the map
-	if (gamestate == GS_LEVEL)
+	if (gamestate == GS_LEVEL || gamestate == GS_INTERMISSION)
 	{
 		ST_Start();
 		// load MAP01 if the current map doesn't exist anymore
@@ -936,7 +939,13 @@ void W_UnloadWadFile(UINT16 num)
 		// ...and nextmapoverride
 		if (W_CheckNumForName(G_BuildMapName(nextmapoverride)) == LUMPERROR)
 			nextmapoverride = 1;
-		G_DoLoadLevel(true);
+		if (gamestate == GS_INTERMISSION)
+		{
+			Y_EndIntermission();
+			Y_FollowIntermission();
+		}
+		else
+			G_DoLoadLevel(true);
 		return;
 	}
 
