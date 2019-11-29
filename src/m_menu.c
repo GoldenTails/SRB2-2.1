@@ -4257,6 +4257,17 @@ static void M_AddonExec(INT32 ch)
 	COM_BufAddText(va("exec \"%s%s\"", menupath, dirmenu[dir_on[menudepthleft]]+DIR_STRING));
 }
 
+#ifdef DELFILE
+static void M_AddonDelete(INT32 ch)
+{
+	if (ch != 'y' && ch != KEY_ENTER)
+		return;
+
+	S_StartSound(NULL, sfx_altdi1);
+	COM_BufAddText(va("delfile \"%s%s\"", menupath, dirmenu[dir_on[menudepthleft]]+DIR_STRING));
+}
+#endif
+
 #define len menusearch[0]
 static boolean M_ChangeStringAddons(INT32 choice)
 {
@@ -4350,7 +4361,12 @@ static void M_HandleAddons(INT32 choice)
 					S_StartSound(NULL, sfx_lose);
 				else
 				{
+#ifdef DELFILE
+					UINT8 ftype = dirmenu[dir_on[menudepthleft]][DIR_TYPE];
+					switch (ftype & ~EXT_LOADED)
+#else
 					switch (dirmenu[dir_on[menudepthleft]][DIR_TYPE])
+#endif
 					{
 						case EXT_FOLDER:
 							strcpy(&menupath[menupathindex[menudepthleft]],dirmenu[dir_on[menudepthleft]]+DIR_STRING);
@@ -4413,8 +4429,18 @@ static void M_HandleAddons(INT32 choice)
 						case EXT_KART:
 #endif
 						case EXT_PK3:
+						{
+#ifdef DELFILE
+							// lzilla: delfile
+							if (ftype & EXT_LOADED)
+							{
+								M_StartMessage(va("%c%s\x80\nUnload this file? \n\n(Press 'Y' to confirm)\n", ('\x80' + (highlightflags>>V_CHARCOLORSHIFT)), dirmenu[dir_on[menudepthleft]]+DIR_STRING),M_AddonDelete,MM_YESNO);
+								return;
+							}
+#endif
 							COM_BufAddText(va("addfile \"%s%s\"", menupath, dirmenu[dir_on[menudepthleft]]+DIR_STRING));
 							break;
+						}
 						default:
 							S_StartSound(NULL, sfx_lose);
 					}

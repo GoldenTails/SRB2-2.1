@@ -178,7 +178,8 @@ static inline void LUA_LoadFile(MYFILE *f, char *name)
 {
 	if (!name)
 		name = wadfiles[f->wad]->filename;
-	CONS_Printf("Loading Lua script from %s\n", name);
+	if (!delfile)
+		CONS_Printf("Loading Lua script from %s\n", name);
 	if (!gL) // Lua needs to be initialized
 		LUA_ClearState();
 	lua_pushinteger(gL, f->wad);

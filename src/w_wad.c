@@ -913,6 +913,18 @@ void W_UnloadWadFile(UINT16 num)
 	fclose(wadfiles[num]->handle);
 	Z_Free(wadfiles[num]);
 
+	// I don't know why, but leaving the menu open
+	// makes currentMenu be NULL and crash the game...
+	if (dirmenu)
+		closefilemenu(true);
+	menuactive = false;
+
+	if (!Playing())
+	{
+		delfile = false;
+		return;
+	}
+
 	// reset the map
 	if (gamestate == GS_LEVEL)
 	{
