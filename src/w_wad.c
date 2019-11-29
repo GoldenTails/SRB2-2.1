@@ -135,6 +135,7 @@ void W_ShutdownSingleFile(UINT16 wadnum)
 	while (wadfiles[wadnum]->numlumps--)
 		Z_Free(wadfiles[wadnum]->lumpinfo[wadfiles[wadnum]->numlumps].name2);
 	Z_Free(wadfiles[wadnum]->lumpinfo);
+	Z_Free(wadfiles[wadnum]->lumpcache);
 	Z_Free(wadfiles[wadnum]);
 }
 
@@ -905,13 +906,7 @@ void W_UnloadWadFile(UINT16 num)
 	W_ReloadFiles();
 
 	// finally just delete the wad
-	//CONS_Printf(M_GetText("Done unloading %s.\n"), wadfiles[num]->filename);
-	while (wadfiles[num]->numlumps--)
-		Z_Free(wadfiles[num]->lumpinfo[wadfiles[num]->numlumps].name2);
-	Z_Free(wadfiles[num]->lumpinfo);
-	Z_Free(wadfiles[num]->filename);
-	fclose(wadfiles[num]->handle);
-	Z_Free(wadfiles[num]);
+	W_ShutdownSingleFile(num);
 
 	// I don't know why, but leaving the menu open
 	// makes currentMenu be NULL and crash the game...
