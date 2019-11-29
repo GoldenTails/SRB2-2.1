@@ -1396,16 +1396,13 @@ void D_InitialState(void)
 #endif
 
 	// Stop all sound effects.
+	for (i = 0; i < NUMSFX; i++)
 	{
-		sfxenum_t i;
-		for (i = 0; i < NUMSFX; i++)
+		if (S_sfx[i].lumpnum != LUMPERROR)
 		{
-			if (S_sfx[i].lumpnum != LUMPERROR)
-			{
-				S_StopSoundByNum(i);
-				S_RemoveSoundFx(i);
-				I_FreeSfx(&S_sfx[i]);
-			}
+			S_StopSoundByNum(i);
+			S_RemoveSoundFx(i);
+			I_FreeSfx(&S_sfx[i]);
 		}
 	}
 

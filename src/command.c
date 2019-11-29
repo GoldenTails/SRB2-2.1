@@ -470,7 +470,7 @@ void COM_DeleteLuaCommands(void)
 	cvar = consvar_vars;
 	while (cvar)
 	{
-		if (cvar->lua)
+		if (cvar->flags & CV_LUAVAR)
 		{
 			// head
 			if (cvar == consvar_vars)
@@ -483,7 +483,7 @@ void COM_DeleteLuaCommands(void)
 	}
 
 	// Fix the tail
-	if (prevcvar->lua)
+	if (prevcvar->flags & CV_LUAVAR)
 	{
 		cvar = consvar_vars;
 		while (cvar)

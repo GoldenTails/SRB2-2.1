@@ -118,7 +118,8 @@ typedef enum
 	CV_HIDEN = 1024, // variable is not part of the cvar list so cannot be accessed by the console
 	                 // can only be set when we have the pointer to it
                    // used on menus
-	CV_CHEAT = 2048 // Don't let this be used in multiplayer unless cheats are on.
+	CV_CHEAT = 2048, // Don't let this be used in multiplayer unless cheats are on.
+	CV_LUAVAR = 4096 // Lua console variable
 } cvflags_t;
 
 typedef struct CV_PossibleValue_s
@@ -142,7 +143,6 @@ typedef struct consvar_s //NULL, NULL, 0, NULL, NULL |, 0, NULL, NULL, 0, 0, NUL
 	                      // used only with CV_NETVAR
 	char changed;         // has variable been changed by the user? 0 = no, 1 = yes
 	struct consvar_s *next;
-	boolean lua;
 } consvar_t;
 extern consvar_t *consvar_vars; // list of registered console variables
 
