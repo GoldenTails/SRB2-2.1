@@ -3059,7 +3059,6 @@ static void Command_Addfile(void)
 	char *buf_p = buf;
 	INT32 i;
 	int musiconly; // W_VerifyNMUSlumps isn't boolean
-	boolean resetmap = false;
 
 	if (COM_Argc() < 2)
 	{
@@ -3068,12 +3067,6 @@ static void Command_Addfile(void)
 	}
 	else
 		fn = COM_Argv(1);
-
-	if (COM_Argc() >= 3)
-	{
-		char firstchar = COM_Argv(2)[0];
-		resetmap = (firstchar == 't' || firstchar == 'T' || firstchar == 'y' || firstchar == 'Y');
-	}
 
 	// Disallow non-printing characters and semicolons.
 	for (i = 0; fn[i] != '\0'; i++)
@@ -3097,8 +3090,6 @@ static void Command_Addfile(void)
 	if (!(netgame || multiplayer) || musiconly)
 	{
 		P_AddWadFile(fn);
-		if (resetmap)
-			G_DoLoadLevel(true);
 		return;
 	}
 
