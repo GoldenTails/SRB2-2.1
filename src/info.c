@@ -13817,21 +13817,30 @@ void P_BackupTables(void)
 	// Sprite names
 	sprnamesbackupsize = lzf_compress(sprnames, sizeof(sprnames), sprnamesbackup, sizeof(sprnames));
 	if (sprnamesbackupsize > 0)
-		sprnamesbackup = Z_Realloc(sprnamesbackup, sprnamesbackupsize, PU_STATIC, NULL);
+	{
+		Z_Free(sprnamesbackup);
+		sprnamesbackup = Z_Malloc(sprnamesbackupsize, PU_STATIC, NULL);
+	}
 	else
 		M_Memcpy(sprnamesbackup, sprnames, sizeof(sprnames));
 
 	// States
 	statesbackupsize = lzf_compress(states, sizeof(states), statesbackup, sizeof(states));
 	if (statesbackupsize > 0)
-		statesbackup = Z_Realloc(statesbackup, statesbackupsize, PU_STATIC, NULL);
+	{
+		Z_Free(statesbackup);
+		statesbackup = Z_Malloc(statesbackupsize, PU_STATIC, NULL);
+	}
 	else
 		M_Memcpy(statesbackup, states, sizeof(states));
 
 	// Mobj info
 	mobjinfobackupsize = lzf_compress(mobjinfo, sizeof(mobjinfo), mobjinfobackup, sizeof(mobjinfo));
 	if (mobjinfobackupsize > 0)
-		mobjinfobackup = Z_Realloc(mobjinfobackup, mobjinfobackupsize, PU_STATIC, NULL);
+	{
+		Z_Free(mobjinfobackup);
+		mobjinfobackup = Z_Malloc(mobjinfobackupsize, PU_STATIC, NULL);
+	}
 	else
 		M_Memcpy(mobjinfobackup, mobjinfo, sizeof(mobjinfo));
 #endif
