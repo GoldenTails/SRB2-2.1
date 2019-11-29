@@ -213,7 +213,7 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 		realpatch = W_CacheLumpNumPwad(patch->wad, patch->lump, PU_CACHE);
 
 		if (!W_IsFilePresent(patch->wad))
-			goto done;
+			goto multipatch;
 
 		// Check the patch for holes.
 		if (texture->width > SHORT(realpatch->width) || texture->height > SHORT(realpatch->height))
@@ -261,6 +261,7 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 	}
 
 	// multi-patch textures (or 'composite')
+multipatch:
 	texture->holes = false;
 	blocksize = (texture->width * 4) + (texture->width * texture->height);
 	texturememory += blocksize;
