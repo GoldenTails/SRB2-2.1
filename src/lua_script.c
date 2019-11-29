@@ -130,7 +130,7 @@ void LUA_ClearState(void)
 	// close previous state
 	LUA_Shutdown();
 
-	if (delfile)
+	if (!delfile)
 		CONS_Printf(M_GetText("Pardon me while I initialize the Lua scripting interface...\n"));
 
 	// allocate state
