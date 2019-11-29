@@ -471,7 +471,6 @@ extern const char *compdate, *comptime, *comprevision, *compbranch;
 #endif
 
 ///	Delete file while the game is running.
-///	\note	EXTREMELY buggy, tends to crash game.
 #define DELFILE
 
 ///	Allows the use of devmode in multiplayer. AKA "fishcake"
