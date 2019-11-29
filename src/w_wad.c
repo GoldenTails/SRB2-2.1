@@ -141,6 +141,7 @@ void W_ShutdownSingleFile(UINT16 wadnum)
 	Z_Free(wadfiles[wadnum]->lumpinfo);
 	Z_Free(wadfiles[wadnum]->lumpcache);
 	Z_Free(wadfiles[wadnum]);
+	wadfiles[wadnum] = NULL;
 }
 
 // W_Shutdown
