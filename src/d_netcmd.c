@@ -3423,6 +3423,8 @@ static void Command_ListWADS_f(void)
 	CONS_Printf(M_GetText("There are %d wads loaded:\n"),numwadfiles);
 	for (i--; i >= 0; i--)
 	{
+		if (!W_IsFilePresent(i))
+			continue;
 		nameonly(tempname = va("%s", wadfiles[i]->filename));
 		if (!i)
 			CONS_Printf("\x82 IWAD\x80: %s\n", tempname);

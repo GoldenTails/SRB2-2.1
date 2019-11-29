@@ -690,6 +690,7 @@ UINT16 W_InitFile(const char *filename)
 	wadfile_t *wadfile;
 	restype_t type;
 	UINT16 numlumps = 0;
+	UINT16 wadfileslot = UINT16_MAX;
 	size_t i;
 	size_t packetsize;
 	UINT8 md5sum[16];
@@ -742,6 +743,16 @@ UINT16 W_InitFile(const char *filename)
 		packetsizetally = packetsize;
 	}
 
+	// Find unoccupied file slot
+	for (i = 0; i < numwadfiles; i++)
+	{
+		if (!W_IsFilePresent(i))
+		{
+			wadfileslot = i;
+			break;
+		}
+	}
+
 #ifndef NOMD5
 	//
 	// w-waiiiit!
@@ -752,6 +763,10 @@ UINT16 W_InitFile(const char *filename)
 
 	for (i = 0; i < numwadfiles; i++)
 	{
+		if (i == wadfileslot)
+			continue;
+		if (!W_IsFilePresent(i))
+			continue;
 		if (!memcmp(wadfiles[i]->md5sum, md5sum, 16))
 		{
 			CONS_Alert(CONS_ERROR, M_GetText("%s is already loaded\n"), filename);
@@ -818,8 +833,12 @@ UINT16 W_InitFile(const char *filename)
 	// add the wadfile
 	//
 	CONS_Printf(M_GetText("Added file %s (%u lumps)\n"), filename, numlumps);
-	wadfiles[numwadfiles] = wadfile;
-	numwadfiles++; // must come BEFORE W_LoadDehackedLumps, so any addfile called by COM_BufInsertText called by Lua doesn't overwrite what we just loaded
+	if (wadfileslot == UINT16_MAX)
+	{
+		wadfileslot = numwadfiles;
+		numwadfiles++; // must come BEFORE W_LoadDehackedLumps, so any addfile called by COM_BufInsertText called by Lua doesn't overwrite what we just loaded
+	}
+	wadfiles[wadfileslot] = wadfile;
 
 	// TODO: HACK ALERT - Load Lua & SOC stuff right here. I feel like this should be out of this place, but... Let's stick with this for now.
 	switch (wadfile->type)
@@ -902,7 +921,8 @@ void W_UnloadWadFile(UINT16 num)
 	char wadname[MAX_WADPATH];
 
 	delfile = true;
-	numwadfiles--;
+	if (num == numwadfiles-1)
+		numwadfiles--;
 
 	nameonly(strcpy(wadname, wadfiles[num]->filename));
 	CONS_Printf(M_GetText("Removing file %s...\n"), wadname);
