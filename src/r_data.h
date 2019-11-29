@@ -75,6 +75,7 @@ UINT8 *R_GetFlat(lumpnum_t flatnum);
 
 // I/O, setting up the stuff.
 void R_InitData(void);
+void R_InitColormaps(void);
 void R_PrecacheLevel(void);
 
 // Retrieval.
