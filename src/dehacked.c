@@ -177,10 +177,13 @@ FUNCPRINTF static void deh_warning(const char *first, ...)
 	vsnprintf(buf, 1000, first, argptr); // sizeof only returned 4 here. it didn't like that pointer.
 	va_end(argptr);
 
-	if(dbg_line == -1) // Not in a SOC, line number unknown.
-		CONS_Alert(CONS_WARNING, "%s\n", buf);
-	else
-		CONS_Alert(CONS_WARNING, "Line %u: %s\n", dbg_line, buf);
+	if (!delfile)
+	{
+		if(dbg_line == -1) // Not in a SOC, line number unknown.
+			CONS_Alert(CONS_WARNING, "%s\n", buf);
+		else
+			CONS_Alert(CONS_WARNING, "Line %u: %s\n", dbg_line, buf);
+	}
 
 	deh_num_warning++;
 
@@ -3168,7 +3171,7 @@ static void DEH_LoadDehackedFile(MYFILE *f, UINT16 wad)
 		G_LoadGameData();
 
 	dbg_line = -1;
-	if (deh_num_warning)
+	if (deh_num_warning && !delfile)
 	{
 		CONS_Printf(M_GetText("%d warning%s in the SOC lump\n"), deh_num_warning, deh_num_warning == 1 ? "" : "s");
 		if (devparm) {
@@ -7295,7 +7298,8 @@ static inline int lib_freeslot(lua_State *L)
 		if (fastcmp(type, "SFX")) {
 			sfxenum_t sfx;
 			strlwr(word);
-			CONS_Printf("Sound sfx_%s allocated.\n",word);
+			if (!delfile)
+				CONS_Printf("Sound sfx_%s allocated.\n",word);
 			sfx = S_AddSoundFx(word, false, 0, false);
 			if (sfx != sfx_None) {
 				lua_pushinteger(L, sfx);
@@ -7319,7 +7323,8 @@ static inline int lib_freeslot(lua_State *L)
 					continue; // Already allocated, next.
 				}
 				// Found a free slot!
-				CONS_Printf("Sprite SPR_%s allocated.\n",word);
+				if (!delfile)
+					CONS_Printf("Sprite SPR_%s allocated.\n",word);
 				strncpy(sprnames[j],word,4);
 				//sprnames[j][4] = 0;
 				used_spr[(j-SPR_FIRSTFREESLOT)/8] |= 1<<(j%8); // Okay, this sprite slot has been named now.
@@ -7335,7 +7340,8 @@ static inline int lib_freeslot(lua_State *L)
 			statenum_t i;
 			for (i = 0; i < NUMSTATEFREESLOTS; i++)
 				if (!FREE_STATES[i]) {
-					CONS_Printf("State S_%s allocated.\n",word);
+					if (!delfile)
+						CONS_Printf("State S_%s allocated.\n",word);
 					FREE_STATES[i] = Z_Malloc(strlen(word)+1, PU_STATIC, NULL);
 					strcpy(FREE_STATES[i],word);
 					lua_pushinteger(L, i);
@@ -7350,7 +7356,8 @@ static inline int lib_freeslot(lua_State *L)
 			mobjtype_t i;
 			for (i = 0; i < NUMMOBJFREESLOTS; i++)
 				if (!FREE_MOBJS[i]) {
-					CONS_Printf("MobjType MT_%s allocated.\n",word);
+					if (!delfile)
+						CONS_Printf("MobjType MT_%s allocated.\n",word);
 					FREE_MOBJS[i] = Z_Malloc(strlen(word)+1, PU_STATIC, NULL);
 					strcpy(FREE_MOBJS[i],word);
 					lua_pushinteger(L, i);
