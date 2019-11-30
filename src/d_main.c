@@ -753,14 +753,7 @@ static void IdentifyVersion(void)
 
 	// if you change the ordering of this or add/remove a file, be sure to update the md5
 	// checking in D_SRB2Main
-
-	// Add the maps
-	//D_AddFile(va(pandf,srb2waddir,"zones.dta"));
-
-	// Add the players
 	D_AddFile(va(pandf,srb2waddir,"player.dta"));
-
-	// Add the weapons
 	D_AddFile(va(pandf,srb2waddir,"rings.dta"));
 
 #ifdef USE_PATCH_DTA
@@ -768,27 +761,8 @@ static void IdentifyVersion(void)
 	D_AddFile(va(pandf,srb2waddir,"patch.dta"));
 #endif
 
-/*#if !defined (HAVE_SDL) || defined (HAVE_MIXER)
-	{
-#define MUSICTEST(str) \
-		{\
-			const char *musicpath = va(pandf,srb2waddir,str);\
-			int ms = W_VerifyNMUSlumps(musicpath); \
-			if (ms == 1) \
-				D_AddFile(musicpath); \
-			else if (ms == 0) \
-				I_Error("File "str" has been modified with non-music/sound lumps"); \
-		}
-
-#if defined (DC) && 0
-		MUSICTEST("music_dc.dta")
-#else
-		MUSICTEST("music.dta")
-#endif
-	}
-#endif*/
-
-	D_AddFile(va(pandf,srb2waddir,"jimipaint.wad"));
+	// lzpaint
+	D_AddFile(va(pandf,srb2waddir,"lzpaint.wad"));
 }
 
 /* ======================================================================== */

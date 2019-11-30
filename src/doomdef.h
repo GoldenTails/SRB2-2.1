@@ -150,9 +150,9 @@ extern FILE *logstream;
 // we use comprevision and compbranch instead.
 #else
 #define VERSION    201 // Game version
-#define SUBVERSION 25  // more precise version number
-#define VERSIONSTRING "JimiPaint r3"
-#define VERSIONSTRINGW L"JimiPaint r3"
+#define SUBVERSION 70  // more precise version number
+#define VERSIONSTRING "LZPaint v1"
+#define VERSIONSTRINGW L"LZPaint v1"
 // Hey! If you change this, add 1 to the MODVERSION below!
 // Otherwise we can't force updates!
 #endif
