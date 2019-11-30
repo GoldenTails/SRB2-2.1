@@ -17,6 +17,7 @@
 #ifdef USE_PATCH_DTA
 #define ASSET_HASH_PATCH_DTA  		"${SRB2_ASSET_patch.dta_HASH}"
 #endif
+#define ASSET_HASH_LZPAINT  		"${SRB2_ASSET_lzpaint.wad_HASH}"
 
 #define SRB2_COMP_REVISION    "${SRB2_COMP_REVISION}"
 #define SRB2_COMP_BRANCH      "${SRB2_COMP_BRANCH}"
@@ -35,6 +36,7 @@
 #ifdef USE_PATCH_DTA
 #define ASSET_HASH_PATCH_DTA  "636BD1C9269629AEAC2C3C184754D471"
 #endif
+#define ASSET_HASH_LZPAINT "5008b3abea0d4eaff89870c54ebe2cb3"
 
 #endif
 #endif
