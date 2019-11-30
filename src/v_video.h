@@ -43,9 +43,10 @@ const char *R_GetPalname(UINT16 num);
 const char *GetPalette(void);
 
 extern RGBA_t *pLocalPalette;
+extern RGBA_t *pLocalPalette2;
 
 // Retrieve the ARGB value from a palette color index
-#define V_GetColor(color) (pLocalPalette[color&0xFF])
+#define V_GetColor(color) (pLocalPalette2[color&0xFF])
 
 // Bottom 8 bits are used for parameter (screen or character)
 #define V_PARAMMASK          0x000000FF
@@ -147,6 +148,9 @@ void V_DrawFlatFill(INT32 x, INT32 y, INT32 w, INT32 h, lumpnum_t flatnum);
 void V_DrawFadeScreen(void);
 
 void V_DrawFadeConsBack(INT32 plines);
+
+/// JimitaMPC
+void V_DrawPatchToBuffer(patch_t *patch, UINT8 *buffer, fixed_t pscalex, fixed_t pscaley, INT32 x, INT32 y, INT32 buffer_width, boolean flip, const UINT8 *colormap);
 
 // draw a single character
 void V_DrawCharacter(INT32 x, INT32 y, INT32 c, boolean lowercaseallowed);

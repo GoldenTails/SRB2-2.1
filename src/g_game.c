@@ -2224,7 +2224,7 @@ void G_PlayerReborn(INT32 player)
 	if ((netgame || multiplayer) && !p->spectator)
 		p->powers[pw_flashing] = flashingtics-1; // Babysitting deterrent
 
-	if (p-players == consoleplayer)
+	/*if (p-players == consoleplayer)
 	{
 		if (mapmusflags & MUSIC_RELOADRESET)
 		{
@@ -2233,7 +2233,7 @@ void G_PlayerReborn(INT32 player)
 			mapmusflags = mapheaderinfo[gamemap-1]->mustrack & MUSIC_TRACKMASK;
 		}
 		S_ChangeMusic(mapmusname, mapmusflags, true);
-	}
+	}*/
 
 	if (gametype == GT_COOP)
 		P_FindEmerald(); // scan for emeralds to hunt for

@@ -2227,6 +2227,60 @@ static int lib_gTicsToMilliseconds(lua_State *L)
 	return 1;
 }
 
+/// JimitaMPC
+static int lib_GetColor(lua_State *L)
+{
+	RGBA_t color;
+	V_SetPaletteLump("PLAYPAL");
+
+	color = V_GetColor(luaL_checkinteger(L,1));
+	lua_pushinteger(L,color.s.red);
+	lua_pushinteger(L,color.s.green);
+	lua_pushinteger(L,color.s.blue);
+	return 3;
+}
+
+static int lib_NearestColor(lua_State *L)
+{
+	int c1 = luaL_checkinteger(L,1)&0xff;
+	int c2 = luaL_checkinteger(L,2)&0xff;
+	int c3 = luaL_checkinteger(L,3)&0xff;
+	V_SetPaletteLump("PLAYPAL");
+	lua_pushinteger(L,NearestColor(c1,c2,c3));
+	return 1;
+}
+
+static int lib_vPatchToRaw(lua_State *L)
+{
+	int i;
+	patch_t *patch;
+	UINT8 *buffer;
+	INT32 howbiggy;
+
+	patch = W_CachePatchName(luaL_checkstring(L, 1), PU_STATIC);
+	howbiggy = patch->width*patch->height;
+	buffer = Z_Malloc(howbiggy, PU_STATIC, NULL);
+	memset(buffer,247,howbiggy);
+
+	V_DrawPatchToBuffer(patch, buffer, FRACUNIT, FRACUNIT, 0, 0, patch->width, false, NULL);
+
+	lua_newtable(L);
+	for (i = 0; i < howbiggy; i++)
+	{
+		lua_pushinteger(L,buffer[i]);
+		lua_rawseti(L,-2,i);
+	}
+	return 1;
+}
+
+static int lib_vPatchDimensions(lua_State *L)
+{
+	patch_t *patch = W_CachePatchName(luaL_checkstring(L, 1), PU_STATIC);
+	lua_pushinteger(L,patch->width);
+	lua_pushinteger(L,patch->height);
+	return 2;
+}
+
 static luaL_Reg lib[] = {
 	{"print", lib_print},
 	{"EvalMath", lib_evalMath},
@@ -2383,7 +2437,7 @@ static luaL_Reg lib[] = {
 	{"S_IdPlaying",lib_sIdPlaying},
 	{"S_SoundPlaying",lib_sSoundPlaying},
 
-	/// MPC 04-08-2018
+	/// JimitaMPC
 	{"S_SoundPlaying",lib_sSoundPlaying},
 	{"S_SetMusicPosition",lib_sSetMusicPosition},
 	{"S_GetMusicPosition",lib_sGetMusicPosition},
@@ -2391,17 +2445,15 @@ static luaL_Reg lib[] = {
 	{"S_GetMusicVolume",lib_sGetMusicVolume},
 	{"S_FadeOutMusic",lib_sFadeOutMusic},
 	{"S_ChangeMusicFadeIn",lib_sChangeMusicFadeIn},
-
-	/// MPC 04-08-2018
-	{"S_PitchMusic",lib_sPitchMusic},			/// MPC 04-08-2018
-	{"S_ModuleGetInfo",lib_sModuleGetInfo},		/// MPC 04-08-2018
+	{"S_PitchMusic",lib_sPitchMusic},
+	{"S_ModuleGetInfo",lib_sModuleGetInfo},
 
 	// g_game
 	{"G_BuildMapName",lib_gBuildMapName},
 	{"G_DoReborn",lib_gDoReborn},
 	{"G_ExitLevel",lib_gExitLevel},
 	{"G_IsSpecialStage",lib_gIsSpecialStage},
-	{"G_ForceWipe",lib_gForceWipe},						// MPC
+	{"G_ForceWipe",lib_gForceWipe},
 	{"G_GametypeUsesLives",lib_gGametypeUsesLives},
 	{"G_GametypeHasTeams",lib_gGametypeHasTeams},
 	{"G_GametypeHasSpectators",lib_gGametypeHasSpectators},
@@ -2413,6 +2465,12 @@ static luaL_Reg lib[] = {
 	{"G_TicsToSeconds",lib_gTicsToSeconds},
 	{"G_TicsToCentiseconds",lib_gTicsToCentiseconds},
 	{"G_TicsToMilliseconds",lib_gTicsToMilliseconds},
+
+	/// JimitaMPC
+	{"GetColor",lib_GetColor},
+	{"NearestColor",lib_NearestColor},
+	{"PatchToRaw",lib_vPatchToRaw},
+	{"PatchDimensions",lib_vPatchDimensions},
 
 	{NULL, NULL}
 };

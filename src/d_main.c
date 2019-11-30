@@ -381,51 +381,7 @@ static void D_Display(void)
 	// see if the border needs to be initially drawn
 	if (gamestate == GS_LEVEL)
 	{
-		// draw the view directly
-		if (!automapactive && !dedicated && cv_renderview.value)
-		{
-			if (players[displayplayer].mo || players[displayplayer].playerstate == PST_DEAD)
-			{
-				topleft = screens[0] + viewwindowy*vid.width + viewwindowx;
-				objectsdrawn = 0;
-#ifdef HWRENDER
-				if (rendermode != render_soft)
-					HWR_RenderPlayerView(0, &players[displayplayer]);
-				else
-#endif
-				if (rendermode != render_none)
-					R_RenderPlayerView(&players[displayplayer]);
-			}
-
-			// render the second screen
-			if (splitscreen && players[secondarydisplayplayer].mo)
-			{
-#ifdef HWRENDER
-				if (rendermode != render_soft)
-					HWR_RenderPlayerView(1, &players[secondarydisplayplayer]);
-				else
-#endif
-				if (rendermode != render_none)
-				{
-					viewwindowy = vid.height / 2;
-					M_Memcpy(ylookup, ylookup2, viewheight*sizeof (ylookup[0]));
-
-					topleft = screens[0] + viewwindowy*vid.width + viewwindowx;
-
-					R_RenderPlayerView(&players[secondarydisplayplayer]);
-
-					viewwindowy = 0;
-					M_Memcpy(ylookup, ylookup1, viewheight*sizeof (ylookup[0]));
-				}
-			}
-
-			// Image postprocessing effect
-			if (postimgtype)
-				V_DoPostProcessor(0, postimgtype, postimgparam);
-			if (postimgtype2)
-				V_DoPostProcessor(1, postimgtype2, postimgparam2);
-		}
-
+		V_DrawFill(0, 0, BASEVIDWIDTH, BASEVIDHEIGHT, 31);
 		if (lastdraw)
 		{
 			if (rendermode == render_soft)
@@ -435,9 +391,7 @@ static void D_Display(void)
 			}
 			lastdraw = false;
 		}
-
 		ST_Drawer();
-
 		HU_Drawer();
 	}
 
@@ -534,9 +488,6 @@ void D_SRB2Loop(void)
 
 	if (dedicated)
 		server = true;
-
-	if (M_CheckParm("-voodoo")) // 256x256 Texture Limiter
-		COM_BufAddText("gr_voodoocompatibility on\n");
 
 	// Pushing of + parameters is now done back in D_SRB2Main, not here.
 
@@ -1137,7 +1088,7 @@ void D_SRB2Main(void)
 #ifdef USE_PATCH_DTA
 	W_VerifyFileMD5(3, ASSET_HASH_PATCH_DTA); // patch.dta
 #endif
-	W_VerifyFileMD5(4, ASSET_HASH_JIMIPAINT);	/// MPC
+	//W_VerifyFileMD5(4, ASSET_HASH_JIMIPAINT);	/// MPC
 #endif //ifndef DEVELOP
 
 	mainwads = 4; // there are 4 wads not to unload

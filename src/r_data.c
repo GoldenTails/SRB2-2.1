@@ -1103,9 +1103,33 @@ INT32 R_ColormapNumForName(char *name)
 // data and not the colormap data.
 //
 static double deltas[256][3], map[256][3];
-
-static UINT8 NearestColor(UINT8 r, UINT8 g, UINT8 b);
 static int RoundUp(double number);
+
+// Thanks to quake2 source!
+// utils3/qdata/images.c
+UINT8 NearestColor(UINT8 r, UINT8 g, UINT8 b)
+{
+	int dr, dg, db;
+	int distortion, bestdistortion = 256 * 256 * 4, bestcolor = 0, i;
+
+	for (i = 0; i < 256; i++)
+	{
+		dr = r - pLocalPalette[i].s.red;
+		dg = g - pLocalPalette[i].s.green;
+		db = b - pLocalPalette[i].s.blue;
+		distortion = dr*dr + dg*dg + db*db;
+		if (distortion < bestdistortion)
+		{
+			if (!distortion)
+				return (UINT8)i;
+
+			bestdistortion = distortion;
+			bestcolor = i;
+		}
+	}
+
+	return (UINT8)bestcolor;
+}
 
 INT32 R_CreateColormap(char *p1, char *p2, char *p3)
 {
@@ -1418,32 +1442,6 @@ void R_CreateColormap2(char *p1, char *p2, char *p3)
 #undef ABS2
 
 	return;
-}
-
-// Thanks to quake2 source!
-// utils3/qdata/images.c
-static UINT8 NearestColor(UINT8 r, UINT8 g, UINT8 b)
-{
-	int dr, dg, db;
-	int distortion, bestdistortion = 256 * 256 * 4, bestcolor = 0, i;
-
-	for (i = 0; i < 256; i++)
-	{
-		dr = r - pLocalPalette[i].s.red;
-		dg = g - pLocalPalette[i].s.green;
-		db = b - pLocalPalette[i].s.blue;
-		distortion = dr*dr + dg*dg + db*db;
-		if (distortion < bestdistortion)
-		{
-			if (!distortion)
-				return (UINT8)i;
-
-			bestdistortion = distortion;
-			bestcolor = i;
-		}
-	}
-
-	return (UINT8)bestcolor;
 }
 
 // Rounds off floating numbers and checks for 0 - 255 bounds

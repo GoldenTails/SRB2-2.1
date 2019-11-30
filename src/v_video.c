@@ -178,6 +178,7 @@ const UINT8 gammatable[5][256] =
 
 // local copy of the palette for V_GetColor()
 RGBA_t *pLocalPalette = NULL;
+RGBA_t *pLocalPalette2 = NULL;
 
 // keep a copy of the palette so that we can get the RGB value for a color index at any time.
 static void LoadPalette(const char *lumpname)
@@ -191,9 +192,9 @@ static void LoadPalette(const char *lumpname)
 	UINT8 *pal;
 
 	Z_Free(pLocalPalette);
+	Z_Free(pLocalPalette2);
 
 	pLocalPalette = Z_Malloc(sizeof (*pLocalPalette)*palsize, PU_STATIC, NULL);
-
 	pal = W_CacheLumpNum(lumpnum, PU_CACHE);
 	for (i = 0; i < palsize; i++)
 	{
@@ -201,6 +202,16 @@ static void LoadPalette(const char *lumpname)
 		pLocalPalette[i].s.green = greengamma[*pal++];
 		pLocalPalette[i].s.blue = bluegamma[*pal++];
 		pLocalPalette[i].s.alpha = 0xFF;
+	}
+
+	pLocalPalette2 = Z_Malloc(sizeof (*pLocalPalette2)*palsize, PU_STATIC, NULL);
+	pal = W_CacheLumpNum(lumpnum, PU_CACHE);
+	for (i = 0; i < palsize; i++)
+	{
+		pLocalPalette2[i].s.red = (*pal++);
+		pLocalPalette2[i].s.green = (*pal++);
+		pLocalPalette2[i].s.blue = (*pal++);
+		pLocalPalette2[i].s.alpha = 0xFF;
 	}
 }
 
@@ -541,6 +552,88 @@ void V_DrawFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, INT32 scrn, patch_t 
 				if (dest >= screens[scrn&V_PARAMMASK]) // don't draw off the top of the screen (CRASH PREVENTION)
 					*dest = patchdrawfunc(dest, source, ofs);
 				dest += vid.width;
+			}
+			column = (const column_t *)((const UINT8 *)column + column->length + 4);
+		}
+	}
+}
+
+/// JimitaMPC
+void V_DrawPatchToBuffer(patch_t *patch, UINT8 *buffer, fixed_t pscalex, fixed_t pscaley, INT32 x, INT32 y, INT32 buffer_width, boolean flip, const UINT8 *colormap)
+{
+	UINT8 (*patchdrawfunc)(const UINT8*, const UINT8*, fixed_t);
+
+	fixed_t col, ofs, colfrac, rowfrac;
+	fixed_t fdupx, fdupy;
+	INT32 dupx, dupy;
+	const column_t *column;
+	UINT8 *desttop, *dest, *deststart, *destend;
+	const UINT8 *source, *deststop;
+	fixed_t pwidth; // patch width
+
+	if (rendermode == render_none)
+		return;
+
+	patchdrawfunc = standardpdraw;
+
+	v_translevel = NULL;
+	v_colormap = NULL;
+	if (colormap)
+	{
+		v_colormap = colormap;
+		patchdrawfunc = mappedpdraw;
+	}
+
+	dupx = dupy = 1;
+	fdupx = FixedMul(dupx<<FRACBITS, pscalex);
+	fdupy = FixedMul(dupy<<FRACBITS, pscaley);
+
+	colfrac = FixedDiv(FRACUNIT, fdupx);
+	rowfrac = FixedDiv(FRACUNIT, fdupy);
+
+	desttop = buffer;
+	desttop += (y*vid.width) + x;
+
+	if (!desttop)
+		return;
+
+	deststop = desttop + vid.rowbytes * vid.height;
+
+	if (pscalex != FRACUNIT) // scale width properly
+	{
+		pwidth = SHORT(patch->width)<<FRACBITS;
+		pwidth = FixedMul(pwidth, pscalex);
+		pwidth = FixedMul(pwidth, dupx<<FRACBITS);
+		pwidth >>= FRACBITS;
+	}
+	else
+		pwidth = SHORT(patch->width) * dupx;
+
+	deststart = desttop;
+	destend = desttop + pwidth;
+
+	for (col = 0; (col>>FRACBITS) < SHORT(patch->width); col += colfrac, desttop++)
+	{
+		INT32 topdelta, prevdelta = -1;
+		column = (const column_t *)((const UINT8 *)(patch) + LONG(patch->columnofs[col>>FRACBITS]));
+
+		while (column->topdelta != 0xff)
+		{
+			topdelta = column->topdelta;
+			if (topdelta <= prevdelta)
+				topdelta += prevdelta;
+			prevdelta = topdelta;
+			source = (const UINT8 *)(column) + 3;
+			dest = desttop;
+			if (flip)
+				dest = deststart + (destend - desttop);
+			dest += FixedInt(FixedMul(topdelta<<FRACBITS,fdupy))*buffer_width;
+
+			for (ofs = 0; dest < deststop && (ofs>>FRACBITS) < column->length; ofs += rowfrac)
+			{
+				if (dest >= buffer)
+					*dest = patchdrawfunc(dest, source, ofs);
+				dest += buffer_width;
 			}
 			column = (const column_t *)((const UINT8 *)column + column->length + 4);
 		}

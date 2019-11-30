@@ -151,8 +151,8 @@ extern FILE *logstream;
 #else
 #define VERSION    109 // Game version
 #define SUBVERSION 0  // more precise version number
-#define VERSIONSTRING "JimiPaint r2"
-#define VERSIONSTRINGW L"JimiPaint r2"
+#define VERSIONSTRING "JimiPaint r3"
+#define VERSIONSTRINGW L"JimiPaint r3"
 // Hey! If you change this, add 1 to the MODVERSION below!
 // Otherwise we can't force updates!
 #endif
